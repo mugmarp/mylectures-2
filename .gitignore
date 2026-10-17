@@ -1,0 +1,34 @@
+*.iml
+.gradle
+.kotlin
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+.env
+debug.keystore
+/google-services.json
+app/google-services.json
+__pycache__/
+*.pyc
+
+# Signing material must never be committed.
+# app/build.gradle.kts falls back to ${rootDir}/my-upload-key.jks, so a real
+# upload key placed there would otherwise be one `git add -A` from the repo.
+*.jks
+*.keystore
+!debug.keystore
+my-upload-key.jks
+keystore.properties
+
+# Firebase CLI output
+firepit-log.txt

@@ -1,0 +1,381 @@
+name: Android CI — Lectures
+
+on:
+  push:
+    branches: [ main, test ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # The ubuntu-latest runner ships the Android SDK preinstalled.
+      # Do NOT use android-actions/setup-android here: its default
+      # `packages: tools` no longer exists in cmdline-tools >= 12 and the
+      # action fails with "Failed to find package 'tools'".
+      - name: Locate preinstalled Android SDK
+        run: |
+          SDK="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          echo "ANDROID_SDK_ROOT=$SDK" >> $GITHUB_ENV
+          echo "ANDROID_HOME=$SDK"     >> $GITHUB_ENV
+          echo "SDK at: $SDK"
+          ls "$SDK" || true
+          echo "--- installed platforms ---"
+          ls "$SDK/platforms" 2>/dev/null || echo "(none)"
+          echo "--- build-tools ---"
+          ls "$SDK/build-tools" 2>/dev/null || echo "(none)"
+
+      - name: Install Android platform 36
+        run: |
+          SDK="$ANDROID_SDK_ROOT"
+          SM="$SDK/cmdline-tools/latest/bin/sdkmanager"
+          [ -x "$SM" ] || SM="$(find "$SDK/cmdline-tools" -name sdkmanager -type f 2>/dev/null | head -1)"
+          echo "sdkmanager: $SM"
+          yes | "$SM" --licenses > /dev/null 2>&1 || true
+          "$SM" "platforms;android-36" || "$SM" "platforms;android-35" || true
+          echo "--- platforms now ---"
+          ls "$SDK/platforms"
+
+      - name: Generate Gradle wrapper
+        run: gradle wrapper --gradle-version 9.3.1 --distribution-type bin
+
+      - name: Cache Gradle
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/libs.versions.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      # debug.keystore is gitignored, so it is absent on a fresh checkout and
+      # :app:validateSigningDebug fails with "Keystore file ... not found".
+      # Generate a throwaway debug keystore for CI.
+      - name: Generate debug keystore
+        run: |
+          keytool -genkeypair -v \
+            -keystore debug.keystore \
+            -storepass android -keypass android \
+            -alias androiddebugkey \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
+          ls -la debug.keystore
+
+      # Ensure google-services.json is available for the Google Services Gradle plugin
+      - name: Provision google-services.json from GitHub Secret
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ ! -f app/google-services.json ]; then
+            echo "Writing google-services.json from GitHub Secret..."
+            echo "$GOOGLE_SERVICES_JSON" > app/google-services.json
+          fi
+          ls -la app/google-services.json
+
+      # Materialize the stable upload keystore so signingConfigs.release uses a
+      # long-lived key instead of falling back to the throwaway debug keystore
+      # (which keytool regenerates every run, giving a different SHA-1 each time
+      # and making Google Cloud API-key restrictions impossible to pin down).
+      #
+      # One `env:` block only — a duplicated `env:` key in the same step is
+      # silently dropped by the YAML parser and would leave the other variable
+      # unset.
+      - name: Materialize upload keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${KEYSTORE_BASE64:-}" ]; then
+            echo "::error::KEYSTORE_BASE64 secret is empty or unset."
+            echo "Add it with:  base64 -w0 my-upload-key.jks | gh secret set KEYSTORE_BASE64"
+            exit 1
+          fi
+
+          echo "$KEYSTORE_BASE64" | base64 -d > "$GITHUB_WORKSPACE/my-upload-key.jks"
+
+          # A truncated/decoded-empty file would fail much later with a
+          # confusing signing error, so check it is a real keystore now.
+          if [ ! -s "$GITHUB_WORKSPACE/my-upload-key.jks" ]; then
+            echo "::error::Decoded keystore is empty — is KEYSTORE_BASE64 valid base64?"
+            exit 1
+          fi
+          ls -la "$GITHUB_WORKSPACE/my-upload-key.jks"
+
+          # What aliases does this keystore actually contain? keytool writes
+          # both listings AND errors to stdout, so never send its output to
+          # /dev/null — that hides the reason for a failure.
+          echo "=== Aliases present in the keystore ==="
+          keytool -list -keystore "$GITHUB_WORKSPACE/my-upload-key.jks" \
+            -storepass "$STORE_PASSWORD" || {
+              echo "::error::Cannot read the keystore — is STORE_PASSWORD correct?"
+              exit 1
+            }
+
+          # build.gradle.kts hardcodes keyAlias = "upload", so the keystore must
+          # contain that alias or signingConfigs.release will fail at build time.
+          if ! keytool -list -keystore "$GITHUB_WORKSPACE/my-upload-key.jks" \
+                 -alias upload -storepass "$STORE_PASSWORD" > /tmp/alias_check.txt 2>&1; then
+            echo "::error::Alias 'upload' is not present in the keystore."
+            cat /tmp/alias_check.txt
+            echo ""
+            echo "build.gradle.kts sets keyAlias = \"upload\". Either recreate the"
+            echo "keystore with -alias upload, or change keyAlias to match an"
+            echo "alias listed above."
+            exit 1
+          fi
+          echo "Alias 'upload' found."
+
+          # Print the fingerprint. This must be identical on every run — that is
+          # the value to register in Google Cloud Console for the API key's
+          # Android application restriction.
+          echo "=== Upload key fingerprint (stable across runs) ==="
+          keytool -list -v -keystore "$GITHUB_WORKSPACE/my-upload-key.jks" \
+            -alias upload -storepass "$STORE_PASSWORD" \
+            | grep -E "Alias name:|SHA1:|SHA256:" || true
+
+      - name: Compile Kotlin (debug)
+        run: ./gradlew compileDebugKotlin --stacktrace --no-daemon
+
+      - name: Assemble debug APK
+        run: ./gradlew assembleDebug --stacktrace --no-daemon
+
+      # KEYSTORE_PATH must point at the file written above; it equals Gradle's
+      # rootDir ($GITHUB_WORKSPACE). With it set, signingConfigs.release skips
+      # the debug-keystore fallback entirely.
+      - name: Assemble release APK
+        env:
+          KEYSTORE_PATH: ${{ github.workspace }}/my-upload-key.jks
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: ./gradlew assembleRelease --stacktrace --no-daemon
+
+      # Prove the release APK is signed by the upload key and not the throwaway
+      # debug key.
+      #
+      # The expected fingerprint is DERIVED from the keystore that was just
+      # materialized, so no extra secret is required and it can never go stale.
+      # Verified in CI: keystore SHA1 == APK signer SHA1 (49f65e01...).
+      #
+      # Must use apksigner, NOT `keytool -printcert -jarfile`: AGP signs with
+      # v2/v3 only and the APK has no META-INF/*.RSA v1 signature, so keytool
+      # prints nothing and still exits 0 — a silent pass with an empty hash.
+      - name: Verify release APK signing certificate
+        env:
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEYSTORE: ${{ github.workspace }}/my-upload-key.jks
+        run: |
+          set -euo pipefail
+
+          APK=app/build/outputs/apk/release/app-release.apk
+          if [ ! -f "$APK" ]; then
+            echo "::error::Release APK not found at $APK"
+            exit 1
+          fi
+
+          if [ ! -s "$KEYSTORE" ]; then
+            echo "::error::Keystore $KEYSTORE is missing or empty; cannot derive the expected fingerprint."
+            exit 1
+          fi
+
+          APKSIGNER=$(find "${ANDROID_SDK_ROOT}/build-tools" -name apksigner -type f 2>/dev/null | sort -V | tail -1)
+          if [ -z "${APKSIGNER:-}" ]; then
+            echo "::error::apksigner not found under ${ANDROID_SDK_ROOT}/build-tools"
+            exit 1
+          fi
+          echo "Using $APKSIGNER"
+
+          # Expected: the upload key's own certificate fingerprint.
+          EXPECTED=$(keytool -list -v -keystore "$KEYSTORE" -alias upload -storepass "$STORE_PASSWORD" \
+            | awk '/SHA1:/ {print $2}' | head -1 | tr -d ':' | tr 'a-f' 'A-F')
+
+          # Actual: the certificate that signed the built APK.
+          #
+          # Do NOT split on ": " — build-tools 35.x prints
+          #   "Signer #1 certificate SHA-1 digest: <hex>"
+          # but 37.x prints
+          #   "V2 Signer: certificate SHA-1 digest: <hex>"
+          # so $2 is the label text on 37.x. Take the LAST colon-separated field
+          # and strip anything that is not a hex digit or colon instead.
+          ACTUAL=$("$APKSIGNER" verify --print-certs "$APK" 2>/dev/null \
+            | grep -i 'certificate SHA-1 digest' | head -1 \
+            | sed 's/.*: *//' \
+            | tr -cd '0-9a-fA-F:' | tr -d ':' | tr 'a-f' 'A-F')
+
+          # Fail closed: an empty value on either side means the check is void.
+          if ! printf '%s' "$EXPECTED" | grep -qE '^[0-9A-F]{40}$'; then
+            echo "::error::Could not derive a valid SHA-1 from the keystore (got '${EXPECTED}')."
+            exit 1
+          fi
+          if ! printf '%s' "$ACTUAL" | grep -qE '^[0-9A-F]{40}$'; then
+            echo "::error::Could not read a valid SHA-1 from the APK (got '${ACTUAL}')."
+            "$APKSIGNER" verify --print-certs "$APK" || true
+            exit 1
+          fi
+
+          echo "Keystore (expected) SHA-1: $EXPECTED"
+          echo "Release APK  (actual) SHA-1: $ACTUAL"
+
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "::error::Release APK is NOT signed by the upload key."
+            echo "A mismatch means signingConfigs.release fell back to debug.keystore,"
+            echo "which produces a different certificate on every run."
+            exit 1
+          fi
+
+          echo "Release APK is signed with the upload key."
+
+          # Surface the values needed for the Google Cloud API-key restriction
+          # and Firebase App Check / Play Integrity. These are public
+          # fingerprints, not secrets.
+          APK_SHA256=$("$APKSIGNER" verify --print-certs "$APK" 2>/dev/null \
+            | grep -i 'certificate SHA-256 digest' | head -1 \
+            | sed 's/.*: *//' \
+            | tr -cd '0-9a-fA-F:' | tr -d ':' | tr 'a-f' 'A-F')
+          {
+            echo "### Release signing certificate"
+            echo ""
+            echo "| Purpose | Value |"
+            echo "|---|---|"
+            echo "| Google Cloud API-key Android restriction (SHA-1) | \`$ACTUAL\` |"
+            echo "| Firebase App Check / Play Integrity (SHA-256) | \`$APK_SHA256\` |"
+            echo "| Package name | \`com.lectures.must\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Unit tests must gate the build. Do NOT add continue-on-error here:
+      # it makes the job report green while the step exits 1, which hides real
+      # failures (that is exactly how a broken test compile went unnoticed).
+      - name: Run unit tests
+        run: ./gradlew testDebugUnitTest --stacktrace --no-daemon
+
+      - name: Upload Debug APK
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lectures-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload Release APK
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lectures-release-apk
+          path: app/build/outputs/apk/release/*.apk
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-report
+          path: app/build/reports/tests/testDebugUnitTest/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      # The prepackaged asset must match Room's exported schema exactly
+      # (column types, nullability, PKs, identity hash, user_version).
+      #
+      # Order matters after a schema version bump: the committed asset is stale
+      # until it is rebuilt, so regeneration runs FIRST and the verification step
+      # then validates the freshly built asset. Drift is reported as a warning
+      # (with the rebuilt asset uploaded) rather than failing the build, because
+      # the asset cannot be regenerated anywhere except a real Gradle build.
+      - name: Regenerate prepackaged DB asset from exported schema
+        if: always()
+        run: |
+          if [ ! -f app/src/main/assets/mustime_prepopulated.db ]; then
+            echo "::error::mustime_prepopulated.db is missing; createFromAsset will fail"
+            exit 1
+          fi
+          # Fingerprint the committed asset so drift can be reported below.
+          BEFORE=$(sha256sum app/src/main/assets/mustime_prepopulated.db | cut -d' ' -f1)
+          echo "committed_asset_sha256=$BEFORE" >> "$GITHUB_ENV"
+
+          python3 tools/generate_prepopulated_db.py --schemas app/schemas
+
+          AFTER=$(sha256sum app/src/main/assets/mustime_prepopulated.db | cut -d' ' -f1)
+          echo "rebuilt_asset_sha256=$AFTER" >> "$GITHUB_ENV"
+
+      - name: Verify rebuilt prepackaged DB asset
+        if: always()
+        run: python3 tools/generate_prepopulated_db.py --schemas app/schemas --check
+
+      # The rebuilt asset only reaches the repo if a human commits the artifact.
+      # Surface the drift loudly so a stale asset cannot ship unnoticed.
+      - name: Report prepackaged DB asset drift
+        if: always()
+        run: |
+          if [ "${committed_asset_sha256:-}" != "${rebuilt_asset_sha256:-}" ]; then
+            echo "::warning::Committed mustime_prepopulated.db does not match the current schema. Download the 'prepopulated-db' artifact and commit it."
+            echo "  committed: ${committed_asset_sha256:-unknown}"
+            echo "  rebuilt:   ${rebuilt_asset_sha256:-unknown}"
+          else
+            echo "Prepackaged DB asset is up to date with the exported schema."
+          fi
+
+      - name: Upload regenerated prepackaged DB asset
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: prepopulated-db
+          path: app/src/main/assets/mustime_prepopulated.db
+          if-no-files-found: warn
+          retention-days: 14
+
+      # Room's exported schema JSON carries the identity hash and the exact
+      # createSql for every table. This is the source of truth for building a
+      # prepackaged database asset (createFromAsset) without hand-written SQL.
+      - name: Upload Room exported schemas
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: room-schemas
+          path: app/schemas/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Build summary
+        if: always()
+        run: |
+          {
+            echo "### Android CI — Lectures"
+            echo ""
+            echo "| Item | Value |"
+            echo "|---|---|"
+            echo "| Branch | \`${{ github.ref_name }}\` |"
+            echo "| Commit | \`${{ github.sha }}\` |"
+            echo "| Trigger | ${{ github.event_name }} |"
+            echo ""
+            if [ -f app/build/outputs/apk/debug/app-debug.apk ]; then
+              SIZE=$(du -h app/build/outputs/apk/debug/app-debug.apk | cut -f1)
+              echo "APK built: **$SIZE**"
+            else
+              echo "APK: not produced"
+            fi
+          } >> $GITHUB_STEP_SUMMARY
