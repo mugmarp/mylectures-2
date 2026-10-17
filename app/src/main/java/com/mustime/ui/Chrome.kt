@@ -25,11 +25,21 @@ object Chrome {
     val DockSideInset: Dp = 14.dp
     val ContentAboveDockGap: Dp = 16.dp
     val FabAboveDockGap: Dp = 12.dp
+    val FabHeight: Dp = 56.dp
 
     /**
-     * Total bottom padding required for scrollable list content to clear the floating dock.
+     * Total bottom padding required for scrollable list content to clear both the floating dock
+     * and the Floating Action Button (FAB) that sits above it.
+     * Guarantees that the last item in lists across Timetable, Tasks, Notes, and Calendar
+     * can scroll fully into view without being obstructed by the FAB or dock.
      */
     fun listBottomPadding(navBarBottom: Dp): Dp =
+        navBarBottom + DockHeight + FabAboveDockGap + FabHeight + ContentAboveDockGap
+
+    /**
+     * Total bottom padding required for scrollable list content when no FAB is present.
+     */
+    fun listBottomPaddingDockOnly(navBarBottom: Dp): Dp =
         navBarBottom + DockHeight + ContentAboveDockGap
 
     /**
