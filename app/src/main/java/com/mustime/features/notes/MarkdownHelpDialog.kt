@@ -146,7 +146,9 @@ fun MarkdownHelpBottomSheet(
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
                 contentPadding = PaddingValues(bottom = 16.dp),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f, fill = false)
             ) {
                 items(items) { item ->
                     Card(
