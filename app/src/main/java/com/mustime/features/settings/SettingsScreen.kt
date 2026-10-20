@@ -578,7 +578,7 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
         ) {
             if (onBack != null) {
-                IconButton(onClick = onBack, modifier = Modifier.padding(start = 12.dp, top = 8.dp)) {
+                IconButton(onClick = onBack, modifier = Modifier.padding(start = 12.dp, top = 2.dp)) {
                     Icon(
                         Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Back",

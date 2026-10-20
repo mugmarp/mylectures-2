@@ -27,6 +27,7 @@ import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -181,10 +182,15 @@ fun TasksScreen(
         hasNotificationPermission = isGranted
     }
 
-    // Check notification permission on launch for Android 13+
+    var permissionRequested by rememberSaveable { mutableStateOf(false) }
+
+    // Check notification permission once on initial launch for Android 13+
     LaunchedEffect(Unit) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !hasNotificationPermission) {
-            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        if (!permissionRequested) {
+            permissionRequested = true
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !hasNotificationPermission) {
+                permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
         }
     }
 

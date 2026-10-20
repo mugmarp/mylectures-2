@@ -133,8 +133,8 @@ fun NotesScreen(
                         noteToEdit = null
                         isEditing = true
                     },
-                    containerColor = Color(0xFF0052CC),
-                    contentColor = Color.White,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
                     shape = RoundedCornerShape(16.dp),
                     elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 4.dp),
                     modifier = Modifier
@@ -151,8 +151,8 @@ fun NotesScreen(
                         noteToEdit = null
                         isEditing = true
                     },
-                    containerColor = Color(0xFF0052CC),
-                    contentColor = Color.White,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
                     shape = RoundedCornerShape(16.dp),
                     elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 4.dp),
                     modifier = Modifier

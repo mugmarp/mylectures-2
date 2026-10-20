@@ -1,0 +1,440 @@
+lectures-APP-2
+spark
+Gemini
+Gemini 3.8 Flash
+Ran for 8m 44s
+
+summarize_auto
+Action history
+chevron_right
+Here are key actions taken for the app:
+
+edit
+Edited 4 files
+app/src/main/java/com/mustime/features/onboarding/OnboardingScreens.kt
+check_circle
+app/src/main/java/com/mustime/features/calendar/CalendarViewModel.kt
+check_circle
+app/src/main/java/com/mustime/features/calendar/CalendarScreen.kt
+check_circle
+app/src/main/java/com/mustime/ui/components/NotificationCenterSheet.kt
+check_circle
+build
+Built
+All discovered flaws and UI layer issues have been thoroughly investigated, diagnosed, and resolved.
+1. Root Cause & Fix for the "Two Layers" at the Bottom of Class Group Selection
+What occurred in screenshot & code: In ClassGroupSelectionScreen (OnboardingScreens.kt), Modifier.navigationBarsPadding() had been placed directly on the outer Surface of the bottomBar. This constrained the white Surface to stop strictly above the navigation bar area, leaving the system navigation bar strip exposed with the Scaffold's greyish background showing behind it, plus an 8.dp elevation shadow cast downward across that boundary. It created a visually detached, floating card effect with a second layer visible underneath near the gesture bar.
+The Solution:
+The Surface now docks solidly all the way to the bottom physical edge of the display (modifier = Modifier.fillMaxWidth()) with a clean top divider line (MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)).
+navigationBarsPadding() was moved inside the Surface onto the inner content Box (.navigationBarsPadding().padding(horizontal = 20.dp, vertical = 16.dp)).
+The bottom dock is now a continuous, solid, unified surface extending behind the Android navigation gesture pill with zero cut-off or underlayer gap.
+2. Comprehensive Status of Discovered Flaws
+Defect / Plan Item	Status	Verification & Evidence
+Class Group Screen Two-Layer Bottom Gap	Fixed	OnboardingScreens.kt: Surface fills display bottom; navigationBarsPadding moved inside container box.
+A. Calendar Task Due Date Matching	Complete	CalendarViewModel.isTaskDueOnDay calculates exact Year/Month/Day match using TaskDateTimeParser.calculateDueMillis (with weekday fallback).
+A. Calendar TaskCard & Interactive Completion	Complete	Replaced old cream card with full TaskCard component; completion toggle persists to database via viewModel.toggleTaskComplete.
+A. Calendar Task Parity (Deletion)	Complete	Added deleteTask to CalendarViewModel and wired onDelete to a confirmation dialog in CalendarScreen.kt.
+B. Live Timetable Next-Up Ticker	Complete	NextUpTicker 15-second coroutine actively recomputes upcoming lecture and emits updates via globalNextUp.
+C. Vacant Rooms Responsive Filters & Insets	Complete	windowInfo.filtersStacked dynamically switches campus/building filters between vertical and horizontal; ModalBottomSheet includes navigationBarsPadding with scrollable container.
+D. Notification Delimiter & Natural Key	Complete	NotificationCenterSheet.kt supports pipe (`
+D. Notification Sheet Truncation	Complete	Refactored NotificationCenterSheet into a single, unified LazyColumn with .navigationBarsPadding(), preventing any nested-scroll height exhaustion on small screens.
+E. Sound Profile Local Audio Preview	Complete	Added previewSound to NotificationHelper playing local WAV resources (sound_chime, sound_gentle_bell, sound_standard); connected to chip selection in SettingsScreen.kt.
+F. Notes Editor & Template Dialog Clearances	Complete	NoteEditorScreen has .navigationBarsPadding(); attachment delete button has 48.dp touch target; dialogs have non-overflowing LazyColumn layouts.
+All unit and Robolectric tests executed and passed (BUILD SUCCESSFUL in 40s).
+Summary of Completed Work
+Class Group Screen Visual Layer Fix: Resolved the two-layer seam at the bottom of ClassGroupSelectionScreen by docking the Surface solidly to the bottom edge of the display with a top divider line, and moving navigationBarsPadding inside onto the container Box. The navigation bar gesture handle area now renders with a seamless, unified surface.
+Calendar Task Parity: Integrated deleteTask into CalendarViewModel and added a deletion confirmation dialog to CalendarScreen, providing full interactive parity for tasks shown within the calendar agenda.
+Notification Center Sheet Polish: Refactored NotificationCenterSheet into a single root LazyColumn with system navigation bar insets, ensuring zero content clipping or nested-scrolling issues on compact devices.
+Automated Verification: Clean compilation (compile_applet) and full local JVM test execution (gradle :app:testDebugUnitTest) both succeeded with all unit and Robolectric test suites passing.
+Everything is compiled and all tests have passed. The app is ready for testing in the preview emulator. Let me know if you would like any further adjustments or have additional screens you want inspected!
+flag
+Checkpoint
+from these, is there anything not touched, In-Depth UI Flaws & Cross-Screen Inconsistencies Audit
+This report is based on a direct inspection of all Composables, layouts, insets, themes, and navigation structures across the codebase (app/src/main/java/com/mustime/). Every issue identified below is supported by exact file paths, line numbers, and architectural evidence.
+Systemic Architecture & Layout Flaws
+A. Broken Dark Mode Contrast in Calendar Task Cards
+File: app/src/main/java/com/mustime/features/calendar/CalendarScreen.kt
+Lines: 640–688
+Evidence:
+code
+Kotlin
+Card(
+modifier = Modifier.fillMaxWidth(),
+colors = CardDefaults.cardColors(
+containerColor = Color(0xFFFFF7ED) // Hardcoded light amber/orange
+),
+border = BorderStroke(1.dp, Color(0xFFF59E0B).copy(alpha = 0.3f))
+) {
+...
+Text(
+text = item.assignment.title,
+fontWeight = FontWeight.SemiBold,
+fontSize = 14.sp,
+color = MaterialTheme.colorScheme.onSurface, // In Dark Mode = White (#FFFFFF)!
+maxLines = 1,
+overflow = TextOverflow.Ellipsis
+)
+Impact: In Dark Mode, MaterialTheme.colorScheme.onSurface resolves to pure white. Because containerColor is hardcoded to 0xFFFFF7ED (pale cream/white-yellow), white text renders against an almost-white background, making task titles virtually unreadable. Meanwhile, in TasksScreen.kt (lines 861, 904, 930), tasks use adaptive isDark surfaces (DarkSurfaceBase, DarkSurfaceCard).
+B. Nested LazyColumn Inside Unbounded Column (Modal Sheets)
+Files:
+app/src/main/java/com/mustime/features/notes/MarkdownHelpDialog.kt (Lines 114–150)
+app/src/main/java/com/mustime/features/notes/NoteTemplates.kt (Lines 214–250)
+Evidence:
+In both sheets, the root layout is:
+code
+Kotlin
+Column(
+modifier = Modifier
+.fillMaxWidth()
+.navigationBarsPadding()
+.padding(horizontal = 20.dp)
+.padding(bottom = 16.dp)
+) {
+Row(...) { /* Header with title & close button */ }
+Spacer(modifier = Modifier.height(14.dp))
+LazyColumn(
+verticalArrangement = Arrangement.spacedBy(10.dp),
+contentPadding = PaddingValues(bottom = 16.dp),
+modifier = Modifier.fillMaxWidth() // ❌ Missing Modifier.weight(1f) or bounded height!
+) {
+items(items) { ... }
+}
+}
+Contrast with Correct Usage: In QuickAddBottomSheet.kt (lines 136–141) and NotificationCenterSheet.kt (line 273), the inner scrollable container correctly specifies .weight(1f, fill = false).
+Impact: In Compose, an unweighted LazyColumn inside a Column without fixed constraints has ambiguous height measurements. On smaller screens or when the keyboard appears, items clip, fail to expand to available vertical viewport, and can trigger runtime measurement warnings.
+C. Inset Double-Padding and Viewport Clipping (Modifier.padding(innerPadding) vs contentPadding)
+Files:
+app/src/main/java/com/mustime/features/rooms/ui/VacantRoomsScreen.kt (Lines 271–276)
+app/src/main/java/com/mustime/features/settings/SettingsScreen.kt (Lines 571–578)
+app/src/main/java/com/mustime/features/onboarding/OnboardingScreens.kt (Lines 75–81, 306–313)
+Evidence:
+In VacantRoomsScreen.kt:
+code
+Kotlin
+Scaffold(...) { padding ->
+LazyColumn(
+modifier = Modifier
+.fillMaxSize()
+.padding(padding) // ❌ Clips scroll viewport at top and bottom window insets
+.padding(horizontal = 16.dp),
+verticalArrangement = Arrangement.spacedBy(14.dp)
+) { ... }
+}
+In OnboardingScreens.kt (ClassGroupSelectionScreen, lines 286–292):
+code
+Kotlin
+bottomBar = {
+Surface(
+color = MaterialTheme.colorScheme.surface,
+shadowElevation = 8.dp,
+modifier = Modifier.navigationBarsPadding() // ❌ Navigation padding on the Surface container!
+) { ... }
+}
+Contrast with Correct Usage: In TimetableScreen.kt (lines 224, 322) and TasksScreen.kt (lines 222, 442), contentWindowInsets = WindowInsets(0,0,0,0) is set on the Scaffold, and bottom clearance is passed to LazyColumn via contentPadding = PaddingValues(bottom = listBottomPadding).
+Impact:
+In VacantRoomsScreen and SettingsScreen, scrollable content abruptly cuts off above the system navigation bar rather than scrolling under a translucent navigation bar.
+In ClassGroupSelectionScreen, applying navigationBarsPadding() directly to Surface leaves an unpainted visual void between the bottom of the button bar and the edge of the device display on 3-button navigation.
+D. Missing navigationBarsPadding on Bottom Interactive Elements
+Files:
+app/src/main/java/com/mustime/features/rooms/ui/VacantRoomsScreen.kt (Lines 741–746, 920–928)
+app/src/main/java/com/mustime/features/notes/NoteEditorScreen.kt (Lines 718–726, 1474)
+Evidence:
+In VacantRoomsScreen.kt (Filter Sheet):
+code
+Kotlin
+ModalBottomSheet(...) {
+Column(
+modifier = Modifier
+.fillMaxWidth()
+.verticalScroll(rememberScrollState())
+.padding(horizontal = 20.dp)
+.padding(bottom = 32.dp), // ❌ Fixed 32.dp without navigationBarsPadding()
+verticalArrangement = Arrangement.spacedBy(16.dp)
+) {
+...
+Button(onClick = { showFilterSheet = false }, modifier = Modifier.fillMaxWidth()) {
+Text("Apply & View Rooms")
+}
+}
+}
+In NoteEditorScreen.kt:
+code
+Kotlin
+Scaffold(
+contentWindowInsets = WindowInsets(0, 0, 0, 0),
+...
+) { innerPadding ->
+Column(
+modifier = Modifier
+.fillMaxSize()
+.background(MaterialTheme.colorScheme.background)
+.padding(innerPadding)
+.imePadding()
+.verticalScroll(scrollState)
+.padding(horizontal = 18.dp, vertical = 12.dp) // ❌ No navigationBarsPadding
+) {
+...
+Spacer(modifier = Modifier.height(36.dp)) // Fixed spacer does not account for 48dp 3-button bar
+}
+}
+Impact: When the software keyboard is closed, the bottom attachment chips and action targets in NoteEditorScreen sit directly beneath the Android navigation bar. Similarly, the "Apply & View Rooms" button in VacantRoomsScreen's bottom sheet collides with Android 3-button navigation buttons.
+Screen-by-Screen Deep Investigation
+Screen 1: TimetableScreen.kt (Home / Timetable)
+Swipe Gesture / Drag Conflict:
+Lines: 293–315
+Evidence: pointerInput(selectedDay, daysList) { detectHorizontalDragGestures(...) } is attached to the entire Box containing the timetable schedule.
+Issue: When swiping horizontally to change days, any horizontal drag over interactive cards (such as the NextUpCard or horizontal filter strips) can get consumed or produce an abrupt jump between days if user intention was vertical scrolling with slight angle deviation.
+Hardcoded Color Fragmentations:
+Lines: 225, 247, 264
+Evidence: Container colors switch between PrimaryBlue (Color(0xFF2563EB) from SessionStyle.kt), DarkSurfaceBase (Color(0xFF0F172A)), and MaterialTheme.colorScheme. Other screens (e.g. NotesScreen.kt line 136) use Color(0xFF0052CC).
+Screen 2: CalendarScreen.kt (Calendar Tab)
+Missing Top App Bar & Asymmetric Header:
+Lines: 154–200
+Evidence: Unlike TimetableScreen (which has TimetableTopAppBar) and NotesScreen/TasksScreen (which have dedicated top header bars), CalendarScreen places its header as an item { Row(...) } inside the LazyColumn while applying Modifier.statusBarsPadding() to the LazyColumn:
+code
+Kotlin
+LazyColumn(
+modifier = Modifier
+.fillMaxSize()
+.padding(innerPadding)
+.statusBarsPadding(),
+contentPadding = PaddingValues(bottom = listBottomPadding)
+)
+Issue: When the user scrolls the agenda list up, the header scrolls off-screen and the list items clip at the bottom edge of the status bar, leaving an empty background region where a pinned app bar should exist.
+Missing In-Screen Settings Access:
+Line: 66, 827
+Evidence: onSettingsClick: () -> Unit = {} is passed into CalendarScreen, but there is no Settings button anywhere in the screen UI—it is only accessible if the user taps the Profile icon and navigates through AcademicProfileSheet.
+Severe Dark Mode Contrast Defect (Documented in 1A):
+Lines: 640–688: White text on light orange/yellow background for tasks in Dark Mode.
+Screen 3: NotesScreen.kt & NoteEditorScreen.kt (Notes Tab & Editor)
+Inconsistent Palette Usage:
+File: app/src/main/java/com/mustime/features/notes/NotesScreen.kt
+Lines: 136, 154, 189, 237
+Evidence: FAB uses Color(0xFF0052CC), School icon uses Color(0xFF2563EB), active badge uses Color(0xFF1E3A8A) / Color(0xFFDBEAFE), profile button uses Color(0xFF0052CC). None of these reference MaterialTheme.colorScheme.primary or Chrome.kt color tokens.
+Bottom Inset Clearance in NoteEditor:
+File: app/src/main/java/com/mustime/features/notes/NoteEditorScreen.kt
+Lines: 718–726, 1474
+Evidence: The editor Column relies on .imePadding() when editing, but when the keyboard is hidden (e.g., viewing a note or reviewing attachments), it only has a static Spacer(36.dp) without navigationBarsPadding().
+Touch Target Size for Attachment Removal:
+File: app/src/main/java/com/mustime/features/notes/NoteEditorScreen.kt
+Lines: 1455–1462
+Evidence:
+code
+Kotlin
+IconButton(
+onClick = { AttachmentStore.delete(...) },
+modifier = Modifier.size(26.dp) // ❌ Violates 48dp minimum touch target
+) {
+Icon(Icons.Default.Close, contentDescription = "Remove attachment", modifier = Modifier.size(16.dp))
+}
+Issue: The button is 26dp x 26dp, well below Android accessibility standards (48dp x 48dp), making it difficult to tap on mobile devices.
+Screen 4: TasksScreen.kt (Tasks Tab)
+Notification Permission Dialog Redundancy:
+Lines: 185–189
+Evidence:
+code
+Kotlin
+LaunchedEffect(Unit) {
+if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !hasNotificationPermission) {
+permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+}
+}
+Issue: If the user declines the permission prompt once, this LaunchedEffect(Unit) fires every time the user taps the Tasks tab in MainScaffold (since MainScaffold switches tabs via state recompisition when (selectedTab)).
+Card Padding Asymmetry:
+Lines: 865, 897
+Evidence: In TaskCard, task notes and status badges use padding(start = 36.dp) to align beneath the task checkbox. On narrow screens (< 360dp width), this 36dp indent combined with 20dp screen padding leaves only ~260dp for the actual task content, truncating multi-badge rows.
+Screen 5: VacantRoomsScreen.kt (Vacant Rooms Finder)
+Scaffold Viewport Clipping (Documented in 1C):
+Lines: 271–276: Modifier.padding(padding) applied to LazyColumn clips the scrollable viewport.
+Filter Bottom Sheet Navigation Bar Occlusion (Documented in 1D):
+Lines: 741–746, 920–928: The "Apply & View Rooms" button lacks navigationBarsPadding().
+Empty Filter State Padding:
+Lines: 700–712
+Evidence: The empty state view has no minimum height or centered constraint when the query returns 0 rooms, causing the notice card and disclaimer to abruptly bunch at the very top under the campus selector dropdown.
+Screen 6: SettingsScreen.kt (Settings & Diagnostics)
+Top Bar Inset Discrepancy:
+Lines: 571–587
+Evidence:
+code
+Kotlin
+Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
+Column(
+modifier = Modifier
+.fillMaxSize()
+.padding(padding) // Contains statusBarsPadding from Scaffold
+.verticalScroll(rememberScrollState())
+) {
+if (onBack != null) {
+IconButton(onClick = onBack, modifier = Modifier.padding(start = 12.dp, top = 8.dp)) { ... }
+}
+Issue: top = 8.dp is added to padding.calculateTopPadding(), whereas screens with standard TopAppBars use 0dp or TopAppBarDefaults insets, causing the back arrow in Settings to be visibly lower than the back arrow in VacantRoomsScreen or FacultySelectionScreen.
+Screen 7: WelcomeScreen.kt & OnboardingScreens.kt
+Edge-to-Edge Breakage on Welcome Screen:
+File: app/src/main/java/com/mustime/features/timetable/ui/WelcomeScreen.kt
+Lines: 225–230
+Evidence:
+code
+Kotlin
+Box(
+modifier = Modifier
+.fillMaxSize()
+.background(bgGradient)
+.statusBarsPadding()
+.navigationBarsPadding(),
+contentAlignment = Alignment.Center
+)
+Issue: statusBarsPadding() and navigationBarsPadding() are placed on the root Box along with .background(bgGradient). This prevents the gradient from drawing behind the system status bar and navigation bar.
+BottomBar Inset Separation in Onboarding (Documented in 1C):
+File: app/src/main/java/com/mustime/features/onboarding/OnboardingScreens.kt
+Lines: 286–292: Surface(modifier = Modifier.navigationBarsPadding()) elevates the surface above the navigation bar rather than extending the background behind it.
+Screen 8: Modal Bottom Sheets & Dialogs
+Component File & Lines Flaw / Inconsistency Evidence
+NotificationCenterSheet NotificationCenterSheet.kt
+Lines 70–76, 270–274 Root Column lacks .verticalScroll.
+Empty state or smaller screens cannot scroll. Column(modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(...)) without verticalScroll.
+NotificationCenterSheet NotificationCenterSheet.kt
+Line 295 Delimiter Bug in Course Code Parsing. Uses note.naturalKey.split(":").firstOrNull(), but keys use pipe | (e.g. BIT101|123456). Displays raw string BIT101|123456 instead of BIT101.
+LectureDetailSheet LectureDetailSheet.kt
+Lines 67–74 Modifier Order Inversion. .navigationBarsPadding().padding(bottom = 24.dp).verticalScroll(...) applies padding outside scroll container rather than inside content padding.
+AcademicProfileSheet AcademicProfileSheet.kt
+Lines 123–130 Modifier Order Inversion. Same as above: outer padding restricts scroll viewport clearance.
+MarkdownHelpDialog MarkdownHelpDialog.kt
+Lines 146–150 Unweighted LazyColumn in Column. LazyColumn has no weight(1f) constraint inside modal sheet.
+NoteTemplates NoteTemplates.kt
+Lines 246–250 Unweighted LazyColumn in Column. LazyColumn has no weight(1f) constraint inside modal sheet.
+ClassAlarmPickerDialog ClassAlarmPickerDialog.kt
+Lines 131–145, 157–170 Hardcoded Dark/Light Color Hexes. Uses Color(0xFF334155), Color(0xFFF1F5F9), Color(0xFFE2E8F0) instead of MaterialTheme.colorScheme.surfaceVariant or outlineVariant.
+Cross-Screen Visual Inconsistencies Matrix
+Feature / UI Element TimetableScreen CalendarScreen NotesScreen TasksScreen VacantRoomsScreen
+Top App Bar Type Custom TimetableTopAppBar None (Inline item in LazyColumn) Custom Row with title & badge Custom Row with title & search M3 TopAppBar (TopAppBarDefaults)
+Status Bar Padding Scaffold handled .statusBarsPadding() on LazyColumn .statusBarsPadding() on Column .statusBarsPadding() on Column Handled by M3 TopAppBar
+Navigation Bar Padding Chrome.listBottomPadding(navBarBottom) in contentPadding Chrome.listBottomPadding(navBarBottom) in contentPadding Chrome.listBottomPadding(navBarBottom) in contentPadding Chrome.listBottomPadding(navBarBottom) in contentPadding Modifier.padding(padding) (Clipped)
+Primary Blue Hex PrimaryBlue (0xFF2563EB) MaterialTheme.colorScheme.primary Color(0xFF0052CC) / Color(0xFF2563EB) MaterialTheme.colorScheme.primary PrimaryBlue (0xFF2563EB)
+Settings Access Top Bar Icon Profile Sheet Only (No Top Bar button) Profile Sheet Only Profile Sheet Only None (Child Screen)
+Task Item Card N/A Hardcoded Light Orange Card (0xFFFFF7ED) N/A Adaptive TaskCard (DarkSurfaceCard/White) N/A
+Priority Fix Recommendations
+Fix Dark Mode Task Contrast in CalendarScreen.kt: Replace hardcoded Color(0xFFFFF7ED) container color with if (isDark) DarkSurfaceCard else Color(0xFFFFF7ED), or reuse TaskCard from TasksScreen.kt.
+Add Weight Constraints in Bottom Sheets: Add Modifier.weight(1f, fill = false) to LazyColumn in MarkdownHelpDialog.kt and NoteTemplates.kt.
+Fix Delimiter in NotificationCenterSheet.kt: Change note.naturalKey.split(":") to note.naturalKey.split("|").
+Correct Edge-to-Edge Padding in VacantRoomsScreen.kt & SettingsScreen.kt: Remove Modifier.padding(padding) from LazyColumn/Column roots and apply contentPadding = padding or WindowInsets.navigationBars to internal spacers.
+Add navigationBarsPadding() to Bottom Action Buttons: Ensure bottom buttons in VacantRoomsScreen's filter sheet and NoteEditorScreen's footer maintain clearance above 3-button navigation bars.
+and
+Executive Status: What is Fixed in this Workspace vs. What Remains Broken
+Audit Finding Status in Current Workspace Code Evidence & Verification
+Chrome.kt & Shared Inset Helper Present in Workspace (Fixed relative to 0dec12c) Defined in app/src/main/java/com/mustime/ui/Chrome.kt. Centralizes DockHeight (60.dp), listBottomPadding, and rememberLecturesWindow().
+Dock Hiding on Soft Keyboard (IME) Present in Workspace (Fixed relative to 0dec12c) In MainScaffold.kt (line 258): if (!isNotesEditing && !windowInfo.isImeVisible). The dock now collapses when the keyboard is open.
+Dock Max Width on Wide Screens Present in Workspace (Fixed relative to 0dec12c) In MainScaffold.kt (line 274): Modifier.widthIn(max = 440.dp).fillMaxWidth(). Prevents stretched tabs on large phones.
+LectureCard Meta Wrapping (FlowRow) Present in Workspace (Fixed relative to 0dec12c) In LectureCard.kt (lines 105–126): Converted to FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp)), preventing RoomFloorBadge truncation.
+Calendar Month Cells Clipping Present in Workspace (Fixed relative to 0dec12c) In CalendarScreen.kt (lines 381–385): Replaced fixed 44.dp with Modifier.weight(1f).aspectRatio(1f). No Sunday clipping on narrow screens.
+BGWH customYears Restriction Present in Workspace (Fixed relative to 0dec12c) In FacultyData.kt (line 103): Programme("BGWH", "BSc in Gender and Applied Women Health", 3). The listOf("III") restriction has been removed.
+Calendar Task Due Date String Bug CRITICAL BUG CONFIRMED ACTIVE In CalendarScreen.kt (lines 119 & 378): Naive weekday string matching breaks task display in Calendar.
+Calendar Task Card Dark Mode Contrast CRITICAL BUG CONFIRMED ACTIVE In CalendarScreen.kt (lines 640–688): White text on hardcoded light yellow background in Dark Mode.
+globalNextUp Clock Stalling CONFIRMED ACTIVE In TimetableScreen.kt (line 162): Keyed only on entries and todayName, never refreshing as time advances.
+Vacant Rooms Stacked Dropdowns CONFIRMED ACTIVE filtersStacked in Chrome.kt (line 82) is never consumed in VacantRoomsScreen.kt (lines 284–287).
+Missing navigationBarsPadding on Action Buttons CONFIRMED ACTIVE Filter sheet button in VacantRoomsScreen.kt (line 920) and footer in NoteEditorScreen.kt (line 1474).
+Sound Profile Lacks Audio Preview CONFIRMED ACTIVE In SettingsScreen.kt (lines 970–992): Tapping a sound chip sets the preference without playing a preview sound.
+Delimiter Bug in Notifications CONFIRMED ACTIVE In NotificationCenterSheet.kt (line 295): Splits on : instead of `
+2. Deep Dive on Verified Defects
+Defect 1: Calendar Task Date Matching (CalendarScreen.kt)
+Code Location: CalendarScreen.kt, lines 117–121 & 377–379
+Exact Code:
+code
+Kotlin
+// Line 117
+val selectedDayTasks = remember(uiState.assignments, uiState.selectedDayOfWeek) {
+uiState.assignments.filter { assignment ->
+!assignment.completed && assignment.dueDate.equals(uiState.selectedDayOfWeek, ignoreCase = true)
+}
+}
+// Line 377 (Month Grid Dots)
+val hasTasksThisDay = uiState.assignments.any {
+!it.completed && it.dueDate.equals(cellDayName, ignoreCase = true)
+}
+Verification: TasksScreen.kt creates tasks with structured dates (e.g. 2026-10-24 17:00, Oct 24, 2026, Tomorrow). Because CalendarScreen.kt performs exact equality checks against selectedDayOfWeek (e.g. "Monday"), tasks with calendar dates or times never match and never appear on the Calendar agenda or month dots.
+Defect 2: Calendar Task Card Dark Mode Contrast
+Code Location: CalendarScreen.kt, lines 640–688
+Exact Code:
+code
+Kotlin
+Card(
+modifier = Modifier.fillMaxWidth(),
+colors = CardDefaults.cardColors(
+containerColor = Color(0xFFFFF7ED) // Hardcoded light amber
+),
+border = BorderStroke(1.dp, Color(0xFFF59E0B).copy(alpha = 0.3f))
+) {
+...
+Text(
+text = item.assignment.title,
+fontWeight = FontWeight.SemiBold,
+fontSize = 14.sp,
+color = MaterialTheme.colorScheme.onSurface, // In Dark Mode = #FFFFFF (Pure White)
+maxLines = 1,
+overflow = TextOverflow.Ellipsis
+)
+}
+Verification: In dark mode, MaterialTheme.colorScheme.onSurface resolves to white, rendering illegible white text over the hardcoded light yellow background (#FFF7ED).
+Defect 3: globalNextUp Stale State in Timetable (TimetableScreen.kt)
+Code Location: TimetableScreen.kt, lines 162–164 & 211–213
+Exact Code:
+code
+Kotlin
+// Line 162
+val globalNextUp: GlobalNextUp? = remember(entries, todayName) {
+findActualNextUp(entries, todayName)
+}
+// Line 211
+NextUpTicker(todayEntries) { completed ->
+allTodayClassesCompleted = completed
+}
+Verification: While NextUpTicker runs every 15 seconds, it only mutates allTodayClassesCompleted. globalNextUp is cached strictly on entries and todayName. As classes start, progress, and end throughout the day, globalNextUp remains pinned to its initial state unless the user leaves the tab or entries change.
+Defect 4: Unused Responsive Breakdown in Vacant Rooms (VacantRoomsScreen.kt)
+Code Location: Chrome.kt, line 82 vs. VacantRoomsScreen.kt, lines 284–302
+Exact Code:
+code
+Kotlin
+// Chrome.kt:
+val filtersStacked: Boolean get() = isNarrow
+// VacantRoomsScreen.kt:
+Row(
+modifier = Modifier.fillMaxWidth(),
+horizontalArrangement = Arrangement.spacedBy(10.dp)
+) {
+LocationDropdownSelector(label = "Campus", modifier = Modifier.weight(1f), ...)
+LocationDropdownSelector(label = "Building", modifier = Modifier.weight(1f), ...)
+}
+Verification: On narrow devices (< 360dp width), the two dropdowns remain locked in a side-by-side Row, compressing campus and building labels into ellipses.
+Defect 5: Natural Key Delimiter in Notification Center (NotificationCenterSheet.kt)
+Code Location: NotificationCenterSheet.kt, line 295
+Exact Code:
+code
+Kotlin
+val courseCode = note.naturalKey.split(":").firstOrNull()?.trim() ?: "Class Note"
+Verification: NoteEditorScreen.kt and LectureNote.kt construct naturalKey using a pipe (|), e.g., "CSC101|1729000000". Because the split looks for :, it fails to isolate the course code and displays the raw key with the pipe character in the alarm list.
+Defect 6: Settings Sound Profile Missing Audio Feedback (SettingsScreen.kt)
+Code Location: SettingsScreen.kt, lines 970–992
+Exact Code:
+code
+Kotlin
+soundOptions.forEach { soundName ->
+...
+Box(
+modifier = Modifier
+.weight(1f)
+.clip(RoundedCornerShape(10.dp))
+.background(chipBg)
+.clickable { viewModel.setAlarmSound(soundName) }
+.padding(vertical = 8.dp),
+contentAlignment = Alignment.Center
+) {
+Text(text = soundName, ...)
+}
+}
+Verification: Clicking sound profile chips updates the preference state without invoking audio feedback or a sample chime, leaving users unaware of the sound profile differences.
+3. Summary Assessment
+The audit report accurately identifies the structural flaws of origin/main @ 0dec12c. While the current workspace has already resolved several responsive layout regressions (Chrome.kt, rememberLecturesWindow, LectureCard FlowRow, and calendar cell aspect ratios), the functional and contrast bugs remain active:
+Calendar Task Matching & Contrast (Defects 1 & 2)
+globalNextUp Live State Staleness (Defect 3)
+Vacant Rooms Stacked Filters & Bottom Clearance (Defect 4)
+Notification Key Parsing (Defect 5)
+Settings Audio Preview (Defect 6)
