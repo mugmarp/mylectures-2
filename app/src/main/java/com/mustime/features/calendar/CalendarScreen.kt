@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mustime.TimetableApplication
 import com.mustime.core.alarm.AlarmScheduler
+import com.mustime.core.alarm.TaskAlarmScheduler
 import com.mustime.features.timetable.domain.ActivityCategory
 import com.mustime.features.timetable.domain.CustomEvent
 import com.mustime.features.timetable.domain.Assignment
@@ -80,8 +81,9 @@ fun CalendarScreen(
     }
 
     val classAlarmScheduler = remember(context) { AlarmScheduler(context) }
+    val taskAlarmScheduler = remember(context) { TaskAlarmScheduler(context) }
     val viewModel: CalendarViewModel = viewModel(
-        factory = CalendarViewModel.provideFactory(repository, classAlarmScheduler)
+        factory = CalendarViewModel.provideFactory(repository, classAlarmScheduler, taskAlarmScheduler)
     )
 
     val uiState by viewModel.uiState.collectAsState()

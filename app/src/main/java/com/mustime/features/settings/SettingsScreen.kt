@@ -31,6 +31,8 @@ import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mustime.TimetableApplication
+import com.mustime.core.alarm.AlarmScheduler
+import com.mustime.core.alarm.ReminderScheduler
 import com.mustime.core.alarm.TaskAlarmScheduler
 import com.mustime.features.onboarding.FacultyCatalog
 import com.mustime.ui.AccentColorNames
@@ -51,6 +53,8 @@ fun SettingsScreen(
     val repository = app?.repository
     val dataLoader = app?.dataLoader
     val alarmScheduler = remember(context) { TaskAlarmScheduler(context) }
+    val classAlarmScheduler = remember(context) { AlarmScheduler(context) }
+    val reminderScheduler = remember(context) { ReminderScheduler(context) }
 
     if (repository == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -60,7 +64,15 @@ fun SettingsScreen(
     }
 
     val viewModel: SettingsViewModel = viewModel(
-        factory = SettingsViewModel.provideFactory(repository, dataLoader, alarmScheduler, Dispatchers.IO, context.applicationContext as android.app.Application)
+        factory = SettingsViewModel.provideFactory(
+            repository = repository,
+            dataLoader = dataLoader,
+            alarmScheduler = alarmScheduler,
+            classAlarmScheduler = classAlarmScheduler,
+            reminderScheduler = reminderScheduler,
+            ioDispatcher = Dispatchers.IO,
+            application = context.applicationContext as android.app.Application
+        )
     )
 
     val uiState by viewModel.uiState.collectAsState()

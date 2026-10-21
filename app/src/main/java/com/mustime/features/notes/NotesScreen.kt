@@ -64,8 +64,9 @@ fun NotesScreen(
     val isDark = LocalAppTheme.current.isDark
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
+    val classAlarmScheduler = remember(context) { com.mustime.core.alarm.AlarmScheduler(context) }
     val viewModel: NotesViewModel = viewModel(
-        factory = NotesViewModel.provideFactory(repository)
+        factory = NotesViewModel.provideFactory(repository, classAlarmScheduler)
     )
 
     val uiState by viewModel.uiState.collectAsState()
