@@ -115,7 +115,8 @@ fun resolveTaskCategoryAndTitle(title: String): Pair<TaskCategory, String> {
 fun TasksScreen(
     onBack: (() -> Unit)? = null,
     onSettingsClick: () -> Unit = {},
-    onReconfigureAcademicProfile: () -> Unit = {}
+    onReconfigureAcademicProfile: () -> Unit = {},
+    highlightTaskId: Long? = null
 ) {
     val context = LocalContext.current
     val app = context.applicationContext as? TimetableApplication
@@ -553,6 +554,15 @@ fun TasksScreen(
                     }
                 }
 
+                // Auto-scroll to target task when launched from notification deep link
+                LaunchedEffect(highlightTaskId, filteredTasks) {
+                    val targetId = highlightTaskId ?: return@LaunchedEffect
+                    val index = filteredTasks.indexOfFirst { it.id == targetId }
+                    if (index != -1) {
+                        listState.animateScrollToItem((index + 3).coerceAtLeast(0))
+                    }
+                }
+
                 // 4. Task items or Empty State
                 if (filteredTasks.isEmpty()) {
                     item(key = "empty_tasks_state") {
@@ -599,6 +609,7 @@ fun TasksScreen(
                         TaskCard(
                             task = task,
                             isDark = isDark,
+                            isHighlighted = task.id == highlightTaskId,
                             onToggleComplete = { viewModel.toggleComplete(task) },
                             onEdit = {
                                 taskToEdit = task
@@ -717,6 +728,7 @@ fun TasksScreen(
 fun TaskCard(
     task: Assignment,
     isDark: Boolean,
+    isHighlighted: Boolean = false,
     onToggleComplete: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
@@ -733,15 +745,16 @@ fun TaskCard(
     Card(
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = cardBg),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isHighlighted) 6.dp else 1.dp),
         border = CardDefaults.outlinedCardBorder().copy(
+            width = if (isHighlighted) 2.dp else 1.dp,
             brush = androidx.compose.ui.graphics.SolidColor(
-                if (isDark) {
-                    if (!task.completed && dueStatus == TaskDueStatus.OVERDUE) Color(0xFF991B1B)
-                    else DarkBorderSubtle
-                } else {
-                    if (!task.completed && dueStatus == TaskDueStatus.OVERDUE) Color(0xFFFCA5A5)
-                    else Color(0xFFE2E8F0)
+                when {
+                    isHighlighted -> primaryColor
+                    isDark && !task.completed && dueStatus == TaskDueStatus.OVERDUE -> Color(0xFF991B1B)
+                    isDark -> DarkBorderSubtle
+                    !task.completed && dueStatus == TaskDueStatus.OVERDUE -> Color(0xFFFCA5A5)
+                    else -> Color(0xFFE2E8F0)
                 }
             )
         ),
