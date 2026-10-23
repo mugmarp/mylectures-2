@@ -167,8 +167,7 @@ class CalendarViewModel(
                     dueCal.get(Calendar.MONTH) == _uiState.value.currentMonth &&
                     dueCal.get(Calendar.DAY_OF_MONTH) == day
         }
-        val dayOfWeekName = getDayOfWeekNameForDay(day)
-        return assignment.dueDate.contains(dayOfWeekName, ignoreCase = true)
+        return false
     }
 
     fun toggleTaskComplete(task: Assignment) {

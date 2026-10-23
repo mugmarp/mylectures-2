@@ -1,6 +1,7 @@
 package com.mustime.features.calendar
 
 import android.widget.Toast
+import java.util.Locale
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -378,6 +379,25 @@ fun CalendarScreen(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
+                // Pre-index days with pending tasks and scheduled classes for O(1) grid dot lookup
+                val taskDaysWithDue = remember(uiState.assignments, uiState.currentMonth, uiState.currentYear) {
+                    val days = mutableSetOf<Int>()
+                    for (day in 1..uiState.daysInMonth) {
+                        if (uiState.assignments.any { !it.completed && viewModel.isTaskDueOnDay(it, day) }) {
+                            days.add(day)
+                        }
+                    }
+                    days
+                }
+
+                val classDaysWithSchedule = remember(uiState.entries) {
+                    uiState.entries.map { it.dayOfWeek.lowercase(Locale.ROOT) }.toSet()
+                }
+
+                val activityDaysWithSchedule = remember(uiState.customEvents) {
+                    uiState.customEvents.map { it.dayOfWeek.lowercase(Locale.ROOT) }.toSet()
+                }
+
                 // Calendar Grid with distinguished color indicators
                 Column(
                     modifier = Modifier
@@ -407,16 +427,13 @@ fun CalendarScreen(
                                     val isSelected = dayNum == uiState.selectedDay
                                     val isToday = viewModel.isToday(dayNum)
                                     val cellDayName = viewModel.getDayOfWeekNameForDay(dayNum)
+                                    val cellDayLower = cellDayName.lowercase(Locale.ROOT)
 
-                                    val hasClassesThisDay = uiState.entries.any {
-                                        it.dayOfWeek.equals(cellDayName, ignoreCase = true)
-                                    }
-                                    val activitiesThisDay = uiState.customEvents.filter {
-                                        it.dayOfWeek.equals(cellDayName, ignoreCase = true)
-                                    }
-                                    val hasTasksThisDay = uiState.assignments.any {
-                                        !it.completed && viewModel.isTaskDueOnDay(it, dayNum)
-                                    }
+                                    val hasClassesThisDay = cellDayLower in classDaysWithSchedule
+                                    val activitiesThisDay = if (cellDayLower in activityDaysWithSchedule) {
+                                        uiState.customEvents.filter { it.dayOfWeek.equals(cellDayName, ignoreCase = true) }
+                                    } else emptyList()
+                                    val hasTasksThisDay = dayNum in taskDaysWithDue
 
                                     Box(
                                         modifier = Modifier
