@@ -587,7 +587,7 @@ fun NotesScreen(
         NotificationCenterSheet(
             activeNotesWithAlarms = activeNotesWithAlarms,
             onCancelNoteAlarm = { note ->
-                classAlarmScheduler.cancelNoteAlarm(note.naturalKey)
+                classAlarmScheduler.cancelClassAlarm(note.naturalKey)
                 coroutineScope.launch {
                     repository.upsertNote(note.copy(alarmMinutes = 0))
                 }

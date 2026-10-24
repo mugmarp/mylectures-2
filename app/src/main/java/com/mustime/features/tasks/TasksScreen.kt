@@ -766,7 +766,7 @@ fun TasksScreen(
         NotificationCenterSheet(
             activeTasksWithAlarms = activeTasksWithAlarms,
             onCancelTaskAlarm = { task ->
-                TaskAlarmScheduler.cancelTaskReminder(context, task.id)
+                alarmScheduler.cancelTaskReminder(task.id)
                 coroutineScope.launch {
                     repository.saveAssignment(task.copy(reminderMinutes = null))
                 }

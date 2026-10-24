@@ -873,7 +873,7 @@ fun CalendarScreen(
                 app?.repository?.let { repo ->
                     coroutineScope.launch {
                         repo.saveAssignment(task.copy(reminderMinutes = null))
-                        com.mustime.core.alarm.TaskAlarmScheduler.cancelTaskReminder(context, task.id)
+                        com.mustime.core.alarm.TaskAlarmScheduler(context).cancelTaskReminder(task.id)
                     }
                 }
             },
