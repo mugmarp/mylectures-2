@@ -1,85 +1,74 @@
-# Implementation Plan: Comprehensive UI/UX Defect Remediation
+# Notification System Architecture & Implementation Report
 
-This plan addresses all verified P0 and P1 UI/UX flaws and cross-screen inconsistencies identified in the audit and prioritized in user alignment.
-
----
-
-## 1. User Intent & Clarifications Alignment
-* **Defect Scope:** Remediate all verified P0 and P1 defects across Calendar, Timetable, Vacant Rooms, Notification Center, Settings, and Notes.
-* **Calendar Tasks UI:** Replace the naive weekday matching and hardcoded light-colored card with rich due-date resolution and the full, dark-mode-compatible interactive `TaskCard` (with completion toggling, priority, and notes).
-* **Settings Sound Profile:** Add live local audio playback whenever a sound profile ("Chime", "Gentle Bell", "Standard", "System Default") is selected.
+This report outlines the full investigation into MuSTime's notification system (both system-level and in-app), the flaws and missing capabilities uncovered, and the complete solutions implemented.
 
 ---
 
-## 2. Proposed Changes & Technical Architecture
+## 1. Deep Investigation & Flaws Identified
 
-### Component A: Calendar Task Date Intelligence & Interactive Dark Mode Cards
-* **File:** `app/src/main/java/com/mustime/features/calendar/CalendarViewModel.kt`
-  - Add calendar date-matching logic to verify if an `Assignment` is due on a specific year/month/day.
-  - Parse assignment due dates using `TaskDateTimeParser.calculateDueMillis(it.dueDate)`. Compare year, month, and day-of-month against the active calendar day.
-  - Support fallback to weekday matching only if `calculateDueMillis` returns null and `dueDate` specifies a weekday name.
-  - Update `hasTasksThisDay` in the month grid to use this date matcher so month dots accurately represent tasks.
-  - Expose task toggle completion method (`toggleTaskComplete(task: Assignment)`) in `CalendarViewModel`.
-* **File:** `app/src/main/java/com/mustime/features/calendar/CalendarScreen.kt`
-  - Update `selectedDayTasks` to use the accurate date-matching helper.
-  - Replace lines 640–700 (the hardcoded `Color(0xFFFFF7ED)` task card with broken white text in Dark Mode) with `TaskCard` from `com.mustime.features.tasks.TaskCard`.
-  - Pass `onToggleComplete`, `isDark`, and proper click actions so tasks in the Calendar agenda can be checked off directly.
+### Flaw 1: Lack of Inline Dismissal and Actionable Controls in System Notifications
+* **Root Cause**: While system notifications had `.setAutoCancel(true)`, they lacked actionable inline action buttons (`AddAction`). When an alarm or reminder fired on the user's phone, the user had to either tap the notification to open the app or swipe it away blindly without any quick choices.
+* **Impact**: In class situations or meetings, students could not quickly snooze an alarm or dismiss it directly from the lock screen / heads-up notification shade.
 
-### Component B: Timetable Live Next-Up Real-Time Clock Ticker
-* **File:** `app/src/main/java/com/mustime/features/timetable/ui/TimetableScreen.kt`
-  - Currently, `globalNextUp` is memoized with `remember(entries, todayName)` (line 162), which never recalculates as the clock ticks during the day.
-  - Update `NextUpTicker` or introduce a 15-second tick state (`currentTickSeconds`) so `globalNextUp` recomputes its active state, live progress percentage, and countdown minutes dynamically without requiring the user to switch tabs.
+### Flaw 2: Cold-Start Deep Link Intent Loss
+* **Root Cause**: In `MainActivity.kt`, notification click intents were broadcast via `MutableSharedFlow(extraBufferCapacity = 1)` with `replay = 0`.
+* **Impact**: When the app process was killed or cold-started by tapping a system notification, `MainActivity.onCreate` emitted into the flow before Compose's `MainScaffold` or child composables subscribed. The intent was dropped immediately, stranding the student on the default screen instead of navigating to the target class or task.
 
-### Component C: Vacant Rooms Responsive Stacked Filters & Bottom Sheet Clearance
-* **File:** `app/src/main/java/com/mustime/features/rooms/ui/VacantRoomsScreen.kt`
-  - Line 284 currently locks Campus and Building dropdowns into a single horizontal `Row(weight = 1f)`. Integrate `windowInfo.filtersStacked`:
-    - When `windowInfo.filtersStacked` is true (narrow screens < 360dp), stack Campus and Building selectors in a `Column` with full width.
-    - When false, maintain the side-by-side `Row`.
-  - Add `Modifier.navigationBarsPadding()` to the sticky bottom button container in the filter bottom sheet (lines 920–928) to prevent collision with Android 3-button navigation.
-  - Convert `LazyColumn(modifier = Modifier.padding(padding))` to use `contentPadding = PaddingValues(...)` to prevent hard-edge scroll clipping above the navigation bar.
+### Flaw 3: Absence of Persistent In-App Notification Center / History
+* **Root Cause**: The original `NotificationCenterSheet.kt` was purely an "Active Alarms" inspector. There was no notification history, inbox, or log. Once a system notification was swiped away on Android, it was gone forever. Students had no way to review past class alerts, reminders, or overdue task notices.
 
-### Component D: Notification Center Natural Key Delimiter & Scroll Resilience
-* **File:** `app/src/main/java/com/mustime/ui/components/NotificationCenterSheet.kt`
-  - Line 295: Replace `note.naturalKey.split(":")` with `note.naturalKey.split("|")` to correctly isolate course codes (e.g. `BIT101|123456` -> `BIT101`) instead of displaying the raw composite key.
-  - Add `.verticalScroll(rememberScrollState())` to the root `Column` or wrap the empty state and test buttons with scroll safety so content never overflows on compact phone viewports or high font scaling.
+### Flaw 4: Missing Real-Time In-App Foreground Alarms
+* **Root Cause**: If the student was already using the app when a class alarm or task reminder triggered, Android posted a system status bar notification, but the app itself provided no heads-up in-app visual alert or confirmation inside the active screen.
 
-### Component E: Settings Audio Preview Playback
-* **File:** `app/src/main/java/com/mustime/core/notification/NotificationHelper.kt`
-  - Implement `previewSound(context: Context, soundName: String)`:
-    - Resolves the sound URI for "Chime" (`sound_chime.wav`), "Gentle Bell" (`sound_gentle_bell.wav`), "Standard" (`sound_standard.wav`), or System Default.
-    - Plays the sound via `RingtoneManager.getRingtone(context, soundUri)?.play()` or `MediaPlayer` with sound effects usage attributes.
-* **File:** `app/src/main/java/com/mustime/features/settings/SettingsScreen.kt`
-  - In `soundOptions.forEach { soundName -> ... }`, trigger `NotificationHelper.previewSound(context, soundName)` upon clicking any sound profile chip.
+### Flaw 5: Inability to Manually Cancel Active Alarms from Notification Center
+* **Root Cause**: In the old `NotificationCenterSheet`, alarms were listed as static read-only cards without cancellation buttons. To turn off a class alarm, students had to navigate to the Notes tab, find the lecture note, enter edit mode, and reset the alarm picker.
 
-### Component F: Note Editor Clearance & Accessibility Touch Targets
-* **File:** `app/src/main/java/com/mustime/features/notes/NoteEditorScreen.kt`
-  - Add `Modifier.navigationBarsPadding()` to the bottom column content so footer buttons and attachments remain accessible when the IME keyboard is dismissed on 3-button navigation.
-  - Increase the attachment delete `IconButton` size from 26dp to a touch target meeting the 48dp accessibility standard (`Modifier.size(48.dp)` with centered 18dp icon).
-* **Files:** `MarkdownHelpDialog.kt` & `NoteTemplates.kt`
-  - Add `Modifier.weight(1f, fill = false)` to unconstrained `LazyColumn` items in modal bottom sheets.
+### Flaw 6: Inconsistent Access Across Screens
+* **Root Cause**: The notification bell icon was only present in `TimetableTopAppBar`. It was missing on `CalendarScreen`, `NotesScreen`, and `TasksScreen`.
 
 ---
 
-## 3. Verification Plan
+## 2. Solutions Implemented & Capabilities Added
 
-### Automated Compilation & Local Tests
-1. **Compilation Check:**
-   - Execute `compile_applet` to verify Kotlin compilation, Compose layout modifiers, and imports.
-2. **Local Robolectric Unit Tests:**
-   - Run `gradle :app:testDebugUnitTest` via `run_command` to ensure no database, parser, or scheduling regressions were introduced.
+### A. Inline System Notification Actions (Dismiss & Snooze)
+* **Dismiss Action**: Added an inline "Dismiss" action (`ACTION_DISMISS_CLASS_ALARM` / `ACTION_DISMISS_TASK_REMINDER`) to all notification types (`showClassAlarmNotification`, `showClassReminderNotification`, `showTaskReminderNotification`).
+* **Snooze Action**: Added a 10-minute snooze action (`ACTION_SNOOZE_CLASS_ALARM`) with `AlarmScheduler.scheduleSnoozeAlarm(...)` so students can defer alarms directly from the notification shade.
+* **Task Actions**: Added "Mark Done" (`ACTION_MARK_TASK_DONE`) and "Dismiss" buttons for academic task alerts.
 
-### Manual CUJ & Behavioral Verification
-1. **Calendar Task Sync & Dark Mode:**
-   - Create a task due on a future date in Tasks tab. Navigate to Calendar.
-   - Verify task dot appears on that calendar date and task card appears in the daily agenda.
-   - Switch between Light and Dark themes to verify the task title, description, and chips have crisp, high-contrast readability.
-   - Tap checkbox on Calendar task card and verify completion state toggles properly.
-2. **Timetable Next-Up Live State:**
-   - Inspect today's timetable when a class is ongoing or upcoming within 60 minutes.
-   - Verify countdown text and progress bar update with time ticks.
-3. **Vacant Rooms Responsiveness:**
-   - Verify Campus and Building selectors stack smoothly when viewport width is narrow (< 360dp) and filter bottom sheet button has full navigation bar clearance.
-4. **Settings Sound Preview:**
-   - Tap "Chime", "Gentle Bell", and "Standard" in Settings to verify immediate audible playback.
-5. **Notification Center Key Formatting:**
-   - Open Notifications sheet with active note alarms; verify course codes display cleanly (e.g. `BIT101` instead of `BIT101|...`).
+### B. Cold-Start Deep Link Replay Guarantee
+* Updated `MainActivity.kt`'s `notificationIntentFlow` to `MutableSharedFlow(replay = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)`.
+* When the app cold-starts from a notification tap, `MainScaffold` immediately receives the replayed intent upon composition, switches to the target tab (`Tasks` or `Timetable`), and passes down the highlighted task or class identifier.
+* In `TasksScreen.kt`, auto-scrolling with `LaunchedEffect(highlightTaskId)` scrolls directly to the highlighted task and displays an accent border.
+
+### C. Persistent In-App Notification Store (`InAppNotificationStore`)
+* Built `InAppNotificationStore` using Android SDK's `org.json` and private `SharedPreferences` (persisting up to 100 recent alerts without Room schema migrations).
+* Automatically records every alarm and reminder:
+  - Class Alarms (`CLASS_ALARM`)
+  - Class Reminders (`CLASS_REMINDER`)
+  - Task Reminders (`TASK_REMINDER`)
+  - Daily Digests (`DAILY_DIGEST`)
+* Exposes reactive `notifications: StateFlow<List<InAppNotificationItem>>` and `unreadCount: Flow<Int>`.
+* Includes full lifecycle operations: `markAsRead`, `markAllAsRead`, `deleteNotification`, and `clearAll`.
+
+### D. In-App Real-Time Heads-Up Banner
+* Added `InAppNotificationStore.foregroundAlertFlow` which emits whenever an alarm or reminder triggers.
+* Implemented a floating in-app banner in `MainScaffold.kt` with animated slide-in, notification type icon, clear message, tap-to-navigate action, manual dismiss button, and automatic 6.5s timeout.
+
+### E. Redesigned Centralized Notification Center (`NotificationCenterSheet`)
+* Added two tabs:
+  1. **Active Alarms**: Displays all scheduled lecture note alarms and task reminders. Each card features a one-tap **Alarm Off** (`AlarmOff`) button to immediately cancel the `AlarmManager` wake-up and update the database.
+  2. **Alert History**: Shows chronological alert logs with unread badges, timestamp formatting (e.g. "Just now", "15m ago", "Yesterday"), mark all as read, clear history, and tap-to-open target screens.
+
+### F. Uniform Top Bar Notification Bell Across All Tabs
+* Integrated the notification bell with real-time `BadgedBox` (unread red dot) on:
+  - **Timetable Tab** (`TimetableTopAppBar`)
+  - **Calendar Tab** (`FloatingIslandTopBar`)
+  - **Academic Notes Tab** (`FloatingIslandTopBar`)
+  - **Tasks & Deadlines Tab** (`FloatingIslandTopBar`)
+* Allows immediate access to alarms and alert history from any screen in the application.
+
+---
+
+## 3. Verification
+* **Applet Compilation**: Verified via `compile_applet` — build succeeded cleanly.
+* **Unit & JVM Test Suite**: Verified via `gradle :app:testDebugUnitTest` — 100% test pass (BUILD SUCCESSFUL).

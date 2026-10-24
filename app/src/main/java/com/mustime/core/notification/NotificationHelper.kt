@@ -233,7 +233,7 @@ object NotificationHelper {
         try {
             NotificationManagerCompat.from(context).notify(notificationId, builder.build())
             Log.d(TAG, "Notification posted for task $taskId: $title")
-            InAppNotificationStore(context).recordNotification(
+            InAppNotificationStore.getInstance(context).recordNotification(
                 type = NotificationItemType.TASK_REMINDER,
                 title = "Due Soon: $title",
                 message = "$courseCode • Due: $dueDate ($priorityText Priority)",
@@ -317,7 +317,7 @@ object NotificationHelper {
 
         try {
             NotificationManagerCompat.from(context).notify(notificationId, builder.build())
-            InAppNotificationStore(context).recordNotification(
+            InAppNotificationStore.getInstance(context).recordNotification(
                 type = NotificationItemType.CLASS_REMINDER,
                 title = "Upcoming class: $headerSubject",
                 message = subtitle,
@@ -413,7 +413,7 @@ object NotificationHelper {
 
         try {
             NotificationManagerCompat.from(context).notify(notificationId, builder.build())
-            InAppNotificationStore(context).recordNotification(
+            InAppNotificationStore.getInstance(context).recordNotification(
                 type = NotificationItemType.CLASS_ALARM,
                 title = "Class Alert: $headerSubject",
                 message = "$startsAtText $venueText".trim(),
@@ -491,7 +491,7 @@ object NotificationHelper {
         try {
             NotificationManagerCompat.from(context).notify(notificationId, builder.build())
             Log.d(TAG, "Daily digest notification posted for $dayOfWeek with ${classes.size} classes")
-            InAppNotificationStore(context).recordNotification(
+            InAppNotificationStore.getInstance(context).recordNotification(
                 type = NotificationItemType.DAILY_DIGEST,
                 title = title,
                 message = snippet,

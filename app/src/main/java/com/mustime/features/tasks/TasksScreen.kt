@@ -52,6 +52,8 @@ import com.mustime.features.timetable.domain.TaskCategory
 import java.util.Calendar
 import java.util.Locale
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
+import com.mustime.core.notification.InAppNotificationStore
 import com.mustime.features.timetable.domain.Assignment
 import androidx.compose.foundation.layout.WindowInsets
 import com.mustime.features.timetable.ui.*
@@ -162,9 +164,18 @@ fun TasksScreen(
     val uiState by viewModel.uiState.collectAsState()
     val assignments = uiState.assignments
 
+    val coroutineScope = rememberCoroutineScope()
     var showAddDialog by remember { mutableStateOf(false) }
     var taskToEdit by remember { mutableStateOf<Assignment?>(null) }
     var showProfileSheet by remember { mutableStateOf(false) }
+    var showNotificationCenterSheet by remember { mutableStateOf(false) }
+
+    val notificationStore = remember(context) { InAppNotificationStore.getInstance(context) }
+    val unreadNotificationsCount by notificationStore.unreadCount.collectAsState(initial = 0)
+    val activeTasksWithAlarms = remember(assignments) {
+        assignments.filter { !it.completed && (it.reminderMinutes ?: 0) > 0 }
+    }
+    val hasUnreadNotifications = unreadNotificationsCount > 0 || activeTasksWithAlarms.isNotEmpty()
 
     var hasNotificationPermission by remember {
         mutableStateOf(
@@ -227,6 +238,15 @@ fun TasksScreen(
     val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val listBottomPadding = Chrome.listBottomPadding(navBarBottom)
     val listState = rememberLazyListState()
+
+    // Auto-scroll to target task when launched from notification deep link
+    LaunchedEffect(highlightTaskId, filteredTasks) {
+        val targetId = highlightTaskId ?: return@LaunchedEffect
+        val index = filteredTasks.indexOfFirst { it.id == targetId }
+        if (index != -1) {
+            listState.animateScrollToItem((index + 3).coerceAtLeast(0))
+        }
+    }
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -335,20 +355,48 @@ fun TasksScreen(
                         }
                     }
 
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(primaryColor.copy(alpha = 0.12f))
-                            .clickable { showProfileSheet = true },
-                        contentAlignment = Alignment.Center
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Icon(
-                            Icons.Default.Person,
-                            contentDescription = "Academic Info",
-                            tint = primaryColor,
-                            modifier = Modifier.size(20.dp)
-                        )
+                        IconButton(
+                            onClick = { showNotificationCenterSheet = true },
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            BadgedBox(
+                                badge = {
+                                    if (hasUnreadNotifications) {
+                                        Badge(
+                                            containerColor = MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.size(8.dp)
+                                        )
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    Icons.Outlined.Notifications,
+                                    contentDescription = "Notifications & Alarms",
+                                    tint = textSecondary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(primaryColor.copy(alpha = 0.12f))
+                                .clickable { showProfileSheet = true },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Person,
+                                contentDescription = "Academic Info",
+                                tint = primaryColor,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -554,15 +602,6 @@ fun TasksScreen(
                     }
                 }
 
-                // Auto-scroll to target task when launched from notification deep link
-                LaunchedEffect(highlightTaskId, filteredTasks) {
-                    val targetId = highlightTaskId ?: return@LaunchedEffect
-                    val index = filteredTasks.indexOfFirst { it.id == targetId }
-                    if (index != -1) {
-                        listState.animateScrollToItem((index + 3).coerceAtLeast(0))
-                    }
-                }
-
                 // 4. Task items or Empty State
                 if (filteredTasks.isEmpty()) {
                     item(key = "empty_tasks_state") {
@@ -718,6 +757,23 @@ fun TasksScreen(
             },
             onOpenSettings = {
                 showProfileSheet = false
+                onSettingsClick()
+            }
+        )
+    }
+
+    if (showNotificationCenterSheet) {
+        NotificationCenterSheet(
+            activeTasksWithAlarms = activeTasksWithAlarms,
+            onCancelTaskAlarm = { task ->
+                TaskAlarmScheduler.cancelTaskReminder(context, task.id)
+                coroutineScope.launch {
+                    repository.saveAssignment(task.copy(reminderMinutes = null))
+                }
+            },
+            onDismiss = { showNotificationCenterSheet = false },
+            onOpenSettings = {
+                showNotificationCenterSheet = false
                 onSettingsClick()
             }
         )

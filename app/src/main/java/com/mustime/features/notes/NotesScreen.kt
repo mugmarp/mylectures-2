@@ -35,12 +35,15 @@ import com.mustime.core.storage.AttachmentStore
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mustime.TimetableApplication
+import com.mustime.core.notification.InAppNotificationStore
 import com.mustime.features.timetable.domain.LectureNote
 import com.mustime.features.timetable.ui.*
 import com.mustime.ui.Chrome
 import com.mustime.ui.LocalAppTheme
 import com.mustime.ui.rememberLecturesWindow
 import com.mustime.ui.components.AcademicProfileSheet
+import com.mustime.ui.components.NotificationCenterSheet
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -78,6 +81,15 @@ fun NotesScreen(
     var noteToEdit by remember { mutableStateOf<LectureNote?>(null) }
     var noteToDelete by remember { mutableStateOf<LectureNote?>(null) }
     var showProfileSheet by remember { mutableStateOf(false) }
+    var showNotificationCenterSheet by remember { mutableStateOf(false) }
+
+    val coroutineScope = rememberCoroutineScope()
+    val notificationStore = remember(context) { InAppNotificationStore.getInstance(context) }
+    val unreadNotificationsCount by notificationStore.unreadCount.collectAsState(initial = 0)
+    val activeNotesWithAlarms = remember(uiState.notes) {
+        uiState.notes.filter { (it.alarmMinutes ?: 0) > 0 }
+    }
+    val hasUnreadNotifications = unreadNotificationsCount > 0 || activeNotesWithAlarms.isNotEmpty()
 
     LaunchedEffect(isEditing) {
         onEditingChanged(isEditing)
@@ -228,20 +240,48 @@ fun NotesScreen(
                         }
                     }
 
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
-                            .clickable { showProfileSheet = true },
-                        contentAlignment = Alignment.Center
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Icon(
-                            Icons.Default.Person,
-                            contentDescription = "Account",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp)
-                        )
+                        IconButton(
+                            onClick = { showNotificationCenterSheet = true },
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            BadgedBox(
+                                badge = {
+                                    if (hasUnreadNotifications) {
+                                        Badge(
+                                            containerColor = MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.size(8.dp)
+                                        )
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    Icons.Outlined.Notifications,
+                                    contentDescription = "Notifications & Alarms",
+                                    tint = if (isDark) Color(0xFFCBD5E1) else Color(0xFF475569),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+                                .clickable { showProfileSheet = true },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Person,
+                                contentDescription = "Account",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -538,6 +578,23 @@ fun NotesScreen(
             },
             onOpenSettings = {
                 showProfileSheet = false
+                onSettingsClick()
+            }
+        )
+    }
+
+    if (showNotificationCenterSheet) {
+        NotificationCenterSheet(
+            activeNotesWithAlarms = activeNotesWithAlarms,
+            onCancelNoteAlarm = { note ->
+                classAlarmScheduler.cancelNoteAlarm(note.naturalKey)
+                coroutineScope.launch {
+                    repository.upsertNote(note.copy(alarmMinutes = 0))
+                }
+            },
+            onDismiss = { showNotificationCenterSheet = false },
+            onOpenSettings = {
+                showNotificationCenterSheet = false
                 onSettingsClick()
             }
         )

@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -229,6 +230,40 @@ fun TimetableTopAppBar(
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             color = PrimaryBlue
+                        )
+                    }
+                }
+            }
+
+            // Notifications & Alarms Bell Button
+            BadgedBox(
+                badge = {
+                    if (hasUnreadNotifications) {
+                        Badge(
+                            containerColor = Color(0xFFEF4444),
+                            contentColor = Color.White
+                        ) {
+                            Box(modifier = Modifier.size(6.dp))
+                        }
+                    }
+                }
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = capsuleBg,
+                    border = BorderStroke(1.dp, borderSubtle),
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .clickable { onNotificationClick() }
+                        .testTag("topbar_notifications_btn")
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = if (hasUnreadNotifications) Icons.Filled.NotificationsActive else Icons.Outlined.Notifications,
+                            contentDescription = "Notifications & Alarms",
+                            tint = if (hasUnreadNotifications) PrimaryBlue else iconTint,
+                            modifier = Modifier.size(19.dp)
                         )
                     }
                 }

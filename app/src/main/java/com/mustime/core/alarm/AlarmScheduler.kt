@@ -208,6 +208,10 @@ class AlarmScheduler(private val context: Context) {
         Log.d(TAG, "Cancelled class alarm for $naturalKey")
     }
 
+    fun cancelNoteAlarm(naturalKey: String) {
+        cancelClassAlarm(naturalKey)
+    }
+
     fun scheduleSnoozeAlarm(
         courseCode: String,
         courseTitle: String,

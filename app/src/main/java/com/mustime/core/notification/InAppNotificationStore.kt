@@ -8,12 +8,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
+import org.json.JSONArray
+import org.json.JSONObject
 import java.util.UUID
 
-@Serializable
 enum class NotificationItemType {
     CLASS_ALARM,
     CLASS_REMINDER,
@@ -22,7 +20,6 @@ enum class NotificationItemType {
     SYSTEM
 }
 
-@Serializable
 data class InAppNotificationItem(
     val id: String = UUID.randomUUID().toString(),
     val type: NotificationItemType,
@@ -39,8 +36,6 @@ class InAppNotificationStore(private val context: Context) {
     private val prefs: SharedPreferences =
         context.applicationContext.getSharedPreferences("mustime_inapp_notifications", Context.MODE_PRIVATE)
 
-    private val json = Json { ignoreUnknownKeys = true }
-
     private val _notifications = MutableStateFlow<List<InAppNotificationItem>>(loadSavedNotifications())
     val notifications = _notifications.asStateFlow()
 
@@ -49,8 +44,31 @@ class InAppNotificationStore(private val context: Context) {
     private fun loadSavedNotifications(): List<InAppNotificationItem> {
         val raw = prefs.getString(KEY_NOTIFICATIONS, null) ?: return emptyList()
         return try {
-            json.decodeFromString<List<InAppNotificationItem>>(raw)
-        } catch (e: Exception) {
+            val jsonArray = JSONArray(raw)
+            val list = mutableListOf<InAppNotificationItem>()
+            for (i in 0 until jsonArray.length()) {
+                val obj = jsonArray.getJSONObject(i)
+                val typeStr = obj.optString("type", NotificationItemType.SYSTEM.name)
+                val type = try {
+                    NotificationItemType.valueOf(typeStr)
+                } catch (_: Exception) {
+                    NotificationItemType.SYSTEM
+                }
+                list.add(
+                    InAppNotificationItem(
+                        id = obj.optString("id", UUID.randomUUID().toString()),
+                        type = type,
+                        title = obj.optString("title", ""),
+                        message = obj.optString("message", ""),
+                        timestamp = obj.optLong("timestamp", System.currentTimeMillis()),
+                        isRead = obj.optBoolean("isRead", false),
+                        relatedKey = if (obj.has("relatedKey") && !obj.isNull("relatedKey")) obj.optString("relatedKey") else null,
+                        navTab = if (obj.has("navTab") && !obj.isNull("navTab")) obj.optInt("navTab") else null
+                    )
+                )
+            }
+            list
+        } catch (_: Exception) {
             emptyList()
         }
     }
@@ -59,8 +77,21 @@ class InAppNotificationStore(private val context: Context) {
         val limited = list.take(100) // Keep latest 100 entries
         _notifications.value = limited
         try {
-            val encoded = json.encodeToString(limited)
-            prefs.edit().putString(KEY_NOTIFICATIONS, encoded).apply()
+            val jsonArray = JSONArray()
+            for (item in limited) {
+                val obj = JSONObject().apply {
+                    put("id", item.id)
+                    put("type", item.type.name)
+                    put("title", item.title)
+                    put("message", item.message)
+                    put("timestamp", item.timestamp)
+                    put("isRead", item.isRead)
+                    item.relatedKey?.let { put("relatedKey", it) }
+                    item.navTab?.let { put("navTab", it) }
+                }
+                jsonArray.put(obj)
+            }
+            prefs.edit().putString(KEY_NOTIFICATIONS, jsonArray.toString()).apply()
         } catch (_: Exception) {}
     }
 
@@ -112,6 +143,15 @@ class InAppNotificationStore(private val context: Context) {
 
     companion object {
         private const val KEY_NOTIFICATIONS = "notifications_json"
+
+        @Volatile
+        private var INSTANCE: InAppNotificationStore? = null
+
+        fun getInstance(context: Context): InAppNotificationStore {
+            return INSTANCE ?: synchronized(this) {
+                INSTANCE ?: InAppNotificationStore(context.applicationContext).also { INSTANCE = it }
+            }
+        }
 
         // Shared across instances for instant in-app heads-up alerts
         private val _foregroundAlertFlow = MutableSharedFlow<InAppNotificationItem>(

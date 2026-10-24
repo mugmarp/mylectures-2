@@ -29,6 +29,7 @@ import androidx.compose.material.icons.outlined.Event
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.*
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -99,6 +100,7 @@ fun CalendarScreen(
         }
     }
 
+    val coroutineScope = rememberCoroutineScope()
     var showAddActivitySheet by remember { mutableStateOf(false) }
     var activityToEdit by remember { mutableStateOf<CustomEvent?>(null) }
     var showProfileSheet by remember { mutableStateOf(false) }
@@ -161,6 +163,11 @@ fun CalendarScreen(
     val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val listBottomPadding = Chrome.listBottomPadding(navBarBottom)
     val listState = rememberLazyListState()
+
+    var showNotificationCenterSheet by remember { mutableStateOf(false) }
+    val notifStore = remember(context) { com.mustime.core.notification.InAppNotificationStore.getInstance(context) }
+    val unreadNotifCount by notifStore.unreadCount.collectAsState(initial = 0)
+    val hasAlarms = unreadNotifCount > 0
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -262,6 +269,35 @@ fun CalendarScreen(
                             },
                             shape = RoundedCornerShape(12.dp)
                         )
+
+                        BadgedBox(
+                            badge = {
+                                if (hasAlarms) {
+                                    Badge(
+                                        containerColor = Color(0xFFEF4444),
+                                        contentColor = Color.White
+                                    ) {
+                                        Box(modifier = Modifier.size(6.dp))
+                                    }
+                                }
+                            }
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+                                    .clickable { showNotificationCenterSheet = true },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = if (hasAlarms) Icons.Filled.Notifications else Icons.Outlined.Notifications,
+                                    contentDescription = "Notifications & Alarms",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(19.dp)
+                                )
+                            }
+                        }
 
                         Box(
                             modifier = Modifier
@@ -825,6 +861,24 @@ fun CalendarScreen(
                 showProfileSheet = false
                 onSettingsClick()
             }
+        )
+    }
+
+    if (showNotificationCenterSheet) {
+        val app = context.applicationContext as? com.mustime.TimetableApplication
+        val activeTasks = uiState.assignments.filter { !it.completed && (it.reminderMinutes ?: 0) > 0 }
+        com.mustime.ui.components.NotificationCenterSheet(
+            activeTasksWithAlarms = activeTasks,
+            onCancelTaskAlarm = { task ->
+                app?.repository?.let { repo ->
+                    coroutineScope.launch {
+                        repo.saveAssignment(task.copy(reminderMinutes = null))
+                        com.mustime.core.alarm.TaskAlarmScheduler.cancelTaskReminder(context, task.id)
+                    }
+                }
+            },
+            onDismiss = { showNotificationCenterSheet = false },
+            onOpenSettings = onSettingsClick
         )
     }
 
