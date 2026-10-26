@@ -117,7 +117,7 @@ fun TimetableScreen(
     }
 
     // Dynamic current real-time day and calendar
-    val todayName = remember { TimeUtil.todayName() }
+    var todayName by remember { mutableStateOf(TimeUtil.todayName()) }
     val daysList = remember { TimeUtil.DAYS }
 
     // Dialog & BottomSheet state
@@ -130,7 +130,7 @@ fun TimetableScreen(
     var selectedFilter by remember { mutableStateOf("All") }
 
     // 1. Compute day dates for the current week (Monday through Sunday)
-    val dayInfoList = remember {
+    val dayInfoList = remember(todayName) {
         val now = Calendar.getInstance()
         val currentDayOfWeek = now.get(Calendar.DAY_OF_WEEK) // Sunday=1, Monday=2
         val daysFromMonday = when (currentDayOfWeek) {
@@ -211,7 +211,8 @@ fun TimetableScreen(
     NextUpTicker(
         entries = entries,
         todayEntries = todayEntries,
-        todayName = todayName,
+        currentDayName = todayName,
+        onDayChanged = { todayName = it },
         onCompletedChanged = { allTodayClassesCompleted = it },
         onNextUpChanged = { globalNextUp = it }
     )
@@ -1231,11 +1232,27 @@ private fun GlobalNextUpHeroCard(
 private fun NextUpTicker(
     entries: List<TimetableEntry>,
     todayEntries: List<TimetableEntry>,
-    todayName: String,
+    currentDayName: String,
+    onDayChanged: (String) -> Unit,
     onCompletedChanged: (Boolean) -> Unit,
     onNextUpChanged: (GlobalNextUp?) -> Unit
 ) {
     var timeTick by remember { mutableLongStateOf(System.currentTimeMillis()) }
+
+    // Immediate pulse on returning to foreground / resuming app
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                timeTick = System.currentTimeMillis()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
     LaunchedEffect(Unit) {
         while (true) {
             delay(15_000L)
@@ -1243,7 +1260,12 @@ private fun NextUpTicker(
         }
     }
 
-    LaunchedEffect(todayEntries, entries, todayName, timeTick) {
+    LaunchedEffect(todayEntries, entries, currentDayName, timeTick) {
+        val realToday = TimeUtil.todayName()
+        if (!realToday.equals(currentDayName, ignoreCase = true)) {
+            onDayChanged(realToday)
+        }
+
         val completed = if (todayEntries.isEmpty()) {
             false
         } else {
@@ -1255,7 +1277,7 @@ private fun NextUpTicker(
             }
         }
         onCompletedChanged(completed)
-        onNextUpChanged(findActualNextUp(entries, todayName))
+        onNextUpChanged(findActualNextUp(entries, realToday))
     }
 }
 

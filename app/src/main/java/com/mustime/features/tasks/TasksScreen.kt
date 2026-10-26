@@ -196,18 +196,6 @@ fun TasksScreen(
         hasNotificationPermission = isGranted
     }
 
-    var permissionRequested by rememberSaveable { mutableStateOf(false) }
-
-    // Check notification permission once on initial launch for Android 13+
-    LaunchedEffect(Unit) {
-        if (!permissionRequested) {
-            permissionRequested = true
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !hasNotificationPermission) {
-                permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-            }
-        }
-    }
-
     var taskToDelete by remember { mutableStateOf<Assignment?>(null) }
 
     val filteredTasks = remember(assignments, uiState.searchQuery, uiState.selectedFilter) {
