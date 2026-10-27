@@ -142,10 +142,10 @@ fun TimetableTopAppBar(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-        // Left: Calendar Container & Title Block
+        // Left: Calendar Container & Title Block (Identity Header)
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.clickable { onProfileClick() }
+            modifier = Modifier.weight(1f, fill = false)
         ) {
             Box(
                 modifier = Modifier
@@ -161,7 +161,7 @@ fun TimetableTopAppBar(
                 )
             }
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(10.dp))
 
             Column {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -172,7 +172,7 @@ fun TimetableTopAppBar(
                         color = textPrimary
                     )
                     if (program.isNotBlank()) {
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
                         Box(
                             modifier = Modifier
                                 .background(PrimaryBlue.copy(alpha = 0.12f), RoundedCornerShape(6.dp))
@@ -182,7 +182,9 @@ fun TimetableTopAppBar(
                                 text = program,
                                 color = PrimaryBlue,
                                 fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -191,17 +193,19 @@ fun TimetableTopAppBar(
                 Text(
                     text = subtitle,
                     fontSize = 12.sp,
-                    color = textMuted
+                    color = textMuted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }
 
         val windowInfo = com.mustime.ui.rememberLecturesWindow()
 
-        // Right: Vacant Rooms Button & Profile Avatar
+        // Right: Vacant Rooms Button, Notifications Bell & Profile Avatar
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             // Free Rooms Button
             Surface(
@@ -278,6 +282,7 @@ fun TimetableTopAppBar(
                     .size(36.dp)
                     .clip(CircleShape)
                     .clickable { onProfileClick() }
+                    .testTag("topbar_profile_btn")
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(

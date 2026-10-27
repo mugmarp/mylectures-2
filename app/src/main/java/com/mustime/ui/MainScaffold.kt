@@ -153,9 +153,14 @@ fun MainScaffold(
                 navState = AppNavState.ProgrammeSelection(state.faculty)
             }
             val allEntries by repository.getAllEntries().collectAsState(initial = emptyList())
-            val calculatedCounts = remember(state.programme, allEntries) {
+            val liveCohortCounts by repository.getCohortCounts(state.programme.code).collectAsState(initial = emptyMap())
+            val calculatedCounts = remember(state.programme, allEntries, liveCohortCounts) {
                 state.programme.allGroups.associateWith { g ->
-                    com.mustime.features.timetable.domain.TimetableMatcher.getGroupCount(g, allEntries)
+                    com.mustime.features.timetable.domain.TimetableMatcher.getGroupCount(
+                        group = g,
+                        entries = allEntries,
+                        cohortCounts = liveCohortCounts
+                    )
                 }
             }
             ClassGroupSelectionScreen(
