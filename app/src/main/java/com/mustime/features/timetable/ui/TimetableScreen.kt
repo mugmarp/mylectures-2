@@ -219,18 +219,10 @@ fun TimetableScreen(
 
     // Horizontal drag gesture tracking for swiping between days
     var dragTotal by remember { mutableFloatStateOf(0f) }
-    var showNotificationCenterSheet by remember { mutableStateOf(false) }
-
     val windowInfo = rememberLecturesWindow()
     val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val listBottomPadding = Chrome.listBottomPadding(navBarBottom)
     val listState = rememberLazyListState()
-
-    val notifStore = remember { com.mustime.core.notification.InAppNotificationStore(context) }
-    val unreadNotifCount by notifStore.unreadCount.collectAsState(initial = 0)
-    val activeNotes = remember(notes) { notes.values.filter { it.alarmMinutes != null } }
-    val activeTasks = remember(assignments) { assignments.filter { !it.completed && it.reminderMinutes != null } }
-    val hasAlarmsOrUnread = unreadNotifCount > 0 || activeNotes.isNotEmpty() || activeTasks.isNotEmpty()
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -240,11 +232,6 @@ fun TimetableScreen(
             TimetableTopAppBar(
                 program = programme,
                 subtitle = if (programme.isNotBlank()) semesterWeekLabel else "Select Programme",
-                hasUnreadNotifications = hasAlarmsOrUnread,
-                onNotificationClick = {
-                    showNotificationCenterSheet = true
-                    onNotificationClick()
-                },
                 onProfileClick = {
                     showAcademicProfileSheet = true
                 },
@@ -851,44 +838,6 @@ fun TimetableScreen(
         )
     }
 
-    if (showNotificationCenterSheet) {
-        val app = context.applicationContext as? TimetableApplication
-        NotificationCenterSheet(
-            activeNotesWithAlarms = activeNotes,
-            activeTasksWithAlarms = activeTasks,
-            onCancelNoteAlarm = { note ->
-                val entry = entries.firstOrNull { it.naturalKey == note.naturalKey }
-                if (entry != null) {
-                    onSaveNote(entry, note.content, null)
-                } else {
-                    app?.repository?.let { repo ->
-                        coroutineScope.launch {
-                            repo.saveNote(note.naturalKey, note.content, null)
-                            com.mustime.core.alarm.AlarmScheduler(context).cancelClassAlarm(note.naturalKey)
-                        }
-                    }
-                }
-            },
-            onCancelTaskAlarm = { task ->
-                app?.repository?.let { repo ->
-                    coroutineScope.launch {
-                        repo.saveAssignment(task.copy(reminderMinutes = null))
-                        com.mustime.core.alarm.TaskAlarmScheduler(context).cancelTaskReminder(task.id)
-                    }
-                }
-            },
-            onNavigateToTab = { tab ->
-                showNotificationCenterSheet = false
-                when (tab) {
-                    1 -> onNavigateToCalendar()
-                    2 -> onNavigateToNotes()
-                    3 -> onNavigateToTasks()
-                }
-            },
-            onDismiss = { showNotificationCenterSheet = false },
-            onOpenSettings = onSettingsClick
-        )
-    }
 
     if (showAcademicProfileSheet) {
         AcademicProfileSheet(

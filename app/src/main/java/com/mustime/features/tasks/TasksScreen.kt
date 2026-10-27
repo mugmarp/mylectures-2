@@ -25,6 +25,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Assignment
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material3.*
@@ -168,14 +169,6 @@ fun TasksScreen(
     var showAddDialog by remember { mutableStateOf(false) }
     var taskToEdit by remember { mutableStateOf<Assignment?>(null) }
     var showProfileSheet by remember { mutableStateOf(false) }
-    var showNotificationCenterSheet by remember { mutableStateOf(false) }
-
-    val notificationStore = remember(context) { InAppNotificationStore.getInstance(context) }
-    val unreadNotificationsCount by notificationStore.unreadCount.collectAsState(initial = 0)
-    val activeTasksWithAlarms = remember(assignments) {
-        assignments.filter { !it.completed && (it.reminderMinutes ?: 0) > 0 }
-    }
-    val hasUnreadNotifications = unreadNotificationsCount > 0 || activeTasksWithAlarms.isNotEmpty()
 
     var hasNotificationPermission by remember {
         mutableStateOf(
@@ -343,48 +336,16 @@ fun TasksScreen(
                         }
                     }
 
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    IconButton(
+                        onClick = { showProfileSheet = true },
+                        modifier = Modifier.testTag("topbar_academic_info_btn")
                     ) {
-                        IconButton(
-                            onClick = { showNotificationCenterSheet = true },
-                            modifier = Modifier.size(36.dp)
-                        ) {
-                            BadgedBox(
-                                badge = {
-                                    if (hasUnreadNotifications) {
-                                        Badge(
-                                            containerColor = MaterialTheme.colorScheme.error,
-                                            modifier = Modifier.size(8.dp)
-                                        )
-                                    }
-                                }
-                            ) {
-                                Icon(
-                                    Icons.Outlined.Notifications,
-                                    contentDescription = "Notifications & Alarms",
-                                    tint = textSecondary,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(primaryColor.copy(alpha = 0.12f))
-                                .clickable { showProfileSheet = true },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                Icons.Default.Person,
-                                contentDescription = "Academic Info",
-                                tint = primaryColor,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
+                        Icon(
+                            imageVector = Icons.Outlined.Menu,
+                            contentDescription = "Academic Info",
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(24.dp)
+                        )
                     }
                 }
             }
@@ -745,23 +706,6 @@ fun TasksScreen(
             },
             onOpenSettings = {
                 showProfileSheet = false
-                onSettingsClick()
-            }
-        )
-    }
-
-    if (showNotificationCenterSheet) {
-        NotificationCenterSheet(
-            activeTasksWithAlarms = activeTasksWithAlarms,
-            onCancelTaskAlarm = { task ->
-                alarmScheduler.cancelTaskReminder(task.id)
-                coroutineScope.launch {
-                    repository.saveAssignment(task.copy(reminderMinutes = null))
-                }
-            },
-            onDismiss = { showNotificationCenterSheet = false },
-            onOpenSettings = {
-                showNotificationCenterSheet = false
                 onSettingsClick()
             }
         )

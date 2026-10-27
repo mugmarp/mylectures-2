@@ -98,7 +98,7 @@ class TimetableSyncWorker(
             val request = Request.Builder()
                 .url(url)
                 .header("Accept", "application/json")
-                .header("User-Agent", "MUsTime-Android-SyncWorker")
+                .header("User-Agent", "Lectures-Android-SyncWorker")
                 .build()
 
             client.newCall(request).execute().use { response ->
