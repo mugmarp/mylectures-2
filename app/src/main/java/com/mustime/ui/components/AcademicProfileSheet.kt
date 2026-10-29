@@ -48,9 +48,14 @@ import kotlinx.coroutines.launch
 @Composable
 fun AcademicProfileSheet(
     programme: String = "",
+    enrolledProgramme: String = "",
+    isPeeking: Boolean = false,
     academicYear: String = "",
     semester: String = "",
     onDismiss: () -> Unit,
+    onPeekProgramme: (String) -> Unit = {},
+    onResetToEnrolled: () -> Unit = {},
+    onSetOfficialProgramme: (String) -> Unit = {},
     onReconfigureProfile: () -> Unit = {},
     onOpenSettings: () -> Unit = {}
 ) {
@@ -60,7 +65,8 @@ fun AcademicProfileSheet(
 
     val savedProg by (repository?.programmePref ?: flowOf(null))
         .collectAsState(initial = repository?.getSavedProgramme() ?: repository?.getInitialProgramme())
-    val effectiveProgramme = programme.ifBlank { savedProg ?: repository?.getInitialProgramme() ?: "EEE II" }
+    val effectiveEnrolled = enrolledProgramme.ifBlank { savedProg ?: repository?.getInitialProgramme() ?: "EEE II" }
+    val effectiveProgramme = programme.ifBlank { effectiveEnrolled }
 
     val savedYear by (repository?.academicYearPref ?: flowOf("2026/2027"))
         .collectAsState(initial = repository?.getAcademicYear() ?: "2026/2027")
@@ -171,6 +177,72 @@ fun AcademicProfileSheet(
 
             Spacer(modifier = Modifier.height(20.dp))
 
+            // If Peeking, show prominent Alert banner
+            if (isPeeking) {
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = if (isDark) Color(0xFF291B00) else Color(0xFFFEF3C7),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, if (isDark) Color(0xFFB45309) else Color(0xFFF59E0B)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "👀 PEEKING FRIEND'S TIMETABLE",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isDark) Color(0xFFFDE68A) else Color(0xFF92400E),
+                                letterSpacing = 0.5.sp
+                            )
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (isDark) Color(0xFF78350F) else Color(0xFFFDE68A)
+                            ) {
+                                Text(
+                                    text = "Temporary",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isDark) Color(0xFFFDE68A) else Color(0xFF92400E),
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Viewing $effectiveProgramme",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isDark) Color.White else Color(0xFF78350F)
+                        )
+                        Text(
+                            text = "Your enrolled alarms and notifications stay anchored to $effectiveEnrolled.",
+                            fontSize = 12.sp,
+                            color = if (isDark) Color(0xFFFCD34D) else Color(0xFFB45309)
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Button(
+                            onClick = {
+                                onResetToEnrolled()
+                                onDismiss()
+                            },
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isDark) Color(0xFFB45309) else Color(0xFFD97706),
+                                contentColor = Color.White
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("↩ Return to My Timetable ($effectiveEnrolled)", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(14.dp))
+            }
+
             // Current Programme Identity Card
             Surface(
                 shape = RoundedCornerShape(16.dp),
@@ -212,7 +284,7 @@ fun AcademicProfileSheet(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "$effectiveProgramme $effectiveAcademicYear",
+                            text = "$effectiveEnrolled $effectiveAcademicYear",
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Bold,
                             color = textColor
@@ -344,15 +416,18 @@ fun AcademicProfileSheet(
 
     if (showChangeProgrammeDialog) {
         QuickChangeProgrammeDialog(
-            currentProgramme = effectiveProgramme,
+            currentProgramme = effectiveEnrolled,
             isDark = isDark,
             onDismiss = { showChangeProgrammeDialog = false },
+            onPeekSelected = { peekGroup ->
+                showChangeProgrammeDialog = false
+                onDismiss()
+                onPeekProgramme(peekGroup)
+            },
             onProgrammeSelected = { newGroup ->
-                scope.launch {
-                    repository?.setProgrammePref(newGroup)
-                    showChangeProgrammeDialog = false
-                    onDismiss()
-                }
+                showChangeProgrammeDialog = false
+                onDismiss()
+                onSetOfficialProgramme(newGroup)
             },
             onOpenFullReconfigure = {
                 showChangeProgrammeDialog = false
@@ -368,6 +443,7 @@ fun QuickChangeProgrammeDialog(
     currentProgramme: String,
     isDark: Boolean,
     onDismiss: () -> Unit,
+    onPeekSelected: (String) -> Unit = {},
     onProgrammeSelected: (String) -> Unit,
     onOpenFullReconfigure: () -> Unit
 ) {
@@ -706,24 +782,63 @@ fun QuickChangeProgrammeDialog(
                 val chosenGroup = selectedClassGroup
                 val isDifferentProgram = chosenGroup.trim() != currentProgramme.trim()
 
-                Button(
-                    onClick = { onProgrammeSelected(chosenGroup) },
-                    enabled = isDifferentProgram,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = primaryColor,
-                        disabledContainerColor = if (isDark) DarkSurfaceBase else Color(0xFFE2E8F0),
-                        disabledContentColor = if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8)
-                    )
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(
-                        text = if (isDifferentProgram) "Switch to $chosenGroup" else "Current: $currentProgramme",
-                        fontWeight = FontWeight.Bold
-                    )
+                    // 1. Peek Schedule (Friend Mode)
+                    OutlinedButton(
+                        onClick = { onPeekSelected(chosenGroup) },
+                        enabled = isDifferentProgram,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(
+                            1.dp,
+                            if (isDifferentProgram) (if (isDark) Color(0xFFF59E0B) else Color(0xFFD97706)) else (if (isDark) DarkBorderSubtle else Color(0xFFCBD5E1))
+                        ),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = if (isDark) Color(0xFFFBBF24) else Color(0xFFB45309),
+                            disabledContentColor = if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8)
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Visibility,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (isDifferentProgram) "👀 Peek $chosenGroup (Friend's Timetable)" else "Currently Viewing",
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    // 2. Permanent Enrollment
+                    Button(
+                        onClick = { onProgrammeSelected(chosenGroup) },
+                        enabled = isDifferentProgram,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = primaryColor,
+                            disabledContainerColor = if (isDark) DarkSurfaceBase else Color(0xFFE2E8F0),
+                            disabledContentColor = if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8)
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.School,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (isDifferentProgram) "🎓 Set as Enrolled Profile ($chosenGroup)" else "Enrolled: $currentProgramme",
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(6.dp))
 
                 TextButton(
                     onClick = onOpenFullReconfigure,

@@ -132,6 +132,40 @@ fun LectureDetailSheet(
                 Spacer(modifier = Modifier.height(12.dp))
             }
             DetailRow(icon = Icons.Outlined.Schedule, label = "Time", value = "${entry.startTime} – ${entry.endTime}", isDark = isDark)
+            
+            val allAttendingCohorts = (listOf(entry.program_group) + entry.shared_with).map { it.trim() }.filter { it.isNotBlank() }.distinct()
+            if (allAttendingCohorts.size > 1) {
+                Spacer(modifier = Modifier.height(12.dp))
+                DetailRow(
+                    icon = Icons.Outlined.Person,
+                    label = "Shared Class",
+                    value = allAttendingCohorts.joinToString(" & "),
+                    isDark = isDark
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                androidx.compose.foundation.layout.FlowRow(
+                    modifier = Modifier.fillMaxWidth().padding(start = 30.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    allAttendingCohorts.forEach { cohort ->
+                        val isPrimary = cohort.equals(entry.program_group, ignoreCase = true)
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (isPrimary) PrimaryBlue.copy(alpha = 0.15f) else (if (isDark) Color(0xFF1E293B) else Color(0xFFF1F5F9)),
+                            border = BorderStroke(1.dp, if (isPrimary) PrimaryBlue.copy(alpha = 0.35f) else (if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1)))
+                        ) {
+                            Text(
+                                text = if (isPrimary) "$cohort (Host)" else "$cohort (Shared)",
+                                fontSize = 11.sp,
+                                fontWeight = if (isPrimary) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isPrimary) PrimaryBlue else (if (isDark) Color(0xFFCBD5E1) else Color(0xFF334155)),
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
+                }
+            }
 
             Spacer(modifier = Modifier.height(20.dp))
 
