@@ -64,8 +64,14 @@
 # --- Alarms, Receivers, and System Services ---
 -keep class com.mustime.core.alarm.** { *; }
 -keep class com.mustime.core.notification.** { *; }
+-keep class com.mustime.core.auth.** { *; }
+-keep class com.mustime.core.sync.** { *; }
 -keep class com.mustime.features.timetable.receiver.** { *; }
 
 # --- Firebase & Google Play Services ---
 -dontwarn com.google.firebase.**
 -dontwarn com.google.android.gms.**
+-dontwarn androidx.credentials.**
+-keep class androidx.credentials.** { *; }
+-keep class com.google.android.libraries.identity.googleid.** { *; }
+

@@ -186,16 +186,23 @@ class SettingsViewModel(
             }
         }
 
-        // Check auth status
-        val currentAuthUser = try {
-            com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
-        } catch (_: Throwable) { null }
-        if (currentAuthUser != null) {
-            _uiState.value = _uiState.value.copy(
-                userAccountEmail = currentAuthUser.email ?: currentAuthUser.uid,
-                isCloudSyncActive = true,
-                userDataBackupStatus = "Cloud Sync Active · Google Account"
-            )
+        // Reactively observe authentication state from AuthRepository
+        viewModelScope.launch {
+            com.mustime.core.auth.AuthRepository.getInstance().currentUser.collect { user ->
+                if (user != null) {
+                    _uiState.value = _uiState.value.copy(
+                        userAccountEmail = user.email ?: user.displayName ?: user.uid,
+                        isCloudSyncActive = true,
+                        userDataBackupStatus = "Signed in as ${user.displayName ?: user.email ?: "Student"}"
+                    )
+                } else {
+                    _uiState.value = _uiState.value.copy(
+                        userAccountEmail = null,
+                        isCloudSyncActive = false,
+                        userDataBackupStatus = "Guest mode · Local storage active"
+                    )
+                }
+            }
         }
     }
 

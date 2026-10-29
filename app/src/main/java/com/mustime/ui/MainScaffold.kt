@@ -181,6 +181,7 @@ fun MainScaffold(
         is AppNavState.MainApp -> {
             var isSettingsOpen by remember { mutableStateOf(false) }
             var isVacantRoomsOpen by remember { mutableStateOf(false) }
+            var isAccountOpen by remember { mutableStateOf(false) }
 
             val haptic = LocalHapticFeedback.current
             val tabs = listOf("Timetable", "Calendar", "Notes", "Tasks")
@@ -211,6 +212,13 @@ fun MainScaffold(
                     onBack = { isVacantRoomsOpen = false },
                     enrolledProgramme = savedProgramme
                 )
+            } else if (isAccountOpen) {
+                BackHandler {
+                    isAccountOpen = false
+                }
+                com.mustime.features.account.AccountScreen(
+                    onBack = { isAccountOpen = false }
+                )
             } else if (isSettingsOpen) {
                 BackHandler {
                     isSettingsOpen = false
@@ -220,6 +228,9 @@ fun MainScaffold(
                     onReconfigureAcademicProfile = {
                         isSettingsOpen = false
                         navState = AppNavState.FacultySelection
+                    },
+                    onOpenAccount = {
+                        isAccountOpen = true
                     },
                     onResetOnboarding = {
                         scope.launch {
