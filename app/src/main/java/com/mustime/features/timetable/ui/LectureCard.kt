@@ -207,7 +207,7 @@ fun LectureCard(entry: TimetableEntry, onClick: () -> Unit) {
                     } else if (entry.shared_with.isNotEmpty()) {
                         val sharedCohorts = entry.shared_with.map { it.trim() }.filter { it.isNotBlank() }
                         Text(
-                            "👥 Shared with ${sharedCohorts.joinToString(", ")}",
+                            "Shared: ${sharedCohorts.joinToString(", ")}",
                             color = MaterialTheme.colorScheme.primary,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold,

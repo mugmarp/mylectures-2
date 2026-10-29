@@ -106,7 +106,7 @@ fun NextUpCard(entry: TimetableEntry, minutesUntil: Int, onClick: () -> Unit) {
                             .background(Color.White.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
                             .padding(horizontal = 8.dp, vertical = 2.dp)
                     ) {
-                        Text("👥 Shared: ${sharedCohorts.joinToString(", ")}", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Shared: ${sharedCohorts.joinToString(", ")}", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }

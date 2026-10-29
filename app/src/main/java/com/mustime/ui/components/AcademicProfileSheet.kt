@@ -177,7 +177,7 @@ fun AcademicProfileSheet(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // If Peeking, show prominent Alert banner
+            // If Previewing, show prominent Preview Mode banner
             if (isPeeking) {
                 Surface(
                     shape = RoundedCornerShape(16.dp),
@@ -191,13 +191,22 @@ fun AcademicProfileSheet(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = "👀 PEEKING FRIEND'S TIMETABLE",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isDark) Color(0xFFFDE68A) else Color(0xFF92400E),
-                                letterSpacing = 0.5.sp
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Visibility,
+                                    contentDescription = null,
+                                    tint = if (isDark) Color(0xFFFBBF24) else Color(0xFFB45309),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "PREVIEW MODE",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isDark) Color(0xFFFDE68A) else Color(0xFF92400E),
+                                    letterSpacing = 0.5.sp
+                                )
+                            }
                             Surface(
                                 shape = RoundedCornerShape(8.dp),
                                 color = if (isDark) Color(0xFF78350F) else Color(0xFFFDE68A)
@@ -213,13 +222,13 @@ fun AcademicProfileSheet(
                         }
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "Viewing $effectiveProgramme",
+                            text = "Previewing $effectiveProgramme",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
                             color = if (isDark) Color.White else Color(0xFF78350F)
                         )
                         Text(
-                            text = "Your enrolled alarms and notifications stay anchored to $effectiveEnrolled.",
+                            text = "Viewing temporarily. Your alarms remain set for $effectiveEnrolled.",
                             fontSize = 12.sp,
                             color = if (isDark) Color(0xFFFCD34D) else Color(0xFFB45309)
                         )
@@ -236,7 +245,7 @@ fun AcademicProfileSheet(
                             ),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("↩ Return to My Timetable ($effectiveEnrolled)", fontWeight = FontWeight.Bold)
+                            Text("Exit Preview", fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -786,7 +795,7 @@ fun QuickChangeProgrammeDialog(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    // 1. Peek Schedule (Friend Mode)
+                    // 1. Preview Schedule
                     OutlinedButton(
                         onClick = { onPeekSelected(chosenGroup) },
                         enabled = isDifferentProgram,
@@ -808,12 +817,12 @@ fun QuickChangeProgrammeDialog(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = if (isDifferentProgram) "👀 Peek $chosenGroup (Friend's Timetable)" else "Currently Viewing",
+                            text = if (isDifferentProgram) "Preview $chosenGroup" else "Currently Viewing",
                             fontWeight = FontWeight.Bold
                         )
                     }
 
-                    // 2. Permanent Enrollment
+                    // 2. Set as My Programme
                     Button(
                         onClick = { onProgrammeSelected(chosenGroup) },
                         enabled = isDifferentProgram,
@@ -825,14 +834,8 @@ fun QuickChangeProgrammeDialog(
                             disabledContentColor = if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8)
                         )
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.School,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = if (isDifferentProgram) "🎓 Set as Enrolled Profile ($chosenGroup)" else "Enrolled: $currentProgramme",
+                            text = if (isDifferentProgram) "Set as My Programme" else "Current Programme",
                             fontWeight = FontWeight.Bold
                         )
                     }

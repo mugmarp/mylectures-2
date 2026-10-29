@@ -370,13 +370,13 @@ fun TimetableScreen(
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = "👀 Peeking: $programme",
+                                        text = "Previewing $programme",
                                         fontSize = 14.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = if (isDark) Color(0xFFFDE68A) else Color(0xFF92400E)
                                     )
                                     Text(
-                                        text = "Viewing friend's schedule. Your alarms ($enrolledProgramme) remain active.",
+                                        text = "Viewing temporarily. Your alarms remain set for $enrolledProgramme.",
                                         fontSize = 11.sp,
                                         color = if (isDark) Color(0xFFFCD34D) else Color(0xFFB45309),
                                         lineHeight = 14.sp
@@ -390,9 +390,9 @@ fun TimetableScreen(
                                         containerColor = if (isDark) Color(0xFFB45309) else Color(0xFFD97706),
                                         contentColor = Color.White
                                     ),
-                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                                 ) {
-                                    Text("Return", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    Text("Exit Preview", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
