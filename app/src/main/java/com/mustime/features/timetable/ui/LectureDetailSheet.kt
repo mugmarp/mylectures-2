@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.outlined.MeetingRoom
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Schedule
@@ -134,13 +135,20 @@ fun LectureDetailSheet(
             }
             DetailRow(icon = Icons.Outlined.Schedule, label = "Time", value = "${entry.startTime} – ${entry.endTime}", isDark = isDark)
             
-            val allAttendingCohorts = (listOf(entry.program_group) + entry.shared_with).map { it.trim() }.filter { it.isNotBlank() }.distinct()
+            val isAssociation = entry.courseCode.contains("MUCOSA", ignoreCase = true) ||
+                entry.courseTitle.contains("MUCOSA", ignoreCase = true) ||
+                entry.courseTitle.contains("ASSOCIATION", ignoreCase = true)
+            
+            val allAttendingCohorts = if (isAssociation) emptyList() else (listOf(entry.program_group) + entry.shared_with)
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+                .distinct()
             if (allAttendingCohorts.size > 1) {
                 Spacer(modifier = Modifier.height(12.dp))
                 DetailRow(
-                    icon = Icons.Outlined.Person,
-                    label = "Shared Class",
-                    value = allAttendingCohorts.joinToString(" & "),
+                    icon = Icons.Default.School,
+                    label = "Attending Classes",
+                    value = allAttendingCohorts.joinToString(", "),
                     isDark = isDark
                 )
                 Spacer(modifier = Modifier.height(6.dp))
@@ -150,17 +158,16 @@ fun LectureDetailSheet(
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     allAttendingCohorts.forEach { cohort ->
-                        val isPrimary = cohort.equals(entry.program_group, ignoreCase = true)
                         Surface(
                             shape = RoundedCornerShape(8.dp),
-                            color = if (isPrimary) PrimaryBlue.copy(alpha = 0.15f) else (if (isDark) Color(0xFF1E293B) else Color(0xFFF1F5F9)),
-                            border = BorderStroke(1.dp, if (isPrimary) PrimaryBlue.copy(alpha = 0.35f) else (if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1)))
+                            color = if (isDark) Color(0xFF1E293B) else Color(0xFFF1F5F9),
+                            border = BorderStroke(1.dp, if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1))
                         ) {
                             Text(
-                                text = if (isPrimary) "$cohort (Host)" else "$cohort (Shared)",
+                                text = cohort,
                                 fontSize = 11.sp,
-                                fontWeight = if (isPrimary) FontWeight.Bold else FontWeight.Medium,
-                                color = if (isPrimary) PrimaryBlue else (if (isDark) Color(0xFFCBD5E1) else Color(0xFF334155)),
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (isDark) Color(0xFFCBD5E1) else Color(0xFF334155),
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                             )
                         }

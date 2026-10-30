@@ -1005,18 +1005,32 @@ private fun TimetableEntry.toSpecClassSession(
     }
     val cleanNotePreview = note?.content?.trim()?.takeIf { it.isNotBlank() }?.take(40)
 
-    val allCohorts = (listOf(programmeGroup) + shared_with)
+    val isAssociation = specType == SpecSessionType.ASSOCIATION ||
+        codeUpper.contains("MUCOSA") || titleUpper.contains("MUCOSA") ||
+        titleUpper.contains("ASSOCIATION") || titleUpper.contains("GUILD")
+
+    val cohortsText = if (isAssociation) {
+        ""
+    } else {
+        val allCohorts = (listOf(programmeGroup) + shared_with)
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .distinct()
+        allCohorts.joinToString(", ")
+    }
+
+    val allCohortsList = (listOf(programmeGroup) + shared_with)
         .map { it.trim() }
         .filter { it.isNotBlank() }
         .distinct()
-    val otherCohorts = allCohorts.filter { !it.equals(currentProgramme.trim(), ignoreCase = true) }
-    val effectiveShared = if (otherCohorts.isNotEmpty()) otherCohorts else shared_with.filter { it.isNotBlank() }
+    val otherCohorts = allCohortsList.filter { !it.equals(currentProgramme.trim(), ignoreCase = true) }
+    val effectiveShared = if (isAssociation) emptyList() else if (otherCohorts.isNotEmpty()) otherCohorts else shared_with.filter { it.isNotBlank() }
 
     return SpecClassSession(
         id = naturalKey,
         courseCode = courseCode,
         courseName = courseTitle,
-        department = programmeGroup,
+        department = cohortsText,
         topicDescription = null,
         startTime = startTime,
         endTime = endTime,

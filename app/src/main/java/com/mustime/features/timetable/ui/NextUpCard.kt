@@ -98,17 +98,6 @@ fun NextUpCard(entry: TimetableEntry, minutesUntil: Int, onClick: () -> Unit) {
                     Text(resolveSessionTypeLabel(entry), color = Color.White, fontSize = 12.sp)
                 }
 
-                val sharedCohorts = entry.shared_with.map { it.trim() }.filter { it.isNotBlank() }
-                if (sharedCohorts.isNotEmpty()) {
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Box(
-                        modifier = Modifier
-                            .background(Color.White.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
-                            .padding(horizontal = 8.dp, vertical = 2.dp)
-                    ) {
-                        Text("Shared: ${sharedCohorts.joinToString(", ")}", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                }
             }
             
             Spacer(modifier = Modifier.height(4.dp))
