@@ -478,13 +478,38 @@ fun QuickChangeProgrammeDialog(
         selectedFaculty.programmes.find { it.code == selectedProgrammeCode } ?: selectedFaculty.programmes.first()
     }
 
-    val availableGroups = remember(selectedProgramme) {
-        selectedProgramme.allGroups
+    val parsedCurrent = com.mustime.features.timetable.domain.TimetableMatcher.parseGroupParts(currentProgramme)
+    val initialYear = parsedCurrent?.year?.ifBlank { "I" } ?: "I"
+
+    var selectedYear by remember(selectedProgramme) {
+        val defaultYear = if (initialYear in selectedProgramme.defaultYears) initialYear else selectedProgramme.defaultYears.firstOrNull() ?: "I"
+        mutableStateOf(defaultYear)
     }
 
-    var selectedClassGroup by remember(selectedProgramme) {
-        val matching = availableGroups.find { it.equals(currentProgramme.trim(), ignoreCase = true) }
-        mutableStateOf(matching ?: availableGroups.firstOrNull() ?: "${selectedProgramme.code} I")
+    val tracksForYear = remember(selectedProgramme, selectedYear) {
+        selectedProgramme.tracks[selectedYear] ?: emptyList()
+    }
+
+    var selectedTrack by remember(selectedProgramme, selectedYear) {
+        val found = tracksForYear.find { track ->
+            parsedCurrent != null && (
+                track.equals(parsedCurrent.subject, ignoreCase = true) ||
+                parsedCurrent.subject.contains(track, ignoreCase = true) ||
+                track.contains(parsedCurrent.subject, ignoreCase = true) ||
+                (parsedCurrent.subject.startsWith("BIOLOG") && track.startsWith("BIOLOG"))
+            )
+        }
+        mutableStateOf(found ?: tracksForYear.firstOrNull() ?: "")
+    }
+
+    val selectedClassGroup = remember(selectedProgramme, selectedYear, selectedTrack) {
+        if (tracksForYear.isEmpty()) {
+            "${selectedProgramme.code} $selectedYear"
+        } else if (selectedProgramme.code == "HEAP") {
+            "${selectedProgramme.code} $selectedTrack"
+        } else {
+            "${selectedProgramme.code} $selectedTrack $selectedYear"
+        }
     }
 
     var facultyDropdownExpanded by remember { mutableStateOf(false) }
@@ -694,7 +719,7 @@ fun QuickChangeProgrammeDialog(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // 3. Year / Track Group Selector
+                // 3. Year of Study & Specialization Track Selector
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -706,82 +731,99 @@ fun QuickChangeProgrammeDialog(
                         fontWeight = FontWeight.Bold,
                         color = primaryColor
                     )
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = primaryColor.copy(alpha = 0.12f)
+                    ) {
+                        Text(
+                            text = selectedClassGroup,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = primaryColor,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Year selector chips
+                Text(
+                    text = "Year of Study",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = if (isDark) Color(0xFF94A3B8) else TextMutedLight
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    selectedProgramme.defaultYears.forEach { yr ->
+                        val isSelected = yr == selectedYear
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = { selectedYear = yr },
+                            label = {
+                                Text(
+                                    text = "Year $yr",
+                                    fontSize = 12.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                )
+                            },
+                            shape = RoundedCornerShape(10.dp)
+                        )
+                    }
+                }
+
+                // If tracks exist for this year, show Track / Specialization FlowRow
+                if (tracksForYear.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(10.dp))
                     Text(
-                        text = selectedClassGroup,
+                        text = "Subject Track / Specialization",
                         fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
+                        fontWeight = FontWeight.Medium,
                         color = if (isDark) Color(0xFF94A3B8) else TextMutedLight
                     )
-                }
-                Spacer(modifier = Modifier.height(6.dp))
-
-                // If many groups (tracks), use wrapped / column chips
-                if (availableGroups.size <= 5) {
-                    Row(
+                    Spacer(modifier = Modifier.height(4.dp))
+                    @OptIn(ExperimentalLayoutApi::class)
+                    FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        availableGroups.forEach { grp ->
-                            val isSelected = grp == selectedClassGroup
-                            val displayLabel = grp.removePrefix("${selectedProgramme.code} ").ifBlank { grp }
-                            FilterChip(
-                                selected = isSelected,
-                                onClick = { selectedClassGroup = grp },
-                                label = {
-                                    Box(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = displayLabel,
-                                            fontSize = 12.sp,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                                        )
-                                    }
-                                },
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(10.dp)
-                            )
-                        }
-                    }
-                } else {
-                    Column(
                         verticalArrangement = Arrangement.spacedBy(6.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        availableGroups.chunked(3).forEach { rowGroups ->
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                rowGroups.forEach { grp ->
-                                    val isSelected = grp == selectedClassGroup
-                                    val displayLabel = grp.removePrefix("${selectedProgramme.code} ").ifBlank { grp }
-                                    FilterChip(
-                                        selected = isSelected,
-                                        onClick = { selectedClassGroup = grp },
-                                        label = {
-                                            Box(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Text(
-                                                    text = displayLabel,
-                                                    fontSize = 11.sp,
-                                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                                    maxLines = 1
-                                                )
-                                            }
-                                        },
-                                        modifier = Modifier.weight(1f),
-                                        shape = RoundedCornerShape(8.dp)
-                                    )
-                                }
-                                // Pad empty spaces if odd count
-                                repeat(3 - rowGroups.size) {
-                                    Spacer(modifier = Modifier.weight(1f))
-                                }
+                        tracksForYear.forEach { trk ->
+                            val isSelected = trk == selectedTrack
+                            val displayLabel = when (trk.uppercase()) {
+                                "BIOLOGICAL", "BIOLOGY" -> "Biological"
+                                "CHEM MATHS" -> "Chemistry - Maths"
+                                "PHYSICAL" -> "Physical"
+                                "MATHEMATICS" -> "Mathematics"
+                                "CHEMISTRY" -> "Chemistry"
+                                "PHYSICS" -> "Physics"
+                                "ACCOUNTING" -> "Accounting"
+                                "BANKING AND FINANCE" -> "Banking & Finance"
+                                "HUMAN RESOURCE" -> "Human Resource"
+                                "MARKETING" -> "Marketing"
+                                "PROCUREMENT" -> "Procurement"
+                                "SUSTAINABLE RURAL DEVELOPMENT" -> "Rural Development"
+                                "URBAN POLICY" -> "Urban Policy"
+                                "BIOLOGY-CHEMISTRY" -> "Biology - Chemistry"
+                                "CHEMISTRY- MATHS" -> "Chemistry - Maths"
+                                "PHYSICS-MATHS" -> "Physics - Maths"
+                                else -> trk
                             }
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = { selectedTrack = trk },
+                                label = {
+                                    Text(
+                                        text = displayLabel,
+                                        fontSize = 12.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                    )
+                                },
+                                shape = RoundedCornerShape(10.dp)
+                            )
                         }
                     }
                 }
