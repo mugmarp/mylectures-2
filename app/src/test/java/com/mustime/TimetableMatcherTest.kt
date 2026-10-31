@@ -132,8 +132,8 @@ class TimetableMatcherTest {
         // Verify key precomputed counts
         assertEquals(17, TimetableMatcher.PRECOMPUTED_GROUP_COUNTS["MBR I"])
         assertEquals(12, TimetableMatcher.PRECOMPUTED_GROUP_COUNTS["BGWH III"])
-        assertEquals(15, TimetableMatcher.PRECOMPUTED_GROUP_COUNTS["BS III"])
-        assertEquals(18, TimetableMatcher.PRECOMPUTED_GROUP_COUNTS["DLT II"])
+        assertEquals(13, TimetableMatcher.PRECOMPUTED_GROUP_COUNTS["BS BIOLOGICAL III"])
+        assertEquals(6, TimetableMatcher.PRECOMPUTED_GROUP_COUNTS["DLT BIOLOGY II"])
         assertEquals(17, TimetableMatcher.PRECOMPUTED_GROUP_COUNTS["BBA II"])
 
         // Verify BBA TAXATION II was removed
@@ -149,7 +149,7 @@ class TimetableMatcherTest {
             tracks = mapOf("II" to listOf("BIOLOGY", "CHEMISTRY", "PHYSICS"))
         )
         val dltGroups = dlt.allGroups
-        assertEquals(listOf("DLT I", "DLT II", "DLT BIOLOGY II", "DLT CHEMISTRY II", "DLT PHYSICS II"), dltGroups)
+        assertEquals(listOf("DLT I", "DLT BIOLOGY II", "DLT CHEMISTRY II", "DLT PHYSICS II"), dltGroups)
 
         val bgwh = com.mustime.features.onboarding.Programme(
             code = "BGWH",
