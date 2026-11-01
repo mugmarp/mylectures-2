@@ -5,4 +5,8 @@
     <files-path
         name="attachments"
         path="attachments/" />
+    <!-- Exposes downloaded update APKs in cache/updates/ via FileProvider to Android Package Installer -->
+    <cache-path
+        name="updates"
+        path="updates/" />
 </paths>

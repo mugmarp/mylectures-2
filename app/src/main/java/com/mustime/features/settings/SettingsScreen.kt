@@ -2,6 +2,8 @@ package com.mustime.features.settings
 
 import android.content.Intent
 import android.provider.Settings
+import android.widget.Toast
+import com.mustime.BuildConfig
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -47,6 +49,7 @@ import com.mustime.ui.AccentColors
 import com.mustime.ui.LocalAppTheme
 import com.mustime.ui.ThemeMode
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsScreen(
@@ -119,6 +122,27 @@ fun SettingsScreen(
     var showCustomLeadDialog by remember { mutableStateOf(false) }
     var customLeadInput by remember { mutableStateOf("") }
     var showVersionDetailsDialog by remember { mutableStateOf(false) }
+    var availableUpdateInfo by remember { mutableStateOf<com.mustime.core.update.AppUpdateInfo?>(null) }
+    var isCheckingForAppUpdate by remember { mutableStateOf(false) }
+    var showAppUpdateDialog by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    val checkUpdateAction = {
+        if (!isCheckingForAppUpdate) {
+            isCheckingForAppUpdate = true
+            scope.launch {
+                val result = com.mustime.core.update.InAppUpdateManager.checkForUpdate(context)
+                isCheckingForAppUpdate = false
+                val update = result.getOrNull()
+                if (update != null) {
+                    availableUpdateInfo = update
+                    showAppUpdateDialog = true
+                } else {
+                    Toast.makeText(context, "Lectures is up to date (v${BuildConfig.VERSION_NAME})", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
 
     // Custom Alarm Lead Time Dialog
     if (showCustomLeadDialog) {
@@ -1339,6 +1363,89 @@ fun SettingsScreen(
                             Text(badgeText, color = badgeColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                     }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+
+                    // App Updates & Releases row
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable {
+                                if (availableUpdateInfo != null) {
+                                    showAppUpdateDialog = true
+                                } else {
+                                    checkUpdateAction()
+                                }
+                            }
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.SystemUpdate,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(14.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Lectures App Releases",
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 15.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = if (availableUpdateInfo != null) {
+                                    "Update available: v${availableUpdateInfo?.versionName} · Tap to install"
+                                } else {
+                                    "v${BuildConfig.VERSION_NAME} (Build ${BuildConfig.VERSION_CODE}) · Tap to check updates"
+                                },
+                                fontSize = 12.sp,
+                                color = if (availableUpdateInfo != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        if (isCheckingForAppUpdate) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        } else if (availableUpdateInfo != null) {
+                            Box(
+                                modifier = Modifier
+                                    .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 10.dp, vertical = 4.dp)
+                            ) {
+                                Text(
+                                    text = "UPDATE",
+                                    color = MaterialTheme.colorScheme.onPrimary,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 10.dp, vertical = 4.dp)
+                            ) {
+                                Text(
+                                    text = "CHECK",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
@@ -1532,6 +1639,13 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(48.dp))
         }
+    }
+
+    if (showAppUpdateDialog && availableUpdateInfo != null) {
+        com.mustime.core.update.AppUpdateDialog(
+            updateInfo = availableUpdateInfo!!,
+            onDismiss = { showAppUpdateDialog = false }
+        )
     }
 }
 

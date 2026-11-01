@@ -69,6 +69,16 @@ class TimetableSyncWorker(
                 Log.d(TAG, "Timetable is up to date (${localMeta?.versionLabel})")
             }
 
+            // 4. Also check for new App Releases (sideload update check)
+            try {
+                val updateResult = com.mustime.core.update.InAppUpdateManager.checkForUpdate(applicationContext)
+                updateResult.getOrNull()?.let { updateInfo ->
+                    NotificationHelper.showAppUpdateNotification(applicationContext, updateInfo)
+                }
+            } catch (e: Exception) {
+                Log.d(TAG, "Periodic app update check skipped: ${e.message}")
+            }
+
             Result.success()
         } catch (e: Exception) {
             Log.e(TAG, "Error executing TimetableSyncWorker: ${e.message}", e)

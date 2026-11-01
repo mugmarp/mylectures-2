@@ -585,6 +585,77 @@ object NotificationHelper {
         }
     }
 
+    /**
+     * Builds and displays a notification alerting students when a confirmed app release is available.
+     * Tapping opens MainActivity with extras to immediately display the seamless InAppUpdateDialog.
+     */
+    fun showAppUpdateNotification(
+        context: Context,
+        updateInfo: com.mustime.core.update.AppUpdateInfo
+    ) {
+        createNotificationChannels(context)
+
+        val notificationId = 998899
+
+        val openAppIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("EXTRA_SHOW_UPDATE_DIALOG", true)
+            putExtra("EXTRA_UPDATE_VERSION_CODE", updateInfo.versionCode)
+            putExtra("EXTRA_UPDATE_VERSION_NAME", updateInfo.versionName)
+            putExtra("EXTRA_UPDATE_RELEASE_NOTES", updateInfo.releaseNotes)
+            putExtra("EXTRA_UPDATE_DOWNLOAD_URL", updateInfo.downloadUrl)
+            putExtra("EXTRA_UPDATE_FILE_SIZE", updateInfo.fileSizeBytes)
+            putExtra("EXTRA_UPDATE_SHA256", updateInfo.sha256)
+            putExtra("EXTRA_UPDATE_IS_MANDATORY", updateInfo.isMandatory)
+        }
+        val contentPendingIntent = PendingIntent.getActivity(
+            context,
+            notificationId,
+            openAppIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val title = "New Update Available: v${updateInfo.versionName}"
+        val content = if (updateInfo.releaseNotes.isNotBlank()) {
+            updateInfo.releaseNotes.lines().firstOrNull() ?: "Tap to download and install inside the app."
+        } else {
+            "Tap to download and install the new version inside the app."
+        }
+        val detailedText = buildString {
+            append("Version ${updateInfo.versionName} is ready.")
+            if (updateInfo.releaseNotes.isNotBlank()) {
+                append("\n\n").append(updateInfo.releaseNotes)
+            }
+            append("\n\nTap to download directly inside Lectures. All your notes, tasks, and settings are preserved.")
+        }
+
+        val builder = NotificationCompat.Builder(context, CHANNEL_TIMETABLE_UPDATES)
+            .setSmallIcon(R.drawable.ic_stat_notification)
+            .setContentTitle(title)
+            .setContentText(content)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(detailedText))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
+            .setAutoCancel(true)
+            .setContentIntent(contentPendingIntent)
+            .setColor(Color.parseColor("#2563EB"))
+            .addAction(R.drawable.ic_stat_notification, "Update Now", contentPendingIntent)
+
+        try {
+            NotificationManagerCompat.from(context).notify(notificationId, builder.build())
+            Log.d(TAG, "App update notification posted: v${updateInfo.versionName}")
+            InAppNotificationStore.getInstance(context).recordNotification(
+                type = NotificationItemType.SYSTEM,
+                title = title,
+                message = updateInfo.releaseNotes.ifBlank { "New version v${updateInfo.versionName} available." },
+                relatedKey = "app_update_${updateInfo.versionCode}",
+                navTab = 0
+            )
+        } catch (e: SecurityException) {
+            Log.e(TAG, "SecurityException while posting app update notification: ${e.message}")
+        }
+    }
+
     fun cancelNotification(context: Context, notificationId: Int) {
         try {
             NotificationManagerCompat.from(context).cancel(notificationId)
