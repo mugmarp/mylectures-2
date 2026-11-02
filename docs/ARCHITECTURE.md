@@ -51,7 +51,7 @@
 
 ## 2. Core Architectural Layers
 
-### A. UI Layer (`com.mustime.ui` & `com.mustime.features.*.ui`)
+### A. UI Layer (`com.lectures.ui` & `com.lectures.features.*.ui`)
 * **Framework**: 100% Jetpack Compose using Material Design 3 (M3).
 * **Root Navigation**: Handled inside `MainScaffold.kt`. A custom floating bottom navigation pill dock overlays content and allows switching between four primary destinations:
   1. `0 -> TimetableRoute` (Timetable Screen)
@@ -65,7 +65,7 @@
 * **Component Architecture**: Reusable UI components (`DedicatedPickers.kt`, `TimelineClassCard`, `LectureCard`, `ActivityCard`) are separated into modular, testable composables.
 * **Two-Step Hierarchy Selector**: Academic profile switching employs a structured 2-step hierarchy: **Year of Study** chips followed by **Subject Track / Specialization** `FlowRow` chips with full labels.
 
-### B. ViewModel Layer (`com.mustime.features.*`)
+### B. ViewModel Layer (`com.lectures.features.*`)
 * Each screen possesses a dedicated `ViewModel` tied to its lifecycle:
   * `TimetableViewModel`: Coordinates loaded schedule entries, day selection, live countdown calculations, and temporary Preview mode state.
   * `CalendarViewModel`: Manages month grid matrices, days offset, and unified event aggregation.
@@ -74,7 +74,7 @@
   * `SettingsViewModel`: Controls academic profile switching, programme selection, dark/light theme toggling, and legal/disclaimer dialogs.
 * ViewModels never hold references to Views, Composables, or Android Activities, avoiding memory leaks.
 
-### C. Data & Repository Layer (`com.mustime.features.timetable.data`)
+### C. Data & Repository Layer (`com.lectures.features.timetable.data`)
 * **`TimetableRepository`**:
   * Central coordination point for all application data.
   * Exposes public methods for saving notes, adding custom events, toggling task completion, and retrieving timetable sessions.
@@ -86,7 +86,7 @@
   * Pre-populates the local database on initial launch from bundled academic assets (`timetable_export.json`).
   * Employs MD5 and ETag tracking (`ETagStore`) to avoid redundant parsing.
 
-### D. Timetable Matching & Specialization Architecture (`com.mustime.features.timetable.domain`)
+### D. Timetable Matching & Specialization Architecture (`com.lectures.features.timetable.domain`)
 * **`TimetableMatcher`**:
   * Implements `entryMatchesGroup(entry, group)` matching both primary `program_group` and attendee `shared_with`.
   * **Un-Prefixed Group Aliases (`DIRECT_DB_GROUPS`)**:
@@ -112,10 +112,10 @@
 
 ## 3. Background Processing & Alarms
 
-* **`AlarmScheduler`** (`com.mustime.core.alarm.AlarmScheduler`):
+* **`AlarmScheduler`** (`com.lectures.core.alarm.AlarmScheduler`):
   * Schedules alerts for upcoming university classes (e.g. 10m, 15m, or 30m prior to start time).
   * Uses `AlarmManager.setExactAndAllowWhileIdle` to guarantee delivery even when the device is in Doze mode.
-* **`TaskAlarmScheduler`** (`com.mustime.core.alarm.TaskAlarmScheduler`):
+* **`TaskAlarmScheduler`** (`com.lectures.core.alarm.TaskAlarmScheduler`):
   * Schedules alerts for task due dates.
 * **`AlarmReceiver`**:
   * `BroadcastReceiver` that captures alarm triggers and emits rich Android notifications with channel groupings and deep links.

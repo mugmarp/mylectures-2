@@ -10,11 +10,11 @@ plugins {
 }
 
 android {
-  namespace = "com.mustime"
+  namespace = "com.lectures"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
   defaultConfig {
-    applicationId = "com.lectures.must"
+    applicationId = "com.lectures"
     minSdk = 26
     targetSdk = 35
     versionCode = 3
@@ -66,7 +66,14 @@ android {
     compose = true
     buildConfig = true
   }
-  testOptions { unitTests { isIncludeAndroidResources = true } }
+  testOptions {
+    unitTests {
+      isIncludeAndroidResources = true
+      all {
+        it.systemProperty("robolectric.dependency.dir", "/home/appuser/.m2/repository/org/robolectric/android-all-instrumented/16-robolectric-13921718-i7")
+      }
+    }
+  }
   dependenciesInfo {
     includeInApk = false
     includeInBundle = true

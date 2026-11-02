@@ -194,7 +194,7 @@ Room DAOs return `Flow<List<T>>`, so any write propagates to the UI without manu
 ## Project structure
 
 ```
-app/src/main/java/com/mustime/
+app/src/main/java/com/lectures/
 ├── MainActivity.kt
 ├── TimetableApplication.kt        DI wiring, Room init, data load
 ├── core/

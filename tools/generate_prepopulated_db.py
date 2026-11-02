@@ -146,7 +146,7 @@ def resolve_floor(room: str | None, rooms: list[tuple[set[str], int]]) -> int | 
 # --------------------------------------------------------------------------
 
 def load_schema(schema_dir: Path) -> dict:
-    path = schema_dir / "com.mustime.core.database.AppDatabase" / f"{DB_VERSION}.json"
+    path = schema_dir / "com.lectures.core.database.AppDatabase" / f"{DB_VERSION}.json"
     if not path.exists():
         sys.exit(
             f"ERROR: exported schema not found at {path}\n"

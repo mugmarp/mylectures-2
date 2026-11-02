@@ -49,24 +49,24 @@
 -dontwarn kotlinx.serialization.**
 
 # --- Application Models & Data Layer ---
--keep class com.mustime.features.timetable.model.** { *; }
--keep class com.mustime.features.timetable.domain.** { *; }
--keep class com.mustime.features.timetable.data.** { *; }
--keep class com.mustime.features.notes.domain.** { *; }
--keep class com.mustime.features.rooms.model.** { *; }
--keep class com.mustime.features.rooms.UniversityDirectory { *; }
--keep class com.mustime.features.rooms.RoomDirectoryKt { *; }
--keep class com.mustime.features.tasks.Assignment { *; }
--keep class com.mustime.features.tasks.TaskItem { *; }
--keep class com.mustime.features.tasks.TaskPriority { *; }
--keep class com.mustime.features.tasks.TaskCategory { *; }
+-keep class com.lectures.features.timetable.model.** { *; }
+-keep class com.lectures.features.timetable.domain.** { *; }
+-keep class com.lectures.features.timetable.data.** { *; }
+-keep class com.lectures.features.notes.domain.** { *; }
+-keep class com.lectures.features.rooms.model.** { *; }
+-keep class com.lectures.features.rooms.UniversityDirectory { *; }
+-keep class com.lectures.features.rooms.RoomDirectoryKt { *; }
+-keep class com.lectures.features.tasks.Assignment { *; }
+-keep class com.lectures.features.tasks.TaskItem { *; }
+-keep class com.lectures.features.tasks.TaskPriority { *; }
+-keep class com.lectures.features.tasks.TaskCategory { *; }
 
 # --- Alarms, Receivers, and System Services ---
--keep class com.mustime.core.alarm.** { *; }
--keep class com.mustime.core.notification.** { *; }
--keep class com.mustime.core.auth.** { *; }
--keep class com.mustime.core.sync.** { *; }
--keep class com.mustime.features.timetable.receiver.** { *; }
+-keep class com.lectures.core.alarm.** { *; }
+-keep class com.lectures.core.notification.** { *; }
+-keep class com.lectures.core.auth.** { *; }
+-keep class com.lectures.core.sync.** { *; }
+-keep class com.lectures.features.timetable.receiver.** { *; }
 
 # --- Firebase & Google Play Services ---
 -dontwarn com.google.firebase.**

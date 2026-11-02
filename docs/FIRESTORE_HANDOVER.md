@@ -141,7 +141,7 @@ The client's `SyncRepository` and `TimetableVersionResolver` continuously listen
    - Anonymous authentication is unprovisioned and prohibited on this backend.
    - Any rule requiring `request.auth != null` will fail for guest users. Guest users must remain fully functional using local SQLite without crashing or hanging.
 2. **Google Sign-In Implementation:**
-   - Real authentication is implemented in `com.mustime.core.auth.AuthRepository` via Jetpack **Credential Manager** (`GetSignInWithGoogleOption`).
+   - Real authentication is implemented in `com.lectures.core.auth.AuthRepository` via Jetpack **Credential Manager** (`GetSignInWithGoogleOption`).
    - The SHA-1 and SHA-256 fingerprint hashes from the debug and release keystores must be registered in the Firebase Console under Project Settings -> Android App (`com.aistudio.lectures.app`).
    - The Web Client ID for Credential Manager should be populated in `strings.xml` (`default_web_client_id`) when Google Sign-In is activated in the UI.
 

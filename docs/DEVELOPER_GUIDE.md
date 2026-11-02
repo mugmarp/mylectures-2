@@ -57,14 +57,14 @@ Timetable schedules are bundled inside the assets folder:
 
 ### Steps to Add:
 1. Append new JSON entries with the corresponding `programmeGroup` string.
-2. In `app/src/main/java/com/mustime/features/onboarding/FacultyData.kt`, ensure the faculty, programme name, and years are registered in the `FACULTIES` list.
+2. In `app/src/main/java/com/lectures/features/onboarding/FacultyData.kt`, ensure the faculty, programme name, and years are registered in the `FACULTIES` list.
 3. Upon launch, `DataLoader.kt` automatically verifies hashes and updates SQLite via Room.
 
 ---
 
 ## 3. UI Styling & Material 3 Theming
 
-* **Theme Definitions**: `app/src/main/java/com/mustime/ui/theme/Theme.kt`
+* **Theme Definitions**: `app/src/main/java/com/lectures/ui/Theme.kt`
 * **Color System**:
   * Primary Blue: `Color(0xFF0052CC)`
   * Dark Surface Base: `Color(0xFF0F172A)`

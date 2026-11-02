@@ -10,7 +10,7 @@ This document details the local database architecture implemented using **Androi
 
 ## 1. Overview
 
-* **Database Class**: `com.mustime.core.database.AppDatabase`
+* **Database Class**: `com.lectures.core.database.AppDatabase`
 * **Version**: `9`
 * **Entities**:
   1. `TimetableEntry` (`timetable`)
