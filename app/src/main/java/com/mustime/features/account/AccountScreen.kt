@@ -74,10 +74,6 @@ fun AccountScreen(
     val tasksCount by (app?.database?.assignmentDao()?.getAll()?.collectAsState(initial = emptyList())
         ?: remember { mutableStateOf(emptyList()) })
 
-    val savedProgramme = remember {
-        app?.etagStore?.getSavedProgramme() ?: "Student"
-    }
-
     Scaffold(
         topBar = {
             FloatingIslandTopBar {
@@ -189,7 +185,7 @@ fun AccountScreen(
                         Spacer(modifier = Modifier.height(14.dp))
 
                         Text(
-                            text = "Cloud Backup & Multi-Device Sync",
+                            text = "Cloud Backup & Sync",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
                             textAlign = TextAlign.Center,
@@ -199,7 +195,7 @@ fun AccountScreen(
                         Spacer(modifier = Modifier.height(6.dp))
 
                         Text(
-                            text = "Sign in with your Google Account to preserve your coursework notes, assignments, and study sessions across reinstalls and devices.",
+                            text = "Keep your notes, tasks, and coursework backed up safely.",
                             fontSize = 13.sp,
                             color = textMuted,
                             textAlign = TextAlign.Center,
@@ -472,79 +468,6 @@ fun AccountScreen(
                     }
                 }
             }
-
-            // Academic Profile Information Card
-            Card(
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = surfaceColor),
-                border = BorderStroke(1.dp, borderSubtle),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "Current Academic Profile",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text("Enrolled Programme", fontSize = 12.sp, color = textMuted)
-                            Text(savedProgramme, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
-                        }
-                        Box(
-                            modifier = Modifier
-                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), RoundedCornerShape(8.dp))
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Text("MUST", color = MaterialTheme.colorScheme.primary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-            }
-
-            // Privacy & Cloud Sync Explainer Card
-            Card(
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = surfaceColor),
-                border = BorderStroke(1.dp, borderSubtle),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Text(
-                        text = "Sync Details & Data Ownership",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-
-                    SyncFeaturePoint(
-                        icon = Icons.Outlined.Shield,
-                        title = "Zero-Trust Isolation",
-                        description = "Your personal notes, custom events, and task alarms are strictly partitioned by your Google account ID."
-                    )
-
-                    SyncFeaturePoint(
-                        icon = Icons.Outlined.OfflinePin,
-                        title = "Offline-First Resilience",
-                        description = "Edits made without internet are preserved locally and seamlessly merged non-destructively upon reconnection."
-                    )
-
-                    SyncFeaturePoint(
-                        icon = Icons.Outlined.DeleteSweep,
-                        title = "Automated Garbage Collection",
-                        description = "Soft-deleted records are automatically pruned after 30 days to keep your device storage light and fast."
-                    )
-                }
-            }
         }
     }
 
@@ -637,32 +560,6 @@ private fun DashboardStatItem(
                 fontSize = 11.sp,
                 color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
             )
-        }
-    }
-}
-
-@Composable
-private fun SyncFeaturePoint(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    title: String,
-    description: String
-) {
-    val isDark = LocalAppTheme.current.isDark
-    val textMuted = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
-
-    Row(verticalAlignment = Alignment.Top) {
-        Box(
-            modifier = Modifier
-                .size(32.dp)
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-        }
-        Spacer(modifier = Modifier.width(12.dp))
-        Column {
-            Text(title, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
-            Text(description, fontSize = 12.sp, color = textMuted, lineHeight = 16.sp)
         }
     }
 }

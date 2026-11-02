@@ -751,19 +751,10 @@ fun SettingsScreen(
                     modifier = Modifier.padding(18.dp).fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Default.School, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
-                    }
-                    Spacer(modifier = Modifier.width(16.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(programmeDisplayName, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface, maxLines = 2)
+                        Text(programmeDisplayName, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
                         Spacer(modifier = Modifier.height(2.dp))
-                        Text("$activeProgramme • $facultyDisplayName", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("$activeProgramme • $facultyDisplayName", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Surface(
                         shape = RoundedCornerShape(8.dp),
@@ -1020,30 +1011,16 @@ fun SettingsScreen(
                         .padding(18.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(42.dp)
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Outlined.MusicNote,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(14.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            "Notification Sounds, Ringtones & Vibration",
+                            "Notification Sounds",
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 14.sp,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            "Configure tone, vibration, pop-on-screen & alert priority in Android System Settings",
+                            "System ringtones, vibration & alert priority",
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -1081,45 +1058,27 @@ fun SettingsScreen(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(16.dp))
                         .clickable { currentSubScreen = SettingsSubScreen.APPEARANCE }
-                        .padding(16.dp),
+                        .padding(18.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Palette,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(14.dp))
-                        Column {
-                            Text(
-                                text = "Appearance & Theme",
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 15.sp,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = when (uiState.themeMode) {
-                                    ThemeMode.LIGHT -> "Light · Bright & Crisp"
-                                    ThemeMode.DARK -> "Dark · Deep Comfort"
-                                    ThemeMode.SYSTEM -> "System · Follows Device"
-                                },
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Appearance & Theme",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 15.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = when (uiState.themeMode) {
+                                ThemeMode.LIGHT -> "Light · Bright & Crisp"
+                                ThemeMode.DARK -> "Dark · Deep Comfort"
+                                ThemeMode.SYSTEM -> "System · Follows Device"
+                            },
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                     Surface(
                         shape = RoundedCornerShape(8.dp),
@@ -1598,8 +1557,6 @@ fun SettingsScreen(
                             .padding(vertical = 8.dp, horizontal = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.Feedback, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-                        Spacer(modifier = Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text("Anonymous Feedback & Bugs", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
@@ -1640,8 +1597,6 @@ fun SettingsScreen(
                             .padding(vertical = 8.dp, horizontal = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.VerifiedUser, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-                        Spacer(modifier = Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text("Non-Affiliation Disclaimer", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                             Text("Independent app — not affiliated with Mbarara University (MUST)", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1671,8 +1626,6 @@ fun SettingsScreen(
                             .padding(vertical = 8.dp, horizontal = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.Gavel, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-                        Spacer(modifier = Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text("Disclaimer & Terms", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                             Text("Permitted use, warranty disclaimers & academic policies", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1702,8 +1655,6 @@ fun SettingsScreen(
                             .padding(vertical = 8.dp, horizontal = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.Security, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-                        Spacer(modifier = Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text("Privacy Policy", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                             Text("Local-first SQLite storage & privacy policy", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1872,15 +1823,12 @@ private fun AppearanceSettingsView(
     appTheme: AppThemeState,
     onSelectThemeMode: (ThemeMode) -> Unit
 ) {
-    val scrollState = rememberScrollState()
-
     Column(
         modifier = modifier
-            .verticalScroll(scrollState)
-            .padding(vertical = 12.dp)
+            .padding(vertical = 16.dp)
     ) {
         SectionHeader("THEME MODE")
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         Card(
             modifier = Modifier
@@ -1890,165 +1838,49 @@ private fun AppearanceSettingsView(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "Select your preferred appearance mode. System Default follows your device's day/night schedule automatically.",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    lineHeight = 17.sp
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                ThemeSelectionCard(
+                    title = "Light",
+                    subtitle = "Clean & bright",
+                    icon = Icons.Default.LightMode,
+                    isSelected = appTheme.themeMode == ThemeMode.LIGHT,
+                    previewBgColor = Color(0xFFF8FAFC),
+                    previewCardColor = Color.White,
+                    previewTextColor = Color(0xFF0F172A),
+                    modifier = Modifier.weight(1f),
+                    onClick = { onSelectThemeMode(ThemeMode.LIGHT) }
                 )
 
-                Spacer(modifier = Modifier.height(14.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    ThemeSelectionCard(
-                        title = "Light",
-                        subtitle = "Clean & bright",
-                        icon = Icons.Default.LightMode,
-                        isSelected = appTheme.themeMode == ThemeMode.LIGHT,
-                        previewBgColor = Color(0xFFF8FAFC),
-                        previewCardColor = Color.White,
-                        previewTextColor = Color(0xFF0F172A),
-                        modifier = Modifier.weight(1f),
-                        onClick = { onSelectThemeMode(ThemeMode.LIGHT) }
-                    )
-
-                    ThemeSelectionCard(
-                        title = "Dark",
-                        subtitle = "Night contrast",
-                        icon = Icons.Default.DarkMode,
-                        isSelected = appTheme.themeMode == ThemeMode.DARK,
-                        previewBgColor = Color(0xFF0B1120),
-                        previewCardColor = Color(0xFF1E293B),
-                        previewTextColor = Color(0xFFF1F5F9),
-                        modifier = Modifier.weight(1f),
-                        onClick = { onSelectThemeMode(ThemeMode.DARK) }
-                    )
-
-                    ThemeSelectionCard(
-                        title = "System",
-                        subtitle = "Auto adapt",
-                        icon = Icons.Default.BrightnessAuto,
-                        isSelected = appTheme.themeMode == ThemeMode.SYSTEM,
-                        previewBgColor = Color(0xFFE2E8F0),
-                        previewCardColor = Color(0xFF334155),
-                        previewTextColor = Color(0xFF1E293B),
-                        modifier = Modifier.weight(1f),
-                        onClick = { onSelectThemeMode(ThemeMode.SYSTEM) }
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        SectionHeader("LIVE INTERFACE PREVIEW")
-        Spacer(modifier = Modifier.height(6.dp))
-
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-        ) {
-            Column(modifier = Modifier.padding(18.dp)) {
-                Text(
-                    text = "Sample Lecture Card",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                    letterSpacing = 0.5.sp
+                ThemeSelectionCard(
+                    title = "Dark",
+                    subtitle = "Night contrast",
+                    icon = Icons.Default.DarkMode,
+                    isSelected = appTheme.themeMode == ThemeMode.DARK,
+                    previewBgColor = Color(0xFF0B1120),
+                    previewCardColor = Color(0xFF1E293B),
+                    previewTextColor = Color(0xFFF1F5F9),
+                    modifier = Modifier.weight(1f),
+                    onClick = { onSelectThemeMode(ThemeMode.DARK) }
                 )
-                Spacer(modifier = Modifier.height(10.dp))
 
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "BSE 2101 · Software Engineering",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Surface(
-                                shape = RoundedCornerShape(6.dp),
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                            ) {
-                                Text(
-                                    text = "08:00 - 10:00",
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
-                                )
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "Auditorium 2 · Kihumuro Campus",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        SectionHeader("READABILITY & CONTRAST")
-        Spacer(modifier = Modifier.height(6.dp))
-
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.Palette,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text(
-                        text = "Material 3 Adaptive Theming",
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = "Color schemes and surfaces are optimized for outdoor legibility in sunlight as well as late-night lecture prep with zero eye-strain.",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    lineHeight = 17.sp
+                ThemeSelectionCard(
+                    title = "System",
+                    subtitle = "Auto adapt",
+                    icon = Icons.Default.BrightnessAuto,
+                    isSelected = appTheme.themeMode == ThemeMode.SYSTEM,
+                    previewBgColor = Color(0xFFE2E8F0),
+                    previewCardColor = Color(0xFF334155),
+                    previewTextColor = Color(0xFF1E293B),
+                    modifier = Modifier.weight(1f),
+                    onClick = { onSelectThemeMode(ThemeMode.SYSTEM) }
                 )
             }
         }
-
-        Spacer(modifier = Modifier.height(40.dp))
     }
 }
 
