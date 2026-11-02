@@ -65,10 +65,17 @@ object InAppUpdateManager {
                 return@withContext Result.success(null)
             }
 
-            val currentVersionCode = BuildConfig.VERSION_CODE
-            Log.d(TAG, "Local build versionCode=$currentVersionCode, Remote versionCode=${updateInfo.versionCode}")
+            val isNewer = isNewerRelease(
+                remoteVersionName = updateInfo.versionName,
+                remoteVersionCode = updateInfo.versionCode,
+                localVersionName = BuildConfig.VERSION_NAME,
+                localVersionCode = BuildConfig.VERSION_CODE
+            )
 
-            if (updateInfo.versionCode > currentVersionCode) {
+            Log.d(TAG, "Local build ${BuildConfig.VERSION_NAME} (code=${BuildConfig.VERSION_CODE}), " +
+                    "Remote release ${updateInfo.versionName} (code=${updateInfo.versionCode}), isNewer=$isNewer")
+
+            if (isNewer) {
                 Result.success(updateInfo)
             } else {
                 Result.success(null)
@@ -341,13 +348,55 @@ object InAppUpdateManager {
         }
     }
 
-    private fun parseVersionCodeFromTag(tag: String): Int {
-        val parts = tag.split(".").mapNotNull { it.filter { char -> char.isDigit() }.toIntOrNull() }
-        return when (parts.size) {
-            3 -> (parts[0] * 10000) + (parts[1] * 100) + parts[2]
-            2 -> (parts[0] * 10000) + (parts[1] * 100)
-            1 -> parts[0]
-            else -> 1
+    /**
+     * Compares two semantic version strings (e.g. "1.1.2" vs "1.1.1").
+     * Returns:
+     *   > 0 if v1 is newer than v2
+     *   < 0 if v1 is older than v2 (downgrade)
+     *   0 if equal
+     */
+    fun compareSemVer(v1: String, v2: String): Int {
+        val clean1 = v1.trim().removePrefix("v").substringBefore("-")
+        val clean2 = v2.trim().removePrefix("v").substringBefore("-")
+
+        val parts1 = clean1.split(".").map { it.filter { c -> c.isDigit() }.toIntOrNull() ?: 0 }
+        val parts2 = clean2.split(".").map { it.filter { c -> c.isDigit() }.toIntOrNull() ?: 0 }
+
+        val maxLen = maxOf(parts1.size, parts2.size, 3)
+        for (i in 0 until maxLen) {
+            val p1 = parts1.getOrElse(i) { 0 }
+            val p2 = parts2.getOrElse(i) { 0 }
+            if (p1 != p2) {
+                return p1.compareTo(p2)
+            }
         }
+        return 0
+    }
+
+    /**
+     * Determines whether a remote release is strictly newer than the currently installed app.
+     * Prevents any downgrades or re-installing the identical version.
+     */
+    fun isNewerRelease(
+        remoteVersionName: String,
+        remoteVersionCode: Int,
+        localVersionName: String = BuildConfig.VERSION_NAME,
+        localVersionCode: Int = BuildConfig.VERSION_CODE
+    ): Boolean {
+        val semVerCmp = compareSemVer(remoteVersionName, localVersionName)
+        if (semVerCmp > 0) {
+            return true // Strictly newer version name (e.g. 1.1.2 > 1.1.1)
+        }
+        if (semVerCmp < 0) {
+            return false // Older version name (e.g. 1.1.0 < 1.1.1) -> DOWNGRADE FORBIDDEN
+        }
+        // Same semantic version: only allow if remote explicitly specifies a strictly higher versionCode
+        return remoteVersionCode > localVersionCode
+    }
+
+    private fun parseVersionCodeFromTag(tag: String): Int {
+        // Tag names typically don't carry an Android integer versionCode.
+        // Returning 0 allows isNewerRelease to compare semantic versioning cleanly.
+        return 0
     }
 }

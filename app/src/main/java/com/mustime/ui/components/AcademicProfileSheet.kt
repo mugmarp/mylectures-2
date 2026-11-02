@@ -12,7 +12,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
@@ -358,16 +357,20 @@ fun AcademicProfileSheet(
                             color = textSub
                         )
                     }
-                    Icon(
-                        Icons.AutoMirrored.Outlined.ArrowForward,
-                        contentDescription = null,
-                        tint = textSub,
-                        modifier = Modifier.size(18.dp)
-                    )
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = PrimaryBlue.copy(alpha = 0.12f)
+                    ) {
+                        Text(
+                            text = "Switch",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = PrimaryBlue,
+                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
+                        )
+                    }
                 }
             }
-
-
 
             Spacer(modifier = Modifier.height(12.dp))
 
@@ -414,12 +417,18 @@ fun AcademicProfileSheet(
                             color = textSub
                         )
                     }
-                    Icon(
-                        Icons.AutoMirrored.Outlined.ArrowForward,
-                        contentDescription = null,
-                        tint = textSub,
-                        modifier = Modifier.size(18.dp)
-                    )
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFF8B5CF6).copy(alpha = 0.12f)
+                    ) {
+                        Text(
+                            text = "Open",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF8B5CF6),
+                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
+                        )
+                    }
                 }
             }
         }
@@ -628,26 +637,48 @@ fun QuickChangeProgrammeDialog(
                         FACULTIES.forEach { faculty ->
                             val isSelected = faculty.id == selectedFacultyId
                             DropdownMenuItem(
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    .padding(horizontal = 4.dp, vertical = 2.dp)
                                     .clip(RoundedCornerShape(8.dp))
                                     .background(
-                                        if (isSelected) (if (isDark) primaryColor.copy(alpha = 0.22f) else primaryColor.copy(alpha = 0.12f))
+                                        if (isSelected) (if (isDark) primaryColor.copy(alpha = 0.28f) else primaryColor.copy(alpha = 0.16f))
                                         else Color.Transparent
                                     )
                                     .border(
-                                        width = if (isSelected) 1.dp else 0.dp,
-                                        color = if (isSelected) (if (isDark) primaryColor.copy(alpha = 0.5f) else primaryColor.copy(alpha = 0.35f)) else Color.Transparent,
+                                        width = if (isSelected) 1.5.dp else 0.dp,
+                                        color = if (isSelected) primaryColor else Color.Transparent,
                                         shape = RoundedCornerShape(8.dp)
                                     ),
                                 text = {
-                                    Text(
-                                        text = faculty.name,
-                                        fontSize = 13.sp,
-                                        fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
-                                        color = if (isSelected) primaryColor else (if (isDark) Color.White else TextPrimaryLight)
-                                    )
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = faculty.name,
+                                            fontSize = 13.sp,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                            color = if (isSelected) primaryColor else (if (isDark) Color.White else TextPrimaryLight),
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        if (isSelected) {
+                                            Surface(
+                                                shape = RoundedCornerShape(4.dp),
+                                                color = primaryColor.copy(alpha = 0.18f)
+                                            ) {
+                                                Text(
+                                                    text = "Selected",
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = primaryColor,
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                )
+                                            }
+                                        }
+                                    }
                                 },
                                 onClick = {
                                     selectedFacultyId = faculty.id
@@ -724,32 +755,53 @@ fun QuickChangeProgrammeDialog(
                         selectedFaculty.programmes.forEach { prog ->
                             val isSelected = prog.code == selectedProgrammeCode
                             DropdownMenuItem(
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    .padding(horizontal = 4.dp, vertical = 2.dp)
                                     .clip(RoundedCornerShape(8.dp))
                                     .background(
-                                        if (isSelected) (if (isDark) primaryColor.copy(alpha = 0.22f) else primaryColor.copy(alpha = 0.12f))
+                                        if (isSelected) (if (isDark) primaryColor.copy(alpha = 0.28f) else primaryColor.copy(alpha = 0.16f))
                                         else Color.Transparent
                                     )
                                     .border(
-                                        width = if (isSelected) 1.dp else 0.dp,
-                                        color = if (isSelected) (if (isDark) primaryColor.copy(alpha = 0.5f) else primaryColor.copy(alpha = 0.35f)) else Color.Transparent,
+                                        width = if (isSelected) 1.5.dp else 0.dp,
+                                        color = if (isSelected) primaryColor else Color.Transparent,
                                         shape = RoundedCornerShape(8.dp)
                                     ),
                                 text = {
-                                    Column {
-                                        Text(
-                                            text = "${prog.code} · ${prog.name}",
-                                            fontSize = 13.sp,
-                                            fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
-                                            color = if (isSelected) primaryColor else (if (isDark) Color.White else TextPrimaryLight)
-                                        )
-                                        Text(
-                                            text = "${prog.years} Years Curriculum",
-                                            fontSize = 10.sp,
-                                            color = if (isSelected) primaryColor.copy(alpha = 0.8f) else (if (isDark) Color(0xFF94A3B8) else TextMutedLight)
-                                        )
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = "${prog.code} · ${prog.name}",
+                                                fontSize = 13.sp,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                color = if (isSelected) primaryColor else (if (isDark) Color.White else TextPrimaryLight)
+                                            )
+                                            Text(
+                                                text = "${prog.years} Years Curriculum",
+                                                fontSize = 10.sp,
+                                                color = if (isSelected) primaryColor.copy(alpha = 0.85f) else (if (isDark) Color(0xFF94A3B8) else TextMutedLight)
+                                            )
+                                        }
+                                        if (isSelected) {
+                                            Surface(
+                                                shape = RoundedCornerShape(4.dp),
+                                                color = primaryColor.copy(alpha = 0.18f)
+                                            ) {
+                                                Text(
+                                                    text = "Selected",
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = primaryColor,
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                )
+                                            }
+                                        }
                                     }
                                 },
                                 onClick = {

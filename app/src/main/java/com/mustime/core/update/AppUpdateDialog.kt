@@ -3,6 +3,7 @@ package com.mustime.core.update
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -50,6 +51,7 @@ fun AppUpdateDialog(
     var downloadedApk by remember { mutableStateOf(InAppUpdateManager.getDownloadedUpdateApk(context, updateInfo)) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var showPermissionPrompt by remember { mutableStateOf(false) }
+    var showFullChangelog by remember { mutableStateOf(false) }
 
     fun startDownload() {
         errorMessage = null
@@ -195,14 +197,47 @@ fun AppUpdateDialog(
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
 
-                        Text(
-                            text = updateInfo.releaseNotes.ifBlank { "Performance improvements and bug fixes." },
-                            fontSize = 13.sp,
-                            lineHeight = 18.sp,
-                            color = if (isDark) Color(0xFFE2E8F0) else Color(0xFF334155)
-                        )
+                        val highlights = remember(updateInfo.releaseNotes) {
+                            cleanReleaseHighlights(updateInfo.releaseNotes)
+                        }
+
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            highlights.take(if (showFullChangelog) highlights.size else 4).forEach { item ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.Top
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .padding(top = 6.dp)
+                                            .size(5.dp)
+                                            .background(primaryColor, CircleShape)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = item,
+                                        fontSize = 12.5.sp,
+                                        lineHeight = 17.sp,
+                                        color = if (isDark) Color(0xFFE2E8F0) else Color(0xFF334155)
+                                    )
+                                }
+                            }
+
+                            if (highlights.size > 4) {
+                                Text(
+                                    text = if (showFullChangelog) "Show less" else "Show all (${highlights.size} highlights)",
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = primaryColor,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .clickable { showFullChangelog = !showFullChangelog }
+                                        .padding(vertical = 4.dp)
+                                )
+                            }
+                        }
                     }
                 }
 
@@ -365,4 +400,28 @@ fun AppUpdateDialog(
             }
         }
     }
+}
+
+private fun cleanReleaseHighlights(raw: String): List<String> {
+    if (raw.isBlank()) return listOf("Timetable schedule synchronization and reliability fixes.")
+    val items = mutableListOf<String>()
+    for (line in raw.lines()) {
+        val trimmed = line.trim()
+        if (trimmed.startsWith("-") || trimmed.startsWith("*")) {
+            val clean = trimmed.removePrefix("-").removePrefix("*").trim()
+                .replace("**", "")
+                .replace("__", "")
+            if (clean.isNotBlank() && !clean.startsWith("http", ignoreCase = true)) {
+                items.add(clean)
+            }
+        }
+    }
+    if (items.isEmpty()) {
+        val nonHeaders = raw.lines()
+            .map { it.trim() }
+            .filter { it.isNotBlank() && !it.startsWith("#") && !it.startsWith("http", ignoreCase = true) }
+            .map { it.replace("**", "").replace("__", "") }
+        items.addAll(nonHeaders.take(4))
+    }
+    return if (items.isNotEmpty()) items else listOf("Bug fixes and performance improvements.")
 }

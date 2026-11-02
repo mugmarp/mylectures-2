@@ -3,6 +3,7 @@ package com.mustime.features.settings
 import android.content.Intent
 import android.provider.Settings
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import com.mustime.BuildConfig
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -18,7 +19,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ErrorOutline
@@ -46,10 +46,16 @@ import com.mustime.core.alarm.TaskAlarmScheduler
 import com.mustime.features.onboarding.FacultyCatalog
 import com.mustime.ui.AccentColorNames
 import com.mustime.ui.AccentColors
+import com.mustime.ui.AppThemeState
 import com.mustime.ui.LocalAppTheme
 import com.mustime.ui.ThemeMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+
+enum class SettingsSubScreen {
+    MAIN,
+    APPEARANCE
+}
 
 @Composable
 fun SettingsScreen(
@@ -59,6 +65,12 @@ fun SettingsScreen(
     onOpenAccount: (() -> Unit)? = null,
     onBack: (() -> Unit)? = null
 ) {
+    var currentSubScreen by rememberSaveable { mutableStateOf(SettingsSubScreen.MAIN) }
+
+    BackHandler(enabled = currentSubScreen != SettingsSubScreen.MAIN) {
+        currentSubScreen = SettingsSubScreen.MAIN
+    }
+
     var isAccountScreenOpen by remember { mutableStateOf(false) }
 
     val handleOpenAccount = {
@@ -610,7 +622,7 @@ fun SettingsScreen(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            if (onBack != null) {
+            if (onBack != null || currentSubScreen != SettingsSubScreen.MAIN) {
                 FloatingIslandTopBar {
                     Row(
                         modifier = Modifier
@@ -618,7 +630,13 @@ fun SettingsScreen(
                             .padding(horizontal = 8.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        IconButton(onClick = onBack) {
+                        IconButton(onClick = {
+                            if (currentSubScreen != SettingsSubScreen.MAIN) {
+                                currentSubScreen = SettingsSubScreen.MAIN
+                            } else {
+                                onBack?.invoke()
+                            }
+                        }) {
                             Icon(
                                 Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = "Back",
@@ -627,7 +645,7 @@ fun SettingsScreen(
                         }
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = "Settings",
+                            text = if (currentSubScreen == SettingsSubScreen.APPEARANCE) "Appearance & Theme" else "Settings",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onBackground
@@ -637,13 +655,23 @@ fun SettingsScreen(
             }
         }
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(scrollState)
-        ) {
-            Spacer(modifier = Modifier.height(12.dp))
+        if (currentSubScreen == SettingsSubScreen.APPEARANCE) {
+            AppearanceSettingsView(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                uiState = uiState,
+                appTheme = appTheme,
+                onSelectThemeMode = onSelectThemeMode
+            )
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .verticalScroll(scrollState)
+            ) {
+                Spacer(modifier = Modifier.height(12.dp))
 
             // User Feedback: Error Message Banner
             AnimatedVisibility(
@@ -737,7 +765,18 @@ fun SettingsScreen(
                         Spacer(modifier = Modifier.height(2.dp))
                         Text("$activeProgramme • $facultyDisplayName", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Change profile", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                    ) {
+                        Text(
+                            text = "Switch",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
+                        )
+                    }
                 }
             }
 
@@ -1009,12 +1048,18 @@ fun SettingsScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    Icon(
-                        Icons.AutoMirrored.Filled.ArrowForward,
-                        contentDescription = "Open System Sound Settings",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(18.dp)
-                    )
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant
+                    ) {
+                        Text(
+                            text = "System",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
+                        )
+                    }
                 }
             }
 
@@ -1026,91 +1071,66 @@ fun SettingsScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp),
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    // Header text with active mode pill
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .clickable { currentSubScreen = SettingsSubScreen.APPEARANCE }
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
                     ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Palette,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(14.dp))
                         Column {
                             Text(
-                                text = "Theme Mode",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp,
+                                text = "Appearance & Theme",
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 15.sp,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "Customize look & feel across all screens",
+                                text = when (uiState.themeMode) {
+                                    ThemeMode.LIGHT -> "Light · Bright & Crisp"
+                                    ThemeMode.DARK -> "Dark · Deep Comfort"
+                                    ThemeMode.SYSTEM -> "System · Follows Device"
+                                },
                                 fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-
-                        Box(
-                            modifier = Modifier
-                                .background(
-                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                                    RoundedCornerShape(20.dp)
-                                )
-                                .padding(horizontal = 10.dp, vertical = 4.dp)
-                        ) {
-                            Text(
-                                text = if (appTheme.isDark) "Dark Active" else "Light Active",
-                                color = MaterialTheme.colorScheme.primary,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
                     }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // 3 Interactive Theme Mode Cards
-                    val activeMode = uiState.themeMode
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
                     ) {
-                        ThemeSelectionCard(
-                            title = "Light",
-                            subtitle = "Bright & crisp",
-                            icon = Icons.Default.LightMode,
-                            isSelected = activeMode == ThemeMode.LIGHT,
-                            modifier = Modifier.weight(1f),
-                            previewBgColor = Color(0xFFF8FAFC),
-                            previewCardColor = Color.White,
-                            previewTextColor = Color(0xFF0F172A),
-                            onClick = { onSelectThemeMode(ThemeMode.LIGHT) }
-                        )
-
-                        ThemeSelectionCard(
-                            title = "Dark",
-                            subtitle = "Deep comfort",
-                            icon = Icons.Default.DarkMode,
-                            isSelected = activeMode == ThemeMode.DARK,
-                            modifier = Modifier.weight(1f),
-                            previewBgColor = Color(0xFF101216),
-                            previewCardColor = Color(0xFF181B22),
-                            previewTextColor = Color(0xFFF8FAFC),
-                            onClick = { onSelectThemeMode(ThemeMode.DARK) }
-                        )
-
-                        ThemeSelectionCard(
-                            title = "System",
-                            subtitle = "Auto sync",
-                            icon = Icons.Default.BrightnessAuto,
-                            isSelected = activeMode == ThemeMode.SYSTEM,
-                            modifier = Modifier.weight(1f),
-                            previewBgColor = if (appTheme.isDark) Color(0xFF101216) else Color(0xFFF8FAFC),
-                            previewCardColor = if (appTheme.isDark) Color(0xFF181B22) else Color.White,
-                            previewTextColor = if (appTheme.isDark) Color(0xFFF8FAFC) else Color(0xFF0F172A),
-                            onClick = { onSelectThemeMode(ThemeMode.SYSTEM) }
+                        Text(
+                            text = if (appTheme.isDark) "Dark" else "Light",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                         )
                     }
                 }
@@ -1476,7 +1496,18 @@ fun SettingsScreen(
                             Text("Reset All Lecture Notes", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = Color(0xFFDC2626))
                             Text("Permanently delete saved notes and annotations", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = Color(0xFFDC2626), modifier = Modifier.size(18.dp))
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFFDC2626).copy(alpha = 0.12f)
+                        ) {
+                            Text(
+                                text = "Reset",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFDC2626),
+                                modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
+                            )
+                        }
                     }
 
                     HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
@@ -1496,7 +1527,18 @@ fun SettingsScreen(
                             Text("Reset Academic Tasks & Alarms", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = Color(0xFFDC2626))
                             Text("Cancel all scheduled alarms and clear coursework", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = Color(0xFFDC2626), modifier = Modifier.size(18.dp))
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFFDC2626).copy(alpha = 0.12f)
+                        ) {
+                            Text(
+                                text = "Reset",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFDC2626),
+                                modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -1523,25 +1565,26 @@ fun SettingsScreen(
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
                             .clickable { showDeveloperModal = true }
-                            .padding(vertical = 4.dp, horizontal = 2.dp),
+                            .padding(vertical = 6.dp, horizontal = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(44.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(MaterialTheme.colorScheme.primary),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.School, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp))
-                        }
-                        Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("Lectures", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)
-                            Text("Developer", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
-                            Text("MUGENDAWALA MARK PAUL - Student at MUST", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Developer", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text("BSE Student at MUST", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "View Developer Profile", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                        ) {
+                            Text(
+                                text = "Profile",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            )
+                        }
                     }
 
                     HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
@@ -1572,7 +1615,18 @@ fun SettingsScreen(
                             }
                             Text("Report timetable errors, venue bugs, or suggestions anonymously", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                        ) {
+                            Text(
+                                text = "Open",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                            )
+                        }
                     }
 
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
@@ -1592,7 +1646,18 @@ fun SettingsScreen(
                             Text("Non-Affiliation Disclaimer", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                             Text("Independent app — not affiliated with Mbarara University (MUST)", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                        ) {
+                            Text(
+                                text = "View",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                            )
+                        }
                     }
 
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
@@ -1612,7 +1677,18 @@ fun SettingsScreen(
                             Text("Disclaimer & Terms", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                             Text("Permitted use, warranty disclaimers & academic policies", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                        ) {
+                            Text(
+                                text = "View",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                            )
+                        }
                     }
 
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
@@ -1632,7 +1708,18 @@ fun SettingsScreen(
                             Text("Privacy Policy", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                             Text("Local-first SQLite storage & privacy policy", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                        ) {
+                            Text(
+                                text = "View",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -1640,6 +1727,7 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(48.dp))
         }
     }
+}
 
     if (showAppUpdateDialog && availableUpdateInfo != null) {
         com.mustime.core.update.AppUpdateDialog(
@@ -1776,3 +1864,191 @@ private fun ThemeSelectionCard(
         }
     }
 }
+
+@Composable
+private fun AppearanceSettingsView(
+    modifier: Modifier = Modifier,
+    uiState: SettingsUiState,
+    appTheme: AppThemeState,
+    onSelectThemeMode: (ThemeMode) -> Unit
+) {
+    val scrollState = rememberScrollState()
+
+    Column(
+        modifier = modifier
+            .verticalScroll(scrollState)
+            .padding(vertical = 12.dp)
+    ) {
+        SectionHeader("THEME MODE")
+        Spacer(modifier = Modifier.height(6.dp))
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Select your preferred appearance mode. System Default follows your device's day/night schedule automatically.",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 17.sp
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    ThemeSelectionCard(
+                        title = "Light",
+                        subtitle = "Clean & bright",
+                        icon = Icons.Default.LightMode,
+                        isSelected = appTheme.themeMode == ThemeMode.LIGHT,
+                        previewBgColor = Color(0xFFF8FAFC),
+                        previewCardColor = Color.White,
+                        previewTextColor = Color(0xFF0F172A),
+                        modifier = Modifier.weight(1f),
+                        onClick = { onSelectThemeMode(ThemeMode.LIGHT) }
+                    )
+
+                    ThemeSelectionCard(
+                        title = "Dark",
+                        subtitle = "Night contrast",
+                        icon = Icons.Default.DarkMode,
+                        isSelected = appTheme.themeMode == ThemeMode.DARK,
+                        previewBgColor = Color(0xFF0B1120),
+                        previewCardColor = Color(0xFF1E293B),
+                        previewTextColor = Color(0xFFF1F5F9),
+                        modifier = Modifier.weight(1f),
+                        onClick = { onSelectThemeMode(ThemeMode.DARK) }
+                    )
+
+                    ThemeSelectionCard(
+                        title = "System",
+                        subtitle = "Auto adapt",
+                        icon = Icons.Default.BrightnessAuto,
+                        isSelected = appTheme.themeMode == ThemeMode.SYSTEM,
+                        previewBgColor = Color(0xFFE2E8F0),
+                        previewCardColor = Color(0xFF334155),
+                        previewTextColor = Color(0xFF1E293B),
+                        modifier = Modifier.weight(1f),
+                        onClick = { onSelectThemeMode(ThemeMode.SYSTEM) }
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        SectionHeader("LIVE INTERFACE PREVIEW")
+        Spacer(modifier = Modifier.height(6.dp))
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        ) {
+            Column(modifier = Modifier.padding(18.dp)) {
+                Text(
+                    text = "Sample Lecture Card",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    letterSpacing = 0.5.sp
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "BSE 2101 · Software Engineering",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                            ) {
+                                Text(
+                                    text = "08:00 - 10:00",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Auditorium 2 · Kihumuro Campus",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        SectionHeader("READABILITY & CONTRAST")
+        Spacer(modifier = Modifier.height(6.dp))
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.Palette,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = "Material 3 Adaptive Theming",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "Color schemes and surfaces are optimized for outdoor legibility in sunlight as well as late-night lecture prep with zero eye-strain.",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 17.sp
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(40.dp))
+    }
+}
+
