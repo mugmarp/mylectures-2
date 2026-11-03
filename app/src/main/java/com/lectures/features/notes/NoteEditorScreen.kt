@@ -8,6 +8,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.ui.platform.LocalContext
 import com.lectures.TimetableApplication
+import com.lectures.ui.LocalAppTheme
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
@@ -119,6 +120,8 @@ fun NoteEditorScreen(
     var currentTab by remember { mutableStateOf(NoteEditorTab.WRITE) }
 
     val context = androidx.compose.ui.platform.LocalContext.current
+    val isDark = LocalAppTheme.current.isDark
+    val primaryColor = MaterialTheme.colorScheme.primary
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
@@ -249,6 +252,79 @@ fun NoteEditorScreen(
     val toggleChecklistInPreview: (Int) -> Unit = { lineIndex ->
         val updatedText = MarkdownUtils.toggleChecklistAt(contentValue.text, lineIndex)
         contentValue = contentValue.copy(text = updatedText)
+    }
+
+    // Smart list and callout auto-continuation on Enter (Obsidian editor behavior)
+    val handleContentChange: (TextFieldValue) -> Unit = handleContent@ { newVal ->
+        val oldText = contentValue.text
+        val newText = newVal.text
+        if (newText.length == oldText.length + 1 && newVal.selection.start == newVal.selection.end) {
+            val cursor = newVal.selection.start
+            if (cursor > 0 && newText[cursor - 1] == '\n') {
+                val textBeforeNewline = newText.substring(0, cursor - 1)
+                val lastLine = textBeforeNewline.substringAfterLast('\n')
+                val trimmedLastLine = lastLine.trim()
+
+                when {
+                    // Empty checklist item -> clear prefix on Enter
+                    trimmedLastLine in listOf("- [ ]", "- [x]", "- [X]") -> {
+                        val prefixStart = cursor - 1 - lastLine.length
+                        val cleanedText = newText.substring(0, prefixStart) + "\n" + newText.substring(cursor)
+                        contentValue = TextFieldValue(cleanedText, TextRange(prefixStart + 1))
+                        return@handleContent
+                    }
+                    // Empty bullet -> clear prefix on Enter
+                    trimmedLastLine in listOf("-", "*", "•") -> {
+                        val prefixStart = cursor - 1 - lastLine.length
+                        val cleanedText = newText.substring(0, prefixStart) + "\n" + newText.substring(cursor)
+                        contentValue = TextFieldValue(cleanedText, TextRange(prefixStart + 1))
+                        return@handleContent
+                    }
+                    // Auto-continue checklist
+                    lastLine.startsWith("- [ ] ") || lastLine.startsWith("- [x] ") || lastLine.startsWith("- [X] ") -> {
+                        val indent = lastLine.takeWhile { it == ' ' || it == '\t' }
+                        val continuation = indent + "- [ ] "
+                        val autoText = newText.substring(0, cursor) + continuation + newText.substring(cursor)
+                        contentValue = TextFieldValue(autoText, TextRange(cursor + continuation.length))
+                        return@handleContent
+                    }
+                    // Auto-continue bullet list
+                    lastLine.startsWith("- ") || lastLine.startsWith("* ") -> {
+                        val bulletChar = if (lastLine.startsWith("- ")) "- " else "* "
+                        val indent = lastLine.takeWhile { it == ' ' || it == '\t' }
+                        val continuation = indent + bulletChar
+                        val autoText = newText.substring(0, cursor) + continuation + newText.substring(cursor)
+                        contentValue = TextFieldValue(autoText, TextRange(cursor + continuation.length))
+                        return@handleContent
+                    }
+                    // Auto-continue numbered list
+                    Regex("^(\\d+)\\.\\s+").find(lastLine) != null -> {
+                        val numMatch = Regex("^(\\d+)\\.\\s+").find(lastLine)
+                        val num = numMatch?.groupValues?.get(1)?.toIntOrNull()
+                        if (trimmedLastLine == "${num}.") {
+                            val prefixStart = cursor - 1 - lastLine.length
+                            val cleanedText = newText.substring(0, prefixStart) + "\n" + newText.substring(cursor)
+                            contentValue = TextFieldValue(cleanedText, TextRange(prefixStart + 1))
+                            return@handleContent
+                        } else if (num != null) {
+                            val nextNum = num + 1
+                            val continuation = "$nextNum. "
+                            val autoText = newText.substring(0, cursor) + continuation + newText.substring(cursor)
+                            contentValue = TextFieldValue(autoText, TextRange(cursor + continuation.length))
+                            return@handleContent
+                        }
+                    }
+                    // Auto-continue callout lines
+                    lastLine.startsWith("> ") || lastLine.startsWith(">") -> {
+                        val continuation = "> "
+                        val autoText = newText.substring(0, cursor) + continuation + newText.substring(cursor)
+                        contentValue = TextFieldValue(autoText, TextRange(cursor + continuation.length))
+                        return@handleContent
+                    }
+                }
+            }
+        }
+        contentValue = newVal
     }
 
     // Calculate word & char count & checklist progress
@@ -883,7 +959,7 @@ fun NoteEditorScreen(
                                     .fillMaxWidth()
                                     .horizontalScroll(rememberScrollState())
                                     .padding(horizontal = 10.dp, vertical = 6.dp),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 // Bold
@@ -906,6 +982,23 @@ fun NoteEditorScreen(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text("I", fontStyle = FontStyle.Italic, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+                                }
+
+                                // Obsidian Highlight (==text==)
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(if (isDark) Color(0xFF713F12) else Color(0xFFFEF08A))
+                                        .clickable { applyMarkdown("==", "==", "highlighted term") }
+                                        .padding(horizontal = 6.dp, vertical = 3.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        "==",
+                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 12.sp,
+                                        color = if (isDark) Color(0xFFFEF08A) else Color(0xFF713F12)
+                                    )
                                 }
 
                                 // Heading 1
@@ -943,6 +1036,69 @@ fun NoteEditorScreen(
                                     )
                                 }
 
+                                // Obsidian Callout (> [!NOTE])
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f),
+                                    modifier = Modifier.clickable {
+                                        insertSnippet("> [!NOTE] Key Takeaway\n> Core concept explained here\n")
+                                    }
+                                ) {
+                                    Text(
+                                        "[!Note]",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.tertiary,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+                                    )
+                                }
+
+                                // Markdown Table
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
+                                    modifier = Modifier.clickable {
+                                        insertSnippet("\n| Topic | Key Concept | Status |\n| :--- | :--- | :---: |\n| Point 1 | Definition | Ready |\n| Point 2 | Example | Review |\n")
+                                    }
+                                ) {
+                                    Text(
+                                        "Table",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.secondary,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+                                    )
+                                }
+
+                                // Math Formula ($$ formula $$)
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                                    modifier = Modifier.clickable {
+                                        applyMarkdown("$$", "$$", "E = mc^2")
+                                    }
+                                ) {
+                                    Text(
+                                        "$$ Math",
+                                        fontSize = 11.sp,
+                                        fontStyle = FontStyle.Italic,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+                                    )
+                                }
+
+                                // Obsidian WikiLink ([[Note Title]])
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .clickable { applyMarkdown("[[", "]]", "Course Note") }
+                                        .padding(horizontal = 6.dp, vertical = 4.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("[[Link]]", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+                                }
+
                                 // Bullet List
                                 IconButton(
                                     onClick = { insertLinePrefix("- ") },
@@ -976,7 +1132,7 @@ fun NoteEditorScreen(
                                 ) {
                                     Icon(
                                         Icons.Default.FormatQuote,
-                                        contentDescription = "Quote / Callout",
+                                        contentDescription = "Quote",
                                         tint = MaterialTheme.colorScheme.tertiary,
                                         modifier = Modifier.size(19.dp)
                                     )
@@ -1025,10 +1181,15 @@ fun NoteEditorScreen(
 
                         Spacer(modifier = Modifier.height(10.dp))
 
-                        // Text Area with selection tracking
+                        // Text Area with selection tracking and Live Syntax Highlighting
+                        val liveTransformation = remember(isDark, primaryColor) {
+                            MarkdownLiveVisualTransformation(isDark, primaryColor)
+                        }
+
                         BasicTextField(
                             value = contentValue,
-                            onValueChange = { contentValue = it },
+                            onValueChange = handleContentChange,
+                            visualTransformation = liveTransformation,
                             textStyle = TextStyle(
                                 fontSize = 15.sp,
                                 lineHeight = 24.sp,
@@ -1041,7 +1202,7 @@ fun NoteEditorScreen(
                             decorationBox = { innerTextField ->
                                 if (contentValue.text.isEmpty()) {
                                     Text(
-                                        "Start taking lecture notes, revision points, or checklists...\n• Tap formatting buttons above to style without syntax\n• Tap 'Templates' for full academic note outlines\n• Switch to 'Preview' tab anytime to view formatted notes",
+                                        "Start taking lecture notes, revision points, or checklists...\n• Live Markdown highlighting in editor\n• Use ==highlight==, > [!NOTE], and | Tables |\n• Tap 'Templates' for full academic note outlines\n• Switch to 'Preview' tab anytime for rich rendered notes",
                                         fontSize = 14.sp,
                                         lineHeight = 22.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)

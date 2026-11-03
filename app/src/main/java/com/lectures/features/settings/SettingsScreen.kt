@@ -213,7 +213,6 @@ fun SettingsScreen(
     if (showDisclaimerDialog) {
         AlertDialog(
             onDismissRequest = { showDisclaimerDialog = false },
-            icon = { Icon(Icons.Default.VerifiedUser, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
             title = { Text("Institutional Non-Affiliation Disclaimer", fontWeight = FontWeight.Bold, fontSize = 18.sp) },
             text = {
                 Column(
@@ -286,7 +285,6 @@ fun SettingsScreen(
     if (showTermsDialog) {
         AlertDialog(
             onDismissRequest = { showTermsDialog = false },
-            icon = { Icon(Icons.Default.Gavel, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
             title = { Text("Disclaimer & Terms", fontWeight = FontWeight.Bold, fontSize = 18.sp) },
             text = {
                 Column(
@@ -371,7 +369,6 @@ fun SettingsScreen(
     if (showPrivacyDialog) {
         AlertDialog(
             onDismissRequest = { showPrivacyDialog = false },
-            icon = { Icon(Icons.Default.Security, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
             title = { Text("Privacy Policy", fontWeight = FontWeight.Bold, fontSize = 18.sp) },
             text = {
                 Column(

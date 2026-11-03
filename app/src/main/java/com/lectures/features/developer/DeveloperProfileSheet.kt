@@ -45,6 +45,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -158,9 +159,9 @@ fun DeveloperProfileSheet(
 
             // 1. Website: tirallab.page
             DeveloperLinkRow(
-                icon = Icons.Default.Language,
                 title = "tirallab.page",
                 subtitle = "Official lab and personal project website",
+                actionLabel = "Visit",
                 onClick = {
                     openBrowser(context, labUrl)
                 }
@@ -170,9 +171,9 @@ fun DeveloperProfileSheet(
 
             // 2. GitHub
             DeveloperLinkRow(
-                icon = Icons.Default.Code,
                 title = "GitHub Account",
                 subtitle = "github.com/mugmarp",
+                actionLabel = "View",
                 onClick = {
                     openBrowser(context, githubUrl)
                 }
@@ -182,9 +183,9 @@ fun DeveloperProfileSheet(
 
             // 3. Mailto for Contributions & Collaboration
             DeveloperLinkRow(
-                icon = Icons.Default.Email,
                 title = "Contribute & Collaborate",
                 subtitle = "markpaulmu@gmail.com",
+                actionLabel = "Email",
                 badge = "Open for PRs",
                 onClick = {
                     val emailIntent = Intent(Intent.ACTION_SENDTO).apply {
@@ -218,9 +219,9 @@ fun DeveloperProfileSheet(
 
 @Composable
 private fun DeveloperLinkRow(
-    icon: ImageVector,
     title: String,
     subtitle: String,
+    actionLabel: String = "Open",
     badge: String? = null,
     onClick: () -> Unit
 ) {
@@ -229,26 +230,9 @@ private fun DeveloperLinkRow(
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
-            .padding(vertical = 8.dp, horizontal = 4.dp),
+            .padding(vertical = 10.dp, horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(20.dp)
-            )
-        }
-
-        Spacer(modifier = Modifier.width(14.dp))
-
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -269,6 +253,7 @@ private fun DeveloperLinkRow(
                     }
                 }
             }
+            Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = subtitle,
                 fontSize = 12.sp,
@@ -276,12 +261,18 @@ private fun DeveloperLinkRow(
             )
         }
 
-        Icon(
-            Icons.AutoMirrored.Filled.ArrowForward,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(16.dp)
-        )
+        Surface(
+            shape = RoundedCornerShape(8.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
+        ) {
+            Text(
+                text = actionLabel,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+            )
+        }
     }
 }
 

@@ -41,6 +41,23 @@ fun AppUpdateDialog(
     updateInfo: AppUpdateInfo,
     onDismiss: () -> Unit
 ) {
+    // Guard against showing a downgrade or older build
+    val isEligibleUpdate = remember(updateInfo) {
+        InAppUpdateManager.isNewerRelease(
+            remoteVersionName = updateInfo.versionName,
+            remoteVersionCode = updateInfo.versionCode,
+            localVersionName = BuildConfig.VERSION_NAME,
+            localVersionCode = BuildConfig.VERSION_CODE
+        )
+    }
+
+    if (!isEligibleUpdate) {
+        LaunchedEffect(Unit) {
+            onDismiss()
+        }
+        return
+    }
+
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val isDark = LocalAppTheme.current.isDark
@@ -403,25 +420,48 @@ fun AppUpdateDialog(
 }
 
 private fun cleanReleaseHighlights(raw: String): List<String> {
-    if (raw.isBlank()) return listOf("Timetable schedule synchronization and reliability fixes.")
+    if (raw.isBlank()) return listOf("Schedule updates and performance enhancements.")
     val items = mutableListOf<String>()
+
+    val technicalKeywords = listOf(
+        "prepackaged database", "inserts 1,304", "recompiles", "regular expression",
+        "sha-256", "checksum", "signed with", "certificate", "download the apk",
+        "install from unknown", "package:", "commitish"
+    )
+
     for (line in raw.lines()) {
         val trimmed = line.trim()
+        if (trimmed.startsWith("#") || trimmed.startsWith("```") || trimmed.isBlank()) continue
+
         if (trimmed.startsWith("-") || trimmed.startsWith("*")) {
             val clean = trimmed.removePrefix("-").removePrefix("*").trim()
                 .replace("**", "")
                 .replace("__", "")
+
+            val isTechnical = technicalKeywords.any { clean.contains(it, ignoreCase = true) }
+            if (isTechnical) continue
+
             if (clean.isNotBlank() && !clean.startsWith("http", ignoreCase = true)) {
-                items.add(clean)
+                // Shorten verbose bullet points to the core statement
+                val shortened = if (clean.length > 95) {
+                    val firstSentence = clean.substringBefore(". ")
+                    if (firstSentence.length in 20..95) firstSentence else clean.take(90).trimEnd() + "..."
+                } else {
+                    clean
+                }
+                items.add(shortened)
             }
         }
     }
+
     if (items.isEmpty()) {
-        val nonHeaders = raw.lines()
+        val fallbackLines = raw.lines()
             .map { it.trim() }
-            .filter { it.isNotBlank() && !it.startsWith("#") && !it.startsWith("http", ignoreCase = true) }
+            .filter { it.isNotBlank() && !it.startsWith("#") && !it.startsWith("http", ignoreCase = true) && !it.startsWith("```") }
+            .filter { line -> technicalKeywords.none { line.contains(it, ignoreCase = true) } }
             .map { it.replace("**", "").replace("__", "") }
-        items.addAll(nonHeaders.take(4))
+        items.addAll(fallbackLines.take(3))
     }
-    return if (items.isNotEmpty()) items else listOf("Bug fixes and performance improvements.")
+
+    return if (items.isNotEmpty()) items.distinct().take(4) else listOf("Bug fixes and performance improvements.")
 }

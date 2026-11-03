@@ -102,15 +102,23 @@ class MainActivity : ComponentActivity() {
             val isMandatory = intent.getBooleanExtra("EXTRA_UPDATE_IS_MANDATORY", false)
 
             if (versionCode > 0 && downloadUrl.isNotBlank()) {
-                pendingUpdateInfo = com.lectures.core.update.AppUpdateInfo(
-                    versionCode = versionCode,
-                    versionName = versionName,
-                    releaseNotes = releaseNotes,
-                    downloadUrl = downloadUrl,
-                    fileSizeBytes = fileSizeBytes,
-                    sha256 = sha256,
-                    isMandatory = isMandatory
+                val isNewer = com.lectures.core.update.InAppUpdateManager.isNewerRelease(
+                    remoteVersionName = versionName,
+                    remoteVersionCode = versionCode,
+                    localVersionName = BuildConfig.VERSION_NAME,
+                    localVersionCode = BuildConfig.VERSION_CODE
                 )
+                if (isNewer) {
+                    pendingUpdateInfo = com.lectures.core.update.AppUpdateInfo(
+                        versionCode = versionCode,
+                        versionName = versionName,
+                        releaseNotes = releaseNotes,
+                        downloadUrl = downloadUrl,
+                        fileSizeBytes = fileSizeBytes,
+                        sha256 = sha256,
+                        isMandatory = isMandatory
+                    )
+                }
             }
         }
 
