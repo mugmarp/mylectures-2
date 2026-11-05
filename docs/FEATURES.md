@@ -208,7 +208,7 @@ The Academic Calendar is the student's unified macro-planning horizon, bridging 
   * Clear lead time presets (10m, 15m, 30m, 45m, 60m, custom) for upcoming lecture reminders.
 * **Developer, Regulations & Disclaimer Section**:
   * Clean, chevron-free interface with Material 3 surface action badges ("Profile", "Open", "View").
-  * Independent Developer Attribution to **MUGENDAWALA MARK PAUL** (BSE Student at MUST).
+  * Independent Developer Attribution to **MUGENDAWALA MARK PAUL**.
   * Institutional non-affiliation disclaimer, terms of service, and local-first privacy policy dialogs.
   * Anonymous feedback and bug reporting with stateless offline queuing.
 

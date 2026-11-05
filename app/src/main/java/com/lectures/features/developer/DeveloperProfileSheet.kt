@@ -69,7 +69,6 @@ fun DeveloperProfileSheet(
 
     val devName = "MUGENDAWALA MARK PAUL"
     val studentRole = "Software Developer and Creator"
-    val labUrl = "https://tirallab.page"
     val githubUrl = "https://github.com/mugmarp"
     val emailContact = "markpaulmu@gmail.com"
 
@@ -137,7 +136,7 @@ fun DeveloperProfileSheet(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
-                        text = "Student at MUST • Crafted independently with passion for students. Fast, responsive, and 100% offline-first.",
+                        text = "BSE student at MUST. Built the Lectures app as a fast, offline-first companion for class schedules and vacant campus rooms.",
                         fontSize = 12.sp,
                         lineHeight = 16.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -157,19 +156,7 @@ fun DeveloperProfileSheet(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // 1. Website: tirallab.page
-            DeveloperLinkRow(
-                title = "tirallab.page",
-                subtitle = "Official lab and personal project website",
-                actionLabel = "Visit",
-                onClick = {
-                    openBrowser(context, labUrl)
-                }
-            )
-
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-            // 2. GitHub
+            // 1. GitHub
             DeveloperLinkRow(
                 title = "GitHub Account",
                 subtitle = "github.com/mugmarp",
