@@ -72,3 +72,43 @@ This report outlines the full investigation into MuSTime's notification system (
 ## 3. Verification
 * **Applet Compilation**: Verified via `compile_applet` — build succeeded cleanly.
 * **Unit & JVM Test Suite**: Verified via `gradle :app:testDebugUnitTest` — 100% test pass (BUILD SUCCESSFUL).
+
+---
+
+## 4. Comprehensive UI/UX Deep Audit & Polishing (All Screens)
+
+### A. Vacant Rooms Finder (`VacantRoomsScreen.kt`)
+* **Problem**: Stacking 4 bulky vertical filter tiers (Campus picker, Building picker, Category chips, Search bar, Status row) consumed ~280dp (~45% of vertical screen real-estate), pushing available rooms below the fold.
+* **Solution**:
+  - Replaced the multi-tier header with a unified, modern search bar (46dp height, rounded 12dp, clear button).
+  - Streamlined filtering into a single, horizontal, smoothly scrollable chip row (`LazyRow`) featuring anchored dropdown chips for **Campus** and **Building**, a 1-tap **Free now** check chip, and space category pills.
+  - Reduced header vertical overhead by ~180dp, bringing vacant room cards immediately above the fold on launch while preserving full dropdown selection and the deep `FilterAndScheduleSheet`.
+
+### B. Academic Notes (`NotesScreen.kt`)
+* **Problem**: Non-functional, dead-end `Icons.Default.Mic` in the search bar; hardcoded hex color values (`Color(0xFF0F172A)`, `Color(0xFFF8FAFC)`) causing dark-mode and theme drift; lack of 1-tap action on empty state.
+* **Solution**:
+  - Completely removed the unclickable microphone icon.
+  - Migrated search bar, feedback banners, and backgrounds to semantic tokens (`MaterialTheme.colorScheme.onSurface`, `MaterialTheme.colorScheme.onSurfaceVariant`, `outlineVariant`, etc.).
+  - Added an interactive **Create Note** button directly in the center empty state.
+
+### C. Academic Calendar (`CalendarScreen.kt`)
+* **Problem**: 5.dp calendar grid indicator dots with 2.dp spacing risked card edge clipping and vertical tension on narrow 360dp phone screens.
+* **Solution**:
+  - Optimized dot dimensions to 4.dp with 1.5.dp horizontal spacing and 1.5.dp top spacer.
+  - Eliminated month-end date drift by anchoring day navigation to Day 1.
+  - Precomputed month academic milestones and day contexts using `AcademicCalendarEngine.kt`.
+
+### D. Academic Tasks (`TasksScreen.kt`)
+* **Problem**: Developer jargon (`"AlarmManager"`) in empty states; duplicate adjacent badges on overdue high-priority cards (`[⚠️ Overdue]` and `[🚩 High]`).
+* **Solution**:
+  - Replaced technical jargon with student-friendly copy (`"reminders and alarms"`).
+  - Contextualized empty state messages per active filter (Overdue, Completed, High Priority, Pending).
+  - Consolidated redundant badges into a single high-visibility pill: `[⚠️ Overdue • High Priority]`.
+
+### E. Settings & Developer Profile (`SettingsScreen.kt`, `DeveloperProfileSheet.kt`)
+* **Problem**: Danger Zone positioned immediately adjacent to primary navigation cards; outdated lab URLs; unclear developer branding copy.
+* **Solution**:
+  - Moved `DANGER ZONE` (Reset Notes, Reset Tasks) to the bottom of the screen with a 28dp separation gap.
+  - Discarded `tirallab.page` and simplified Developer header row to `Developer` and `Profile`.
+  - Refined Developer Profile hero bio: `"BSE student at MUST. Built the Lectures app as a fast, offline-first companion for class schedules and vacant campus rooms."`
+
