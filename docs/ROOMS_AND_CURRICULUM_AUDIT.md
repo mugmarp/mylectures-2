@@ -92,3 +92,16 @@ At Mbarara University of Science and Technology (MUST) for the 2026/2027 academi
 - **Memoized Lookups:** Cached group entry count computations in onboarding and vacant room listing filters.
 - **Clock Pulse Integration:** Room availability countdowns and next-class countdowns remain synchronized with the app lifecycle pulse (`rememberLiveClockPulse`).
 - **Build Status:** Verified with `compile_applet` and local unit tests (`gradle :app:testDebugUnitTest`).
+
+---
+
+## 6. Micro-Interactions & Proportional Polish Refinements
+
+### Dual-Segment Location Card Height & Typography Spacing
+- **Height Compression:** Reduced total card height from ~54dp to **~40dp** by lowering outer Row padding (`vertical = 2.dp`) and segment Box padding (`vertical = 2.dp`).
+- **Word Gap Reduction:** Applied `verticalArrangement = Arrangement.spacedBy((-1).dp)` with explicit line heights (`11.sp` on label, `15.sp` on value) to tighten the vertical distance between "Campus" and its value ("Town") and "Building" and its value ("IMS").
+- **Proportional Icons:** Scaled the icon containers to `26.dp` (15dp icon) and divider height to `22.dp`, creating visual harmony with the 44dp pill search bar above it.
+
+### Class Group Tap-to-Confirm Interaction
+- **Instant Flow Progression:** Updated the `ClassGroupSelectionScreen` card click interaction. When a student taps an already-selected cohort (such as the auto-selected `PEEM I`), or double-taps another cohort, it immediately triggers `onConfirm(group)` and transitions straight to the Timetable, eliminating redundant navigation friction.
+

@@ -362,7 +362,13 @@ fun ClassGroupSelectionScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(16.dp))
-                        .clickable { selectedGroup = group }
+                        .clickable {
+                            if (selectedGroup == group) {
+                                onConfirm(group)
+                            } else {
+                                selectedGroup = group
+                            }
+                        }
                         .then(
                             if (isSelected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(16.dp))
                             else Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp))

@@ -472,7 +472,7 @@ fun VacantRoomsScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 5.dp, horizontal = 4.dp),
+                                .padding(vertical = 2.dp, horizontal = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             // Left Segment: Campus Selector
@@ -481,7 +481,7 @@ fun VacantRoomsScreen(
                                     .weight(1f)
                                     .clip(RoundedCornerShape(12.dp))
                                     .clickable { campusDropdownExpanded = true }
-                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                                    .padding(horizontal = 8.dp, vertical = 2.dp)
                             ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
@@ -490,31 +490,36 @@ fun VacantRoomsScreen(
                                 ) {
                                     Box(
                                         modifier = Modifier
-                                            .size(32.dp)
-                                            .background(PrimaryBlue.copy(alpha = 0.12f), RoundedCornerShape(8.dp)),
+                                            .size(26.dp)
+                                            .background(PrimaryBlue.copy(alpha = 0.12f), RoundedCornerShape(7.dp)),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(
                                             imageVector = Icons.Outlined.Place,
                                             contentDescription = null,
                                             tint = PrimaryBlue,
-                                            modifier = Modifier.size(18.dp)
+                                            modifier = Modifier.size(15.dp)
                                         )
                                     }
-                                    Column(modifier = Modifier.weight(1f)) {
+                                    Column(
+                                        modifier = Modifier.weight(1f),
+                                        verticalArrangement = Arrangement.spacedBy((-1).dp)
+                                    ) {
                                         Text(
                                             text = "Campus",
-                                            fontSize = 10.sp,
+                                            fontSize = 9.5.sp,
+                                            lineHeight = 11.sp,
                                             fontWeight = FontWeight.SemiBold,
                                             color = textMuted,
-                                            letterSpacing = 0.3.sp
+                                            letterSpacing = 0.2.sp
                                         )
                                         val campusShort = selectedCampus?.let { cName ->
                                             Campus.entries.firstOrNull { it.displayName == cName }?.shortName ?: cName
                                         } ?: "All Campuses"
                                         Text(
                                             text = campusShort,
-                                            fontSize = 13.sp,
+                                            fontSize = 12.5.sp,
+                                            lineHeight = 15.sp,
                                             fontWeight = if (selectedCampus != null) FontWeight.Bold else FontWeight.SemiBold,
                                             color = if (selectedCampus != null) PrimaryBlue else textPrimary,
                                             maxLines = 1,
@@ -525,7 +530,7 @@ fun VacantRoomsScreen(
                                         imageVector = Icons.Default.ArrowDropDown,
                                         contentDescription = "Select campus",
                                         tint = textMuted,
-                                        modifier = Modifier.size(18.dp)
+                                        modifier = Modifier.size(16.dp)
                                     )
                                 }
 
@@ -610,7 +615,7 @@ fun VacantRoomsScreen(
 
                             // Clean Vertical Divider
                             VerticalDivider(
-                                modifier = Modifier.height(28.dp),
+                                modifier = Modifier.height(22.dp),
                                 color = borderSubtle
                             )
 
@@ -620,7 +625,7 @@ fun VacantRoomsScreen(
                                     .weight(1f)
                                     .clip(RoundedCornerShape(12.dp))
                                     .clickable { buildingDropdownExpanded = true }
-                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                                    .padding(horizontal = 8.dp, vertical = 2.dp)
                             ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
@@ -629,30 +634,35 @@ fun VacantRoomsScreen(
                                 ) {
                                     Box(
                                         modifier = Modifier
-                                            .size(32.dp)
-                                            .background(PrimaryBlue.copy(alpha = 0.12f), RoundedCornerShape(8.dp)),
+                                            .size(26.dp)
+                                            .background(PrimaryBlue.copy(alpha = 0.12f), RoundedCornerShape(7.dp)),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(
                                             imageVector = Icons.Outlined.Business,
                                             contentDescription = null,
                                             tint = PrimaryBlue,
-                                            modifier = Modifier.size(18.dp)
+                                            modifier = Modifier.size(15.dp)
                                         )
                                     }
-                                    Column(modifier = Modifier.weight(1f)) {
+                                    Column(
+                                        modifier = Modifier.weight(1f),
+                                        verticalArrangement = Arrangement.spacedBy((-1).dp)
+                                    ) {
                                         Text(
                                             text = "Building",
-                                            fontSize = 10.sp,
+                                            fontSize = 9.5.sp,
+                                            lineHeight = 11.sp,
                                             fontWeight = FontWeight.SemiBold,
                                             color = textMuted,
-                                            letterSpacing = 0.3.sp
+                                            letterSpacing = 0.2.sp
                                         )
                                         val currentBuildingObj = UniversityDirectory.BUILDINGS.firstOrNull { it.code == selectedBuilding }
                                         val buildingLabel = currentBuildingObj?.code ?: "All Buildings"
                                         Text(
                                             text = buildingLabel,
-                                            fontSize = 13.sp,
+                                            fontSize = 12.5.sp,
+                                            lineHeight = 15.sp,
                                             fontWeight = if (selectedBuilding != null) FontWeight.Bold else FontWeight.SemiBold,
                                             color = if (selectedBuilding != null) PrimaryBlue else textPrimary,
                                             maxLines = 1,
@@ -663,7 +673,7 @@ fun VacantRoomsScreen(
                                         imageVector = Icons.Default.ArrowDropDown,
                                         contentDescription = "Select building",
                                         tint = textMuted,
-                                        modifier = Modifier.size(18.dp)
+                                        modifier = Modifier.size(16.dp)
                                     )
                                 }
 
