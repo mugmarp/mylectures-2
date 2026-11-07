@@ -122,6 +122,7 @@ fun NoteEditorScreen(
     val context = androidx.compose.ui.platform.LocalContext.current
     val isDark = LocalAppTheme.current.isDark
     val primaryColor = MaterialTheme.colorScheme.primary
+    val windowInfo = com.lectures.ui.rememberLecturesWindow()
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
@@ -674,31 +675,40 @@ fun NoteEditorScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                        .padding(horizontal = if (windowInfo.isNarrow) 8.dp else 12.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = handleBackPress) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f, fill = false)
+                    ) {
+                        IconButton(onClick = handleBackPress, modifier = Modifier.size(38.dp)) {
                             Icon(
                                 Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = "Back",
                                 tint = MaterialTheme.colorScheme.onSurface
                             )
                         }
+                        Spacer(modifier = Modifier.width(2.dp))
                         Text(
                             text = if (initialNote == null) "New Note" else "Edit Note",
-                            fontSize = 17.sp,
+                            fontSize = if (windowInfo.isNarrow) 15.sp else 17.sp,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
 
+                    Spacer(modifier = Modifier.width(6.dp))
+
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(if (windowInfo.isNarrow) 6.dp else 8.dp)
                     ) {
-                        // Write vs Preview Segmented Control
+                        // Write vs Preview Segmented Control (compact on narrow/tight font screens)
+                        val isCompactToggle = windowInfo.isNarrow || windowInfo.isTightFont
                         Surface(
                             shape = RoundedCornerShape(12.dp),
                             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
@@ -710,30 +720,35 @@ fun NoteEditorScreen(
                                         .clip(RoundedCornerShape(10.dp))
                                         .background(
                                             if (currentTab == NoteEditorTab.WRITE) MaterialTheme.colorScheme.primary
-                                            else Color.Transparent
+                                             else Color.Transparent
                                         )
                                         .clickable {
                                             focusManager.clearFocus()
                                             keyboardController?.hide()
                                             currentTab = NoteEditorTab.WRITE
                                         }
-                                        .padding(horizontal = 10.dp, vertical = 4.dp),
+                                        .padding(
+                                            horizontal = if (isCompactToggle) 8.dp else 10.dp,
+                                            vertical = 4.dp
+                                        ),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Icon(
                                             Icons.Default.Edit,
-                                            contentDescription = null,
+                                            contentDescription = "Write",
                                             tint = if (currentTab == NoteEditorTab.WRITE) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                                             modifier = Modifier.size(13.dp)
                                         )
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text(
-                                            "Write",
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = if (currentTab == NoteEditorTab.WRITE) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
+                                        if (!isCompactToggle) {
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                "Write",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (currentTab == NoteEditorTab.WRITE) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
                                     }
                                 }
 
@@ -749,23 +764,28 @@ fun NoteEditorScreen(
                                             keyboardController?.hide()
                                             currentTab = NoteEditorTab.PREVIEW
                                         }
-                                        .padding(horizontal = 10.dp, vertical = 4.dp),
+                                        .padding(
+                                            horizontal = if (isCompactToggle) 8.dp else 10.dp,
+                                            vertical = 4.dp
+                                        ),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Icon(
                                             Icons.Default.Visibility,
-                                            contentDescription = null,
+                                            contentDescription = "Preview",
                                             tint = if (currentTab == NoteEditorTab.PREVIEW) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                                             modifier = Modifier.size(13.dp)
                                         )
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text(
-                                            "Preview",
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = if (currentTab == NoteEditorTab.PREVIEW) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
+                                        if (!isCompactToggle) {
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                "Preview",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (currentTab == NoteEditorTab.PREVIEW) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -785,14 +805,17 @@ fun NoteEditorScreen(
                                     attachedClassText,
                                     attachmentName,
                                     attachmentPath
-                                    )
+                                )
                             },
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.primary,
                                 contentColor = MaterialTheme.colorScheme.onPrimary
                             ),
                             shape = RoundedCornerShape(14.dp),
-                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                            contentPadding = PaddingValues(
+                                horizontal = if (windowInfo.isNarrow) 10.dp else 14.dp,
+                                vertical = 6.dp
+                            )
                         ) {
                             Text("Save ✓", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                         }

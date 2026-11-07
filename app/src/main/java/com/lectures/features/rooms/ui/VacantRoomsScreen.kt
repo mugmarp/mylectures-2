@@ -481,16 +481,16 @@ fun VacantRoomsScreen(
                                     .weight(1f)
                                     .clip(RoundedCornerShape(12.dp))
                                     .clickable { campusDropdownExpanded = true }
-                                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                                    .padding(horizontal = if (windowInfo.isNarrow) 4.dp else 8.dp, vertical = 2.dp)
                             ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(if (windowInfo.isNarrow) 5.dp else 8.dp),
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     Box(
                                         modifier = Modifier
-                                            .size(26.dp)
+                                            .size(if (windowInfo.isNarrow) 22.dp else 26.dp)
                                             .background(PrimaryBlue.copy(alpha = 0.12f), RoundedCornerShape(7.dp)),
                                         contentAlignment = Alignment.Center
                                     ) {
@@ -498,7 +498,7 @@ fun VacantRoomsScreen(
                                             imageVector = Icons.Outlined.Place,
                                             contentDescription = null,
                                             tint = PrimaryBlue,
-                                            modifier = Modifier.size(15.dp)
+                                            modifier = Modifier.size(if (windowInfo.isNarrow) 13.dp else 15.dp)
                                         )
                                     }
                                     Column(
@@ -515,7 +515,7 @@ fun VacantRoomsScreen(
                                         )
                                         val campusShort = selectedCampus?.let { cName ->
                                             Campus.entries.firstOrNull { it.displayName == cName }?.shortName ?: cName
-                                        } ?: "All Campuses"
+                                        } ?: if (windowInfo.isNarrow) "All" else "All Campuses"
                                         Text(
                                             text = campusShort,
                                             fontSize = 12.5.sp,
@@ -625,16 +625,16 @@ fun VacantRoomsScreen(
                                     .weight(1f)
                                     .clip(RoundedCornerShape(12.dp))
                                     .clickable { buildingDropdownExpanded = true }
-                                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                                    .padding(horizontal = if (windowInfo.isNarrow) 4.dp else 8.dp, vertical = 2.dp)
                             ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(if (windowInfo.isNarrow) 5.dp else 8.dp),
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     Box(
                                         modifier = Modifier
-                                            .size(26.dp)
+                                            .size(if (windowInfo.isNarrow) 22.dp else 26.dp)
                                             .background(PrimaryBlue.copy(alpha = 0.12f), RoundedCornerShape(7.dp)),
                                         contentAlignment = Alignment.Center
                                     ) {
@@ -642,7 +642,7 @@ fun VacantRoomsScreen(
                                             imageVector = Icons.Outlined.Business,
                                             contentDescription = null,
                                             tint = PrimaryBlue,
-                                            modifier = Modifier.size(15.dp)
+                                            modifier = Modifier.size(if (windowInfo.isNarrow) 13.dp else 15.dp)
                                         )
                                     }
                                     Column(
@@ -658,7 +658,7 @@ fun VacantRoomsScreen(
                                             letterSpacing = 0.2.sp
                                         )
                                         val currentBuildingObj = UniversityDirectory.BUILDINGS.firstOrNull { it.code == selectedBuilding }
-                                        val buildingLabel = currentBuildingObj?.code ?: "All Buildings"
+                                        val buildingLabel = currentBuildingObj?.code ?: if (windowInfo.isNarrow) "All" else "All Buildings"
                                         Text(
                                             text = buildingLabel,
                                             fontSize = 12.5.sp,
@@ -1529,28 +1529,33 @@ fun RoomVacancyCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
+                @OptIn(ExperimentalLayoutApi::class)
+                FlowRow(
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     val displayCode = formatRoomDisplayCode(room)
-                    Text(
-                        text = displayCode,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = textPrimary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false)
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = displayCode,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = textPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
 
-                    // Dedicated floor level badge directly beside Room Identifier
-                    FloorIndicatorBadge(
-                        level = room.level,
-                        compact = true,
-                        isDark = isDark
-                    )
+                        // Dedicated floor level badge directly beside Room Identifier
+                        FloorIndicatorBadge(
+                            level = room.level,
+                            compact = true,
+                            isDark = isDark
+                        )
+                    }
 
                     // Suppress redundant type badges: Libraries and Classrooms don't need a duplicate tag
                     val isLibrary = room.type == RoomType.LIBRARY || room.buildingName.contains("Library", ignoreCase = true)

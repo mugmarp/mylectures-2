@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lectures.core.alarm.TaskDateTimeParser
@@ -195,6 +196,7 @@ fun TaskProgressDashboard(
     modifier: Modifier = Modifier
 ) {
     val isDark = LocalAppTheme.current.isDark
+    val windowInfo = com.lectures.ui.rememberLecturesWindow()
     val cardBg = if (isDark) DarkSurfaceCard else Color.White
     val textPrimary = if (isDark) Color.White else Color(0xFF0F172A)
     val textSecondary = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
@@ -238,7 +240,10 @@ fun TaskProgressDashboard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f, fill = false)
+                ) {
                     Box(
                         modifier = Modifier
                             .size(34.dp)
@@ -253,17 +258,21 @@ fun TaskProgressDashboard(
                         )
                     }
                     Spacer(modifier = Modifier.width(10.dp))
-                    Column {
+                    Column(modifier = Modifier.weight(1f, fill = false)) {
                         Text(
                             text = if (scopeThisWeekOnly) "Current Week Progress" else "Total Tasks Progress",
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold,
-                            color = textPrimary
+                            color = textPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Text(
                             text = metrics.rangeLabel,
                             fontSize = 11.sp,
-                            color = textSecondary
+                            color = textSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -422,17 +431,31 @@ fun TaskProgressDashboard(
             Spacer(modifier = Modifier.height(10.dp))
 
             // Interactive Legend Row (Clicking changes task filter below)
-            Row(
+            val pendingPct = if (metrics.totalCount > 0) 100 - metrics.completionPercentage else 0
+            val isCompactLegend = windowInfo.isNarrow || windowInfo.isTightFont
+            val completedLabel = if (isCompactLegend) {
+                "Done: ${metrics.completedCount} (${metrics.completionPercentage}%)"
+            } else {
+                "Completed: ${metrics.completedCount} (${metrics.completionPercentage}%)"
+            }
+            val pendingLabel = if (isCompactLegend) {
+                "Pend: ${metrics.pendingCount} ($pendingPct%)"
+            } else {
+                "Pending: ${metrics.pendingCount} ($pendingPct%)"
+            }
+
+            @OptIn(ExperimentalLayoutApi::class)
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 // Completed indicator
                 Row(
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
                         .clickable { onFilterChange("Completed") }
-                        .padding(horizontal = 6.dp, vertical = 4.dp),
+                        .padding(horizontal = 4.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(
@@ -442,7 +465,7 @@ fun TaskProgressDashboard(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "Completed: ${metrics.completedCount} (${metrics.completionPercentage}%)",
+                        text = completedLabel,
                         fontSize = 12.sp,
                         fontWeight = if (currentFilter == "Completed") FontWeight.Bold else FontWeight.Medium,
                         color = if (currentFilter == "Completed") Color(0xFF10B981) else textSecondary
@@ -454,7 +477,7 @@ fun TaskProgressDashboard(
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
                         .clickable { onFilterChange("Pending") }
-                        .padding(horizontal = 6.dp, vertical = 4.dp),
+                        .padding(horizontal = 4.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(
@@ -463,9 +486,8 @@ fun TaskProgressDashboard(
                             .background(Color(0xFF3B82F6), CircleShape)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
-                    val pendingPct = if (metrics.totalCount > 0) 100 - metrics.completionPercentage else 0
                     Text(
-                        text = "Pending: ${metrics.pendingCount} ($pendingPct%)",
+                        text = pendingLabel,
                         fontSize = 12.sp,
                         fontWeight = if (currentFilter == "Pending") FontWeight.Bold else FontWeight.Medium,
                         color = if (currentFilter == "Pending") Color(0xFF60A5FA) else textSecondary

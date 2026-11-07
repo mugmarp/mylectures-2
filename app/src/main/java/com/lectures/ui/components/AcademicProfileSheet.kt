@@ -850,8 +850,10 @@ fun QuickChangeProgrammeDialog(
                     color = if (isDark) Color(0xFF94A3B8) else TextMutedLight
                 )
                 Spacer(modifier = Modifier.height(4.dp))
-                Row(
+                @OptIn(ExperimentalLayoutApi::class)
+                FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     selectedProgramme.defaultYears.forEach { yr ->
