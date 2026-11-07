@@ -121,7 +121,12 @@ val FACULTIES = listOf(
     )),
     Faculty("interdisciplinary", "Interdisciplinary Studies", null, "Users", listOf(
         Programme("BSAL", "BSc Agriculture & Livelihoods", 4),
-        Programme("BGWH", "BSc Gender & Applied Women Health", 3),
+        Programme(
+            code = "BGWH",
+            name = "BSc Gender & Applied Women Health",
+            years = 3,
+            customYears = listOf("III")
+        ),
         Programme(
             "BPCD",
             "BSc Planning & Community Dev.",

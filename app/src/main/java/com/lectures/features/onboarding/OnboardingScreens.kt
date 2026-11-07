@@ -249,7 +249,15 @@ fun ClassGroupSelectionScreen(
     val groups = remember(programme) {
         programme.allGroups
     }
-    var selectedGroup by remember(programme) { mutableStateOf(groups.firstOrNull() ?: "${programme.code} I") }
+    val resolvedCounts = remember(programme, entryCounts) {
+        groups.associateWith { grp ->
+            entryCounts[grp] ?: com.lectures.features.timetable.domain.TimetableMatcher.getGroupCount(grp)
+        }
+    }
+    val initialActiveGroup = remember(programme, resolvedCounts) {
+        groups.firstOrNull { (resolvedCounts[it] ?: 0) > 0 } ?: groups.firstOrNull() ?: "${programme.code} I"
+    }
+    var selectedGroup by remember(programme) { mutableStateOf(initialActiveGroup) }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -348,7 +356,7 @@ fun ClassGroupSelectionScreen(
         ) {
             items(groups) { group ->
                 val isSelected = group == selectedGroup
-                val count = entryCounts[group] ?: com.lectures.features.timetable.domain.TimetableMatcher.getGroupCount(group)
+                val count = resolvedCounts[group] ?: 0
                 
                 Card(
                     modifier = Modifier
@@ -379,12 +387,11 @@ fun ClassGroupSelectionScreen(
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Spacer(modifier = Modifier.height(4.dp))
-                                val subtitle = when {
-                                    count > 0 -> "$count timetable entries"
-                                    CLINICAL_PROGRAMMES.contains(programme.code) -> "0 timetable entries (hospital / clinical rotations)"
-                                    programme.code == "BGWH" -> "0 timetable entries (Town-campus / not in central schedule)"
-                                    else -> "0 timetable entries (Off-campus or no scheduled lectures)"
-                                }
+                            val subtitle = when {
+                                count > 0 -> "$count scheduled timetable classes"
+                                CLINICAL_PROGRAMMES.contains(programme.code) -> "Clinical hospital rotations (off-campus schedule)"
+                                else -> "0 scheduled timetable entries this semester"
+                            }
                                 Text(
                                     text = subtitle,
                                     fontSize = 14.sp,

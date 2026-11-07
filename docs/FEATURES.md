@@ -174,24 +174,25 @@ The Academic Calendar is the student's unified macro-planning horizon, bridging 
 
 * **Coverage**: **92 rooms across 7 buildings and 2 campuses**, derived from the university's
   own room allocation timetable (2026/2027 Semester I).
-* **Campus Filter**: `All Campuses` / `Kihumuro` / `Town`, with live room counts. Kihumuro and
-  Town are ~7 km apart, so this filter is the primary control.
+* **Compact Pill Search Bar**: Sleek 44dp height with a 24dp border radius pill shape, featuring instant room code search (e.g. `L1`, `LR2`, `Lab`, `IMS`) with one-tap clear affordance.
+* **Dual-Segment Location Bar**: A prominent elevated card located directly below the search bar that cleanly decouples spatial location from status attributes:
+  * **Left Segment (`📍 Campus`)**: Interactive dropdown selecting `All Campuses`, `Kihumuro Campus`, or `Town Campus` with live building counts and faculty default indicator (`★`).
+  * **Right Segment (`🏢 Building`)**: Interactive dropdown dynamically repopulating buildings based on the selected campus (e.g. `Science Block`, `FCI Building`, `IMS`, `FAST`, `Clinical / Hospital`) with room counts per venue.
+* **Streamlined Quick Filter Row**: Dedicated horizontal strip reserved for status filters (`🟢 Free now`, space categories: `Lecture Room`, `Lab`, `Library`, and quick faculty reset).
 * **Campus Auto-Detection**: On open, the campus is inferred from the enrolled programme
   (BCS/BIT/BSE/BME/EEE/PEEM/CVE/MIE → Kihumuro; MBR/PHA/BNS/MLS/BSP/PHS/BS/DLT/BBA/BSAF/ECO/BPSM/BSAL/BGWH/BPCD → Town).
-  A tappable "Detected: …" affordance restores the inferred value.
-* **Building Filter**: Repopulates per campus and clears automatically when the campus changes.
-  * Kihumuro — FCI Building, FAST Building, Kihumuro Library
-  * Town — Science Block, Pharmacy / Health Complex, IMS / Business Building, Clinical / Hospital
-* **Minimum Study Gap**: `30 min (default)` / `15` / `45` / `1 hour` / `Any free`. Prevents
-  suggesting a room that is free for only a minute or two between back-to-back classes.
+  A tappable "Reset to Faculty" affordance restores the inferred value whenever the student navigates away.
 * **Suggestion Ranking**: Results are ordered by *how much new information* a suggestion carries —
   lecture rooms and labs first, libraries last. Then by longest free window, then by room code.
 * **Status Indicators**:
   * **Vacant Now** — green, with time until the next class (`Free until 14:30 (1h 45m)`)
   * **Occupied** — red, with the active course code, programme group, and end time
   * **Permanently Vacant** — blue, for rooms with no scheduled sessions this semester
-* **Room Detail**: Tap any room to see its full day schedule — every session with times, course
-  codes, programme groups, plus building, level, and faculties.
+* **Unclipped Room Schedule Detail Dialog (`RoomScheduleDetailDialog`)**:
+  * **Pinned Header**: Room title with floor badge (`FloorIndicatorBadge`) and a pinned circular close button (`IconButton`) guaranteed to stay visible without header distortion or truncation.
+  * **Scrollable Body**: Dedicated `verticalScroll` area preventing content clipping across all screen sizes and display scalings.
+  * **Polished Empty-State**: Replaces raw scraper notes with clean, student-friendly copy and status badges (`✓ Full Day Free`, `Quiet Study Friendly`).
+  * **Pinned Action Button**: Full-width primary "Close" button pinned at the base of the dialog, always immediately reachable.
 
 ---
 

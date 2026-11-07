@@ -12,6 +12,9 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -396,80 +399,141 @@ fun VacantRoomsScreen(
 
             // STREAMLINED SEARCH AND COMPACT QUICK FILTERS
             item(key = "search_and_quick_filters") {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    // 1. Sleek Search Bar
-                    OutlinedTextField(
-                        value = searchQuery,
-                        onValueChange = { searchQuery = it },
-                        placeholder = { Text("Search room (e.g. L1, LR2, Lab...)", fontSize = 13.sp) },
-                        leadingIcon = {
-                            Icon(Icons.Default.Search, contentDescription = null, tint = textMuted, modifier = Modifier.size(20.dp))
-                        },
-                        trailingIcon = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    // 1. Sleek Compact Pill-shaped Search Bar (44dp height, 24dp radius)
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(44.dp),
+                        shape = RoundedCornerShape(24.dp),
+                        color = surfaceColor,
+                        border = BorderStroke(1.dp, borderSubtle)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = null,
+                                tint = textMuted,
+                                modifier = Modifier.size(19.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Box(modifier = Modifier.weight(1f)) {
+                                if (searchQuery.isEmpty()) {
+                                    Text(
+                                        text = "Search room (e.g. L1, LR2, Lab...)",
+                                        fontSize = 13.sp,
+                                        color = textMuted
+                                    )
+                                }
+                                BasicTextField(
+                                    value = searchQuery,
+                                    onValueChange = { searchQuery = it },
+                                    singleLine = true,
+                                    textStyle = TextStyle(
+                                        fontSize = 13.5.sp,
+                                        color = textPrimary,
+                                        fontWeight = FontWeight.Medium
+                                    ),
+                                    cursorBrush = SolidColor(PrimaryBlue),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
                             if (searchQuery.isNotEmpty()) {
-                                IconButton(onClick = { searchQuery = "" }) {
-                                    Icon(Icons.Default.Close, contentDescription = "Clear search", tint = textMuted, modifier = Modifier.size(18.dp))
+                                IconButton(
+                                    onClick = { searchQuery = "" },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Close,
+                                        contentDescription = "Clear search",
+                                        tint = textMuted,
+                                        modifier = Modifier.size(16.dp)
+                                    )
                                 }
                             }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = surfaceColor,
-                            unfocusedContainerColor = surfaceColor,
-                            focusedBorderColor = PrimaryBlue,
-                            unfocusedBorderColor = borderSubtle
-                        )
-                    )
+                        }
+                    }
 
-                    // 2. Single Unified Horizontal Chip Row for Campus, Building, Free Only & Categories
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
+                    // 2. Prominent Dual-Segment Location Card (Campus | Building)
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = surfaceColor,
+                        border = BorderStroke(
+                            1.dp,
+                            if (selectedCampus != null || selectedBuilding != null) PrimaryBlue.copy(alpha = 0.45f) else borderSubtle
+                        ),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        // Campus Chip & Dropdown
-                        item(key = "chip_campus") {
-                            Box {
-                                val campusShort = selectedCampus?.let { cName ->
-                                    Campus.entries.firstOrNull { it.displayName == cName }?.shortName ?: cName
-                                } ?: "All Campuses"
-
-                                FilterChip(
-                                    selected = selectedCampus != null,
-                                    onClick = { campusDropdownExpanded = true },
-                                    label = {
-                                        Text(
-                                            text = "Campus: $campusShort",
-                                            fontSize = 11.5.sp,
-                                            fontWeight = if (selectedCampus != null) FontWeight.Bold else FontWeight.Medium
-                                        )
-                                    },
-                                    trailingIcon = {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 5.dp, horizontal = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Left Segment: Campus Selector
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable { campusDropdownExpanded = true }
+                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .background(PrimaryBlue.copy(alpha = 0.12f), RoundedCornerShape(8.dp)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
                                         Icon(
-                                            imageVector = Icons.Default.ArrowDropDown,
+                                            imageVector = Icons.Outlined.Place,
                                             contentDescription = null,
-                                            modifier = Modifier.size(16.dp)
+                                            tint = PrimaryBlue,
+                                            modifier = Modifier.size(18.dp)
                                         )
-                                    },
-                                    shape = RoundedCornerShape(10.dp),
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = PrimaryBlue.copy(alpha = 0.14f),
-                                        selectedLabelColor = PrimaryBlue
-                                    ),
-                                    border = FilterChipDefaults.filterChipBorder(
-                                        enabled = true,
-                                        selected = selectedCampus != null,
-                                        borderColor = if (selectedCampus != null) PrimaryBlue else borderSubtle
+                                    }
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "Campus",
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = textMuted,
+                                            letterSpacing = 0.3.sp
+                                        )
+                                        val campusShort = selectedCampus?.let { cName ->
+                                            Campus.entries.firstOrNull { it.displayName == cName }?.shortName ?: cName
+                                        } ?: "All Campuses"
+                                        Text(
+                                            text = campusShort,
+                                            fontSize = 13.sp,
+                                            fontWeight = if (selectedCampus != null) FontWeight.Bold else FontWeight.SemiBold,
+                                            color = if (selectedCampus != null) PrimaryBlue else textPrimary,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowDropDown,
+                                        contentDescription = "Select campus",
+                                        tint = textMuted,
+                                        modifier = Modifier.size(18.dp)
                                     )
-                                )
+                                }
 
                                 DropdownMenu(
                                     expanded = campusDropdownExpanded,
                                     onDismissRequest = { campusDropdownExpanded = false },
                                     modifier = Modifier
-                                        .widthIn(min = 220.dp, max = 285.dp)
+                                        .widthIn(min = 230.dp, max = 290.dp)
                                         .heightIn(max = 280.dp)
                                         .background(surfaceColor, RoundedCornerShape(14.dp))
                                 ) {
@@ -543,47 +607,71 @@ fun VacantRoomsScreen(
                                     )
                                 }
                             }
-                        }
 
-                        // Building Chip & Dropdown
-                        item(key = "chip_building") {
-                            Box {
-                                val currentBuildingObj = UniversityDirectory.BUILDINGS.firstOrNull { it.code == selectedBuilding }
+                            // Clean Vertical Divider
+                            VerticalDivider(
+                                modifier = Modifier.height(28.dp),
+                                color = borderSubtle
+                            )
 
-                                FilterChip(
-                                    selected = selectedBuilding != null,
-                                    onClick = { buildingDropdownExpanded = true },
-                                    label = {
-                                        Text(
-                                            text = "Building: ${currentBuildingObj?.code ?: "All"}",
-                                            fontSize = 11.5.sp,
-                                            fontWeight = if (selectedBuilding != null) FontWeight.Bold else FontWeight.Medium
-                                        )
-                                    },
-                                    trailingIcon = {
+                            // Right Segment: Building Selector
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable { buildingDropdownExpanded = true }
+                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .background(PrimaryBlue.copy(alpha = 0.12f), RoundedCornerShape(8.dp)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
                                         Icon(
-                                            imageVector = Icons.Default.ArrowDropDown,
+                                            imageVector = Icons.Outlined.Business,
                                             contentDescription = null,
-                                            modifier = Modifier.size(16.dp)
+                                            tint = PrimaryBlue,
+                                            modifier = Modifier.size(18.dp)
                                         )
-                                    },
-                                    shape = RoundedCornerShape(10.dp),
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = PrimaryBlue.copy(alpha = 0.14f),
-                                        selectedLabelColor = PrimaryBlue
-                                    ),
-                                    border = FilterChipDefaults.filterChipBorder(
-                                        enabled = true,
-                                        selected = selectedBuilding != null,
-                                        borderColor = if (selectedBuilding != null) PrimaryBlue else borderSubtle
+                                    }
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "Building",
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = textMuted,
+                                            letterSpacing = 0.3.sp
+                                        )
+                                        val currentBuildingObj = UniversityDirectory.BUILDINGS.firstOrNull { it.code == selectedBuilding }
+                                        val buildingLabel = currentBuildingObj?.code ?: "All Buildings"
+                                        Text(
+                                            text = buildingLabel,
+                                            fontSize = 13.sp,
+                                            fontWeight = if (selectedBuilding != null) FontWeight.Bold else FontWeight.SemiBold,
+                                            color = if (selectedBuilding != null) PrimaryBlue else textPrimary,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowDropDown,
+                                        contentDescription = "Select building",
+                                        tint = textMuted,
+                                        modifier = Modifier.size(18.dp)
                                     )
-                                )
+                                }
 
                                 DropdownMenu(
                                     expanded = buildingDropdownExpanded,
                                     onDismissRequest = { buildingDropdownExpanded = false },
                                     modifier = Modifier
-                                        .widthIn(min = 220.dp, max = 285.dp)
+                                        .widthIn(min = 230.dp, max = 290.dp)
                                         .heightIn(max = 280.dp)
                                         .background(surfaceColor, RoundedCornerShape(14.dp))
                                 ) {
@@ -657,7 +745,14 @@ fun VacantRoomsScreen(
                                 }
                             }
                         }
+                    }
 
+                    // 3. Horizontal Chip Row for Quick Status Attributes
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         // Free Only Quick Toggle Chip
                         item(key = "chip_free_only") {
                             FilterChip(
@@ -718,7 +813,7 @@ fun VacantRoomsScreen(
                             )
                         }
 
-                        // Faculty Reset Shortcut (if away from faculty default)
+                        // Faculty Reset Shortcut
                         val isAwayFromDefaults = !isDefaultResetDismissed && (defaultScope.campus != selectedCampus ||
                                 (defaultScope.buildingCode != null && selectedBuilding != defaultScope.buildingCode))
                         if (isAwayFromDefaults) {
@@ -1558,7 +1653,7 @@ fun RoomScheduleDetailDialog(
             colors = CardDefaults.cardColors(containerColor = if (isDark) DarkSurfaceCard else Color.White),
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(max = 560.dp)
+                .heightIn(max = 580.dp)
                 .padding(horizontal = 4.dp)
         ) {
             Column(
@@ -1566,217 +1661,250 @@ fun RoomScheduleDetailDialog(
                     .fillMaxWidth()
                     .padding(20.dp)
             ) {
+                // 1. Pinned Header with guaranteed visible Close button
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.Top
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
                                 text = formatRoomDisplayCode(room),
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = textPrimary
+                                color = textPrimary,
+                                modifier = Modifier.weight(1f, fill = false)
                             )
                             FloorIndicatorBadge(
                                 level = room.level,
-                                compact = false,
+                                compact = true,
                                 isDark = isDark
                             )
                         }
+                        Spacer(modifier = Modifier.height(3.dp))
                         Text(
                             text = "${room.buildingName} · $dayOfWeek",
-                            fontSize = 12.sp,
+                            fontSize = 12.5.sp,
                             color = textMuted
                         )
                         if (room.usedByFaculties.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = "Used by: ${room.usedByFaculties.joinToString(", ")}",
                                 fontSize = 11.sp,
-                                color = PrimaryBlue
+                                color = PrimaryBlue,
+                                fontWeight = FontWeight.Medium
                             )
                         }
                     }
-                    IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
-                        Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(18.dp))
-                    }
-                }
 
-                if (room.notes.isNotBlank()) {
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = Color(0xFF8B5CF6).copy(alpha = 0.12f),
-                        modifier = Modifier.fillMaxWidth()
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .size(32.dp)
+                            .background(if (isDark) Color(0xFF334155) else Color(0xFFF1F5F9), CircleShape)
                     ) {
-                        Text(
-                            text = room.notes,
-                            fontSize = 12.sp,
-                            color = Color(0xFF8B5CF6),
-                            modifier = Modifier.padding(10.dp)
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close",
+                            tint = textMuted,
+                            modifier = Modifier.size(16.dp)
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
-                Text(
-                    text = "All Scheduled Sessions (${sessions.size})",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = textPrimary
-                )
+                // 2. Scrollable Content Area (prevents vertical truncation)
+                Column(
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    // Sanitize notes: clean developer scraper artifacts
+                    val cleanNotes = remember(room.notes) {
+                        room.notes
+                            .replace(Regex("(?i)NOTE:\\s*duplicate listing in source data\\.?"), "")
+                            .replace(Regex("(?i)NOTE:\\s*exists in FCI directory.*"), "")
+                            .trim()
+                    }
+                    val showCustomNotes = cleanNotes.isNotBlank() &&
+                            !cleanNotes.contains("No scheduled sessions", ignoreCase = true) &&
+                            !cleanNotes.contains("scheduled session(s)", ignoreCase = true)
 
-                Spacer(modifier = Modifier.height(8.dp))
-
-                if (sessions.isEmpty()) {
-                    val isLibraryVenue = room.type == RoomType.LIBRARY || room.buildingName.contains("Library", ignoreCase = true)
-                    val isPermanentlyVacant = room.isPermanentlyVacant || room.sessionsThisSemester == 0
-
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = if (isDark) DarkSurfaceBase else Color(0xFFF0FDF4),
-                        border = BorderStroke(1.dp, if (isDark) DarkBorderSubtle else Color(0xFFBBF7D0)),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 10.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(20.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                    if (showCustomNotes) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = Color(0xFF8B5CF6).copy(alpha = 0.12f),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(46.dp)
-                                    .background(StatusGreenLive.copy(alpha = 0.15f), CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = if (isLibraryVenue) Icons.Outlined.LocalLibrary else Icons.Outlined.CheckCircle,
-                                    contentDescription = null,
-                                    tint = StatusGreenLive,
-                                    modifier = Modifier.size(26.dp)
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(10.dp))
                             Text(
-                                text = when {
-                                    isLibraryVenue -> "Open for Self-Study & Reading"
-                                    isPermanentlyVacant -> "Unallocated Classroom · Free All Day"
-                                    else -> "No Scheduled Lectures on $dayOfWeek"
-                                },
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.5.sp,
-                                color = textPrimary,
-                                textAlign = TextAlign.Center
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = when {
-                                    isLibraryVenue -> "This is a dedicated academic library / study facility. No lectures are timetable-allocated here, so it is freely accessible for individual study, reading, and research throughout $dayOfWeek."
-                                    isPermanentlyVacant -> "This venue has zero scheduled teaching sessions in the 2026/2027 Semester I timetable. You can freely use it for quiet revision, coursework, or group discussions."
-                                    else -> "No teaching sessions are allocated to this room on $dayOfWeek. It is open and available for student study, revision, or coursework."
-                                },
+                                text = cleanNotes,
                                 fontSize = 12.sp,
-                                color = textMuted,
-                                textAlign = TextAlign.Center,
-                                lineHeight = 17.sp
+                                color = Color(0xFF8B5CF6),
+                                modifier = Modifier.padding(10.dp)
                             )
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+
+                    Text(
+                        text = "All Scheduled Sessions (${sessions.size})",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = textPrimary
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    if (sessions.isEmpty()) {
+                        val isLibraryVenue = room.type == RoomType.LIBRARY || room.buildingName.contains("Library", ignoreCase = true)
+                        val isPermanentlyVacant = room.isPermanentlyVacant || room.sessionsThisSemester == 0
+
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = if (isDark) DarkSurfaceBase else Color(0xFFF0FDF4),
+                            border = BorderStroke(1.dp, if (isDark) DarkBorderSubtle else Color(0xFFBBF7D0)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = StatusGreenLive.copy(alpha = 0.12f)
+                                Box(
+                                    modifier = Modifier
+                                        .size(42.dp)
+                                        .background(StatusGreenLive.copy(alpha = 0.15f), CircleShape),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    Text(
-                                        text = if (isLibraryVenue) "✓ Quiet Study Friendly" else "✓ Full Day Free",
-                                        color = StatusGreenLive,
-                                        fontSize = 11.5.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    Icon(
+                                        imageVector = if (isLibraryVenue) Icons.Outlined.LocalLibrary else Icons.Outlined.CheckCircle,
+                                        contentDescription = null,
+                                        tint = StatusGreenLive,
+                                        modifier = Modifier.size(24.dp)
                                     )
                                 }
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = PrimaryBlue.copy(alpha = 0.12f)
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = when {
+                                        isLibraryVenue -> "Open for Self-Study & Reading"
+                                        isPermanentlyVacant -> "Unallocated Classroom · Free All Day"
+                                        else -> "No Scheduled Lectures on $dayOfWeek"
+                                    },
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    color = textPrimary,
+                                    textAlign = TextAlign.Center
+                                )
+                                Spacer(modifier = Modifier.height(5.dp))
+                                Text(
+                                    text = when {
+                                        isLibraryVenue -> "This is a dedicated academic library / study facility. No lectures are timetable-allocated here, so it is freely accessible for individual study, reading, and research throughout $dayOfWeek."
+                                        isPermanentlyVacant -> "This venue has zero scheduled teaching sessions in the 2026/2027 Semester I timetable. You can freely use it for quiet revision, coursework, or group discussions."
+                                        else -> "No teaching sessions are allocated to this room on $dayOfWeek. It is open and available for student study, revision, or coursework."
+                                    },
+                                    fontSize = 12.sp,
+                                    color = textMuted,
+                                    textAlign = TextAlign.Center,
+                                    lineHeight = 17.sp
+                                )
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text(
-                                        text = room.level.displayName,
-                                        color = PrimaryBlue,
-                                        fontSize = 11.5.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                    )
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = StatusGreenLive.copy(alpha = 0.12f)
+                                    ) {
+                                        Text(
+                                            text = if (isLibraryVenue) "✓ Quiet Study Friendly" else "✓ Full Day Free",
+                                            color = StatusGreenLive,
+                                            fontSize = 11.5.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                        )
+                                    }
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = PrimaryBlue.copy(alpha = 0.12f)
+                                    ) {
+                                        Text(
+                                            text = room.level.displayName,
+                                            color = PrimaryBlue,
+                                            fontSize = 11.5.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
-                    }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.weight(1f, fill = false),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(sessions) { session: TimetableEntry ->
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = if (isDark) DarkSurfaceBase else Color(0xFFF8FAFC),
-                                border = BorderStroke(1.dp, if (isDark) DarkBorderSubtle else BorderSubtleLight),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                    } else {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            sessions.forEach { session: TimetableEntry ->
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = if (isDark) DarkSurfaceBase else Color(0xFFF8FAFC),
+                                    border = BorderStroke(1.dp, if (isDark) DarkBorderSubtle else BorderSubtleLight),
+                                    modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Column(
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-                                        modifier = Modifier.width(68.dp)
+                                    Row(
+                                        modifier = Modifier.padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Text(
-                                            text = session.startTime,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 13.sp,
-                                            color = PrimaryBlue
-                                        )
-                                        Text(
-                                            text = session.endTime,
-                                            fontSize = 11.sp,
-                                            color = textMuted
-                                        )
-                                    }
-
-                                    Spacer(modifier = Modifier.width(10.dp))
-                                    VerticalDivider(
-                                        modifier = Modifier.height(34.dp),
-                                        color = textMuted.copy(alpha = 0.3f)
-                                    )
-                                    Spacer(modifier = Modifier.width(10.dp))
-
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = session.courseCode,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 13.sp,
-                                            color = textPrimary
-                                        )
-                                        Text(
-                                            text = session.courseTitle,
-                                            fontSize = 12.sp,
-                                            color = textMuted,
-                                            maxLines = 1
-                                        )
-                                        if (session.programmeGroup.isNotBlank()) {
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            modifier = Modifier.width(68.dp)
+                                        ) {
                                             Text(
-                                                text = "Group: ${session.programmeGroup}",
-                                                fontSize = 11.sp,
+                                                text = session.startTime,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 13.sp,
                                                 color = PrimaryBlue
                                             )
+                                            Text(
+                                                text = session.endTime,
+                                                fontSize = 11.sp,
+                                                color = textMuted
+                                            )
+                                        }
+
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                        VerticalDivider(
+                                            modifier = Modifier.height(34.dp),
+                                            color = textMuted.copy(alpha = 0.3f)
+                                        )
+                                        Spacer(modifier = Modifier.width(10.dp))
+
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = session.courseCode,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 13.sp,
+                                                color = textPrimary
+                                            )
+                                            Text(
+                                                text = session.courseTitle,
+                                                fontSize = 12.sp,
+                                                color = textMuted,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            if (session.programmeGroup.isNotBlank()) {
+                                                Text(
+                                                    text = "Group: ${session.programmeGroup}",
+                                                    fontSize = 11.sp,
+                                                    color = PrimaryBlue
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -1787,13 +1915,16 @@ fun RoomScheduleDetailDialog(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
+                // 3. Pinned bottom Close Button
                 Button(
                     onClick = onDismiss,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(46.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
                 ) {
-                    Text("Close")
+                    Text("Close", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
