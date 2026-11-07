@@ -229,12 +229,15 @@ The Academic Calendar is the student's unified macro-planning horizon, bridging 
 ---
 
 ## 9. 🔄 Native In-App Update Engine
-
+ 
 * **Sideload Update Management**: Keeps students on the latest release outside the Google Play Store.
-* **Remote Version Inspection**: Checks GitHub Releases API / version metadata.
+* **Remote Version Inspection**: Checks GitHub Releases API and fallback version metadata with smart 15-minute in-memory caching to eliminate campus Wi-Fi rate limiting.
 * **Strict Downgrade Prevention**: Uses semantic version comparison (`isNewerRelease`) to strictly forbid installing older builds.
 * **Clean In-App Experience**:
   * Background APK downloading with real-time percentage progress bar.
-  * SHA-256 cryptographic checksum verification before prompting install.
+  * SHA-256 cryptographic checksum verification and pre-flight `PackageManager.getPackageArchiveInfo` validation to prevent installing corrupted archives.
+  * Automated cache purging of old update APKs and orphaned temporary files.
   * Concise, curated release highlights filtering out developer and backend jargon.
-  * 1-tap installation via Android `FileProvider` with guidance for unknown source permissions.
+  * 1-tap installation via Android `FileProvider` with automatic `ON_RESUME` permission refresh.
+  * Offline-first mandatory update escape hatch ensuring students are never locked out of their saved timetable.
+  * 36-hour notification throttling in background worker (`TimetableSyncWorker`) to eliminate notification shade spam.

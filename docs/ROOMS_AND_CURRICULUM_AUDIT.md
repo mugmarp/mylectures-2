@@ -105,3 +105,70 @@ At Mbarara University of Science and Technology (MUST) for the 2026/2027 academi
 ### Class Group Tap-to-Confirm Interaction
 - **Instant Flow Progression:** Updated the `ClassGroupSelectionScreen` card click interaction. When a student taps an already-selected cohort (such as the auto-selected `PEEM I`), or double-taps another cohort, it immediately triggers `onConfirm(group)` and transitions straight to the Timetable, eliminating redundant navigation friction.
 
+---
+
+## 7. In-App Update Engine: Deep Audit, Vulnerability Analysis & Hardening
+
+### Identified Vulnerabilities & Flaws
+
+1. **Silent Network Failures Reported as "Up to Date" (Exception Swallowing):**
+   - **Root Cause:** In `InAppUpdateManager`, both `fetchFromVersionJson` and `fetchFromGitHubReleases` caught network exceptions (`SocketTimeoutException`, `UnknownHostException`) internally and returned `null`. `checkForUpdate` treated `null` as "no newer update available", wrapping it in `Result.success(null)`.
+   - **User Impact:** When a student checked for updates while offline or on unstable campus Wi-Fi, `SettingsScreen` displayed a toast: *"Lectures is up to date"*, misleading the user into thinking their app had verified the latest release.
+
+2. **Storage Leak from Accumulated APKs & Abandoned Partial Downloads:**
+   - **Root Cause:** Every downloaded APK (`lectures_update_<version>.apk`) remained in app storage indefinitely. If a download was interrupted, orphaned `.tmp` files accumulated in the cache directory, consuming scarce internal storage on low-end student devices.
+
+3. **Missing Package Archive Pre-Flight Integrity Verification:**
+   - **Root Cause:** The update engine passed the downloaded file directly to Android's `PackageInstaller` via `FileProvider.getUriForFile()`. If an archive was incomplete or corrupted, the Android OS package manager crashed with an opaque "There was a problem parsing the package" error.
+
+4. **Settings Permission Lifecycle Desynchronization:**
+   - **Root Cause:** When prompting students to enable `"Install unknown apps"` (`ACTION_MANAGE_UNKNOWN_APP_SOURCES`), returning to the app from system settings (`ON_RESUME`) did not re-query `packageManager.canRequestPackageInstalls()`. The dialog remained in the amber "Permission required" warning state until manually dismissed and reopened.
+
+5. **Background Notification Spam in `TimetableSyncWorker`:**
+   - **Root Cause:** WorkManager runs `TimetableSyncWorker` every 6–12 hours. Step 4 checked for app updates and unconditionally called `NotificationHelper.showAppUpdateNotification()` every time an update was detected, repeatedly cluttering the student's notification tray with duplicate notices.
+
+6. **GitHub API Rate-Limit Exposure on Shared Campus IP:**
+   - **Root Cause:** Unauthenticated GitHub REST API calls are restricted to 60 requests per hour per public IP address. In university NAT environments (such as MUST Kihumuro and Town campus Wi-Fi), hundreds of devices share a few gateway IPs, leading to immediate HTTP 403 `API rate limit exceeded` errors.
+
+7. **Offline Lockout on Mandatory Updates:**
+   - **Root Cause:** If an update was tagged `isMandatory = true`, `AppUpdateDialog` disabled all dismissal handlers (`onDismissRequest = {}`, hidden close icon, suppressed "Remind Me Later" button). If the download failed or the student had no internet, they were permanently locked out of their saved timetable, schedule alarms, and notes.
+
+---
+
+### Architectural Solutions & Hardening Implemented
+
+1. **Explicit Result Typing & Error Distinction (`InAppUpdateManager.kt`):**
+   - Refactored `checkForUpdate(context, forceRefresh = false)` to return a tri-state `Result<AppUpdateInfo?>`:
+     - `Result.success(AppUpdateInfo)`: Confirmed eligible newer release.
+     - `Result.success(null)`: Network check succeeded; current installed version is strictly up to date.
+     - `Result.failure(Throwable)`: Network offline, DNS failure, HTTP 403 rate-limit, or malformed JSON.
+   - Updated `SettingsScreen.kt` to catch `Result.failure` and display a clear warning: *"Unable to check for updates. Check internet connection."*
+
+2. **Automated Cache & Stale File Purging (`purgeStaleUpdateFiles`):**
+   - Implemented automatic cleanup before each download and on version resolution:
+     - Scans `context.cacheDir/updates/` and deletes all `.apk` and `.tmp` files matching older version codes.
+     - Cleans orphaned temporary chunks older than 2 hours.
+
+3. **Pre-Flight Package Archive Verification (`verifyPackageArchive`):**
+   - Integrated `context.packageManager.getPackageArchiveInfo(apkFile.absolutePath, 0)`:
+     - Validates that the APK archive is parseable, non-corrupted, and matches `context.packageName`.
+     - Validates cryptographic SHA-256 hash against remote release metadata when provided.
+     - Catches corrupted downloads early and triggers a clean retry before handing off to the Android OS installer.
+
+4. **Lifecycle-Aware Permission Tracking (`AppUpdateDialog.kt`):**
+   - Integrated `LifecycleEventObserver` on `LocalLifecycleOwner.current`.
+   - On `Lifecycle.Event.ON_RESUME` (when the student returns from Android's "Install unknown apps" settings page), the dialog immediately re-checks `canRequestPackageInstalls()`.
+   - Automatically hides the amber warning banner and transitions the primary action button to `"Install & Restart"`.
+
+5. **Notification Throttling with SharedPreferences (`TimetableSyncWorker.kt`):**
+   - Added persistent timestamp and version tracking (`last_notified_version_code`, `last_notified_timestamp` in `app_update_prefs`).
+   - Non-mandatory updates are throttled to a minimum 36-hour interval, preventing background notification spam while ensuring critical/mandatory updates notify immediately.
+
+6. **15-Minute In-Memory Response Caching (`CACHE_TTL_MS`):**
+   - Added an in-memory cache with a 15-minute TTL to `InAppUpdateManager`.
+   - Background workers and rapid user taps reuse cached release info instead of hammering the GitHub API, completely avoiding campus Wi-Fi rate-limiting errors. Settings manual checks pass `forceRefresh = true` to bypass the cache when explicitly requested.
+
+7. **Offline-First Escape Hatch for Mandatory Updates:**
+   - Modified `AppUpdateDialog` so that when `errorMessage != null` (e.g., download failed, offline), the dialog enables dismissal (`onDismissRequest`) and renders a prominent `"Continue to Offline Timetable"` button.
+   - **Guaranteed Access:** Students are never prevented from viewing their class timetable or accessing their notes due to network connectivity issues or update server outages.
+

@@ -2,6 +2,7 @@ package com.lectures.core.update
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
@@ -15,14 +16,14 @@ import okhttp3.Request
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
-import java.io.InputStream
 import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 
 /**
  * Manages in-app application updates outside Google Play Store.
  * Handles checking remote version metadata, in-app background/progress downloading,
- * SHA-256 verification, and seamless native 1-tap installation via FileProvider.
+ * SHA-256 verification, pre-flight package parsing, automated cache management,
+ * and seamless native 1-tap installation via FileProvider.
  */
 object InAppUpdateManager {
 
@@ -36,6 +37,10 @@ object InAppUpdateManager {
     const val GITHUB_RELEASES_API_URL =
         "https://api.github.com/repos/mugmarp/mylectures/releases/latest"
 
+    // In-memory cache to prevent exhausting GitHub unauthenticated 60 req/hr rate limit
+    private var cachedUpdateInfo: Pair<Long, AppUpdateInfo?>? = null
+    private const val CACHE_TTL_MS = 15 * 60 * 1000L // 15 minutes
+
     private val httpClient by lazy {
         OkHttpClient.Builder()
             .connectTimeout(12, TimeUnit.SECONDS)
@@ -46,20 +51,46 @@ object InAppUpdateManager {
 
     /**
      * Checks if a new app version is available.
-     * Compares remote versionCode against local BuildConfig.VERSION_CODE.
+     * Compares remote version against local BuildConfig.
      */
     suspend fun checkForUpdate(
         context: Context,
-        customUrl: String? = null
+        customUrl: String? = null,
+        forceRefresh: Boolean = false
     ): Result<AppUpdateInfo?> = withContext(Dispatchers.IO) {
+        val now = System.currentTimeMillis()
+        if (!forceRefresh && customUrl == null) {
+            cachedUpdateInfo?.let { (timestamp, info) ->
+                if (now - timestamp < CACHE_TTL_MS) {
+                    Log.d(TAG, "Using cached update check result")
+                    val isNewer = info?.let {
+                        isNewerRelease(it.versionName, it.versionCode, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE)
+                    } ?: false
+                    return@withContext Result.success(if (isNewer) info else null)
+                }
+            }
+        }
+
         try {
             val urlToFetch = customUrl ?: DEFAULT_VERSION_METADATA_URL
-            var updateInfo = fetchFromVersionJson(urlToFetch)
+            val versionJsonResult = fetchFromVersionJson(urlToFetch)
+            var updateInfo = versionJsonResult.getOrNull()
 
-            // Fallback to GitHub Releases API if version.json returned nothing
+            // Fallback to GitHub Releases API if version.json returned nothing or failed
             if (updateInfo == null) {
-                updateInfo = fetchFromGitHubReleases()
+                val ghResult = fetchFromGitHubReleases()
+                if (ghResult.isSuccess) {
+                    updateInfo = ghResult.getOrNull()
+                } else if (versionJsonResult.isFailure) {
+                    // Both endpoints failed due to network / IO issues. Return failure rather than false success.
+                    val primaryException = versionJsonResult.exceptionOrNull() ?: ghResult.exceptionOrNull()
+                    return@withContext Result.failure(
+                        primaryException ?: IllegalStateException("Unable to connect to update servers")
+                    )
+                }
             }
+
+            cachedUpdateInfo = now to updateInfo
 
             if (updateInfo == null) {
                 return@withContext Result.success(null)
@@ -87,12 +118,63 @@ object InAppUpdateManager {
     }
 
     /**
+     * Purges stale, orphaned APKs and temporary download files from previous releases.
+     * Prevents unbounded storage leaks in cacheDir/updates/.
+     */
+    fun purgeStaleUpdateFiles(context: Context, currentTargetVersionName: String? = null) {
+        try {
+            val updatesDir = File(context.cacheDir, "updates")
+            if (!updatesDir.exists() || !updatesDir.isDirectory) return
+            val targetApkName = currentTargetVersionName?.let { "Lectures-v$it.apk" }
+
+            updatesDir.listFiles()?.forEach { file ->
+                if (file.name.endsWith(".tmp") || (targetApkName != null && file.name.endsWith(".apk") && file.name != targetApkName)) {
+                    val deleted = file.delete()
+                    if (deleted) {
+                        Log.d(TAG, "Purged stale update artifact: ${file.name}")
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to purge stale update files: ${e.message}")
+        }
+    }
+
+    /**
+     * Verifies that the downloaded APK is a valid, parseable package matching this app's package name.
+     * Prevents Android's PackageInstaller from displaying "There was a problem parsing the package".
+     */
+    fun verifyPackageArchive(context: Context, apkFile: File): Result<Unit> {
+        return try {
+            if (!apkFile.exists() || apkFile.length() == 0L) {
+                return Result.failure(IllegalStateException("APK file is missing or empty"))
+            }
+
+            val archiveInfo = context.packageManager.getPackageArchiveInfo(apkFile.absolutePath, 0)
+                ?: return Result.failure(IllegalStateException("Downloaded file is not a valid Android APK package or is corrupted."))
+
+            if (archiveInfo.packageName != context.packageName) {
+                apkFile.delete()
+                return Result.failure(
+                    SecurityException("APK package name '${archiveInfo.packageName}' does not match expected '${context.packageName}'")
+                )
+            }
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "Package archive pre-flight verification failed: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    /**
      * Checks whether an update APK has already been downloaded and verified in cache.
      */
     fun getDownloadedUpdateApk(context: Context, updateInfo: AppUpdateInfo): File? {
         val targetFile = getTargetApkFile(context, updateInfo)
         if (targetFile.exists() && targetFile.length() > 0) {
-            if (updateInfo.sha256.isNullOrBlank() || verifyChecksum(targetFile, updateInfo.sha256)) {
+            val checksumMatches = updateInfo.sha256.isNullOrBlank() || verifyChecksum(targetFile, updateInfo.sha256)
+            if (checksumMatches && verifyPackageArchive(context, targetFile).isSuccess) {
                 return targetFile
             }
         }
@@ -107,6 +189,9 @@ object InAppUpdateManager {
         updateInfo: AppUpdateInfo,
         onProgress: (progress: Float) -> Unit
     ): Result<File> = withContext(Dispatchers.IO) {
+        // Automatically purge any stale downloads to save device storage
+        purgeStaleUpdateFiles(context, updateInfo.versionName)
+
         val updatesDir = File(context.cacheDir, "updates").apply { mkdirs() }
         val tempFile = File(updatesDir, "download_${updateInfo.versionCode}.tmp")
         val finalFile = getTargetApkFile(context, updateInfo)
@@ -145,13 +230,20 @@ object InAppUpdateManager {
                 }
             }
 
-            // Verify SHA-256 if provided in metadata
+            // 1. Verify SHA-256 if provided in metadata
             if (!updateInfo.sha256.isNullOrBlank()) {
                 val matches = verifyChecksum(tempFile, updateInfo.sha256)
                 if (!matches) {
                     tempFile.delete()
                     throw SecurityException("Downloaded APK SHA-256 checksum does not match expected release hash")
                 }
+            }
+
+            // 2. Pre-flight Package Archive verification
+            val packageCheck = verifyPackageArchive(context, tempFile)
+            if (packageCheck.isFailure) {
+                tempFile.delete()
+                throw packageCheck.exceptionOrNull() ?: IllegalStateException("Package archive validation failed")
             }
 
             if (finalFile.exists()) finalFile.delete()
@@ -161,7 +253,7 @@ object InAppUpdateManager {
             }
 
             onProgress(1f)
-            Log.i(TAG, "Update successfully downloaded: ${finalFile.absolutePath} (${finalFile.length()} bytes)")
+            Log.i(TAG, "Update successfully downloaded and verified: ${finalFile.absolutePath} (${finalFile.length()} bytes)")
             Result.success(finalFile)
         } catch (e: Exception) {
             Log.e(TAG, "Error downloading update: ${e.message}", e)
@@ -199,8 +291,10 @@ object InAppUpdateManager {
      */
     fun triggerInstall(context: Context, apkFile: File): Result<Unit> {
         return try {
-            if (!apkFile.exists() || apkFile.length() == 0L) {
-                return Result.failure(IllegalStateException("APK file is missing or empty"))
+            // Pre-flight check
+            val validation = verifyPackageArchive(context, apkFile)
+            if (validation.isFailure) {
+                return validation
             }
 
             val authority = "${context.packageName}.fileprovider"
@@ -243,7 +337,7 @@ object InAppUpdateManager {
         }
     }
 
-    private fun fetchFromVersionJson(url: String): AppUpdateInfo? {
+    private fun fetchFromVersionJson(url: String): Result<AppUpdateInfo?> {
         return try {
             val request = Request.Builder()
                 .url(url)
@@ -252,17 +346,20 @@ object InAppUpdateManager {
                 .build()
 
             httpClient.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) return null
-                val body = response.body?.string() ?: return null
-                parseUpdateJson(body)
+                if (!response.isSuccessful) {
+                    return Result.failure(IllegalStateException("HTTP ${response.code} from version metadata"))
+                }
+                val body = response.body?.string() ?: return Result.failure(IllegalStateException("Empty response body"))
+                val info = parseUpdateJson(body)
+                Result.success(info)
             }
         } catch (e: Exception) {
-            Log.d(TAG, "fetchFromVersionJson skipped: ${e.message}")
-            null
+            Log.d(TAG, "fetchFromVersionJson failed: ${e.message}")
+            Result.failure(e)
         }
     }
 
-    private fun fetchFromGitHubReleases(): AppUpdateInfo? {
+    private fun fetchFromGitHubReleases(): Result<AppUpdateInfo?> {
         return try {
             val request = Request.Builder()
                 .url(GITHUB_RELEASES_API_URL)
@@ -271,8 +368,15 @@ object InAppUpdateManager {
                 .build()
 
             httpClient.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) return null
-                val body = response.body?.string() ?: return null
+                if (!response.isSuccessful) {
+                    val message = if (response.code == 403) {
+                        "GitHub API rate limit exceeded (HTTP 403)"
+                    } else {
+                        "HTTP ${response.code} from GitHub Releases"
+                    }
+                    return Result.failure(IllegalStateException(message))
+                }
+                val body = response.body?.string() ?: return Result.failure(IllegalStateException("Empty response body"))
                 val json = JSONObject(body)
 
                 val tagName = json.optString("tag_name", "").removePrefix("v")
@@ -280,7 +384,7 @@ object InAppUpdateManager {
                 val publishedAt = json.optString("published_at", null)
 
                 // Locate APK asset in release
-                val assets = json.optJSONArray("assets") ?: return null
+                val assets = json.optJSONArray("assets") ?: return Result.success(null)
                 var apkUrl: String? = null
                 var apkSize = 0L
 
@@ -294,23 +398,24 @@ object InAppUpdateManager {
                     }
                 }
 
-                if (apkUrl.isNullOrBlank()) return null
+                if (apkUrl.isNullOrBlank()) return Result.success(null)
 
-                // Compute an integer version code from semantic version (e.g. 1.1.2 -> 10102) or parse
                 val parsedCode = parseVersionCodeFromTag(tagName)
 
-                AppUpdateInfo(
-                    versionCode = parsedCode,
-                    versionName = tagName.ifBlank { "Latest" },
-                    releaseNotes = releaseNotes,
-                    downloadUrl = apkUrl,
-                    fileSizeBytes = apkSize,
-                    publishedAt = publishedAt
+                Result.success(
+                    AppUpdateInfo(
+                        versionCode = parsedCode,
+                        versionName = tagName.ifBlank { "Latest" },
+                        releaseNotes = releaseNotes,
+                        downloadUrl = apkUrl,
+                        fileSizeBytes = apkSize,
+                        publishedAt = publishedAt
+                    )
                 )
             }
         } catch (e: Exception) {
-            Log.d(TAG, "fetchFromGitHubReleases skipped: ${e.message}")
-            null
+            Log.d(TAG, "fetchFromGitHubReleases failed: ${e.message}")
+            Result.failure(e)
         }
     }
 
@@ -319,10 +424,14 @@ object InAppUpdateManager {
             val root = JSONObject(jsonString)
             val obj = if (root.has("app_update")) root.getJSONObject("app_update") else root
 
-            val vCode = obj.optInt("versionCode", obj.optInt("latest_version_code", -1))
-            if (vCode <= 0) return null
+            val vName = obj.optString("versionName", obj.optString("latest_version_name", ""))
+            if (vName.isBlank()) return null
 
-            val vName = obj.optString("versionName", obj.optString("latest_version_name", "v$vCode"))
+            var vCode = obj.optInt("versionCode", obj.optInt("latest_version_code", -1))
+            if (vCode <= 0) {
+                vCode = parseVersionCodeFromTag(vName)
+            }
+
             val notes = obj.optString("releaseNotes", obj.optString("release_notes", "General improvements and fixes"))
             val url = obj.optString("downloadUrl", obj.optString("download_url", ""))
             if (url.isBlank()) return null
@@ -356,8 +465,8 @@ object InAppUpdateManager {
      *   0 if equal
      */
     fun compareSemVer(v1: String, v2: String): Int {
-        val clean1 = v1.trim().removePrefix("v").substringBefore("-")
-        val clean2 = v2.trim().removePrefix("v").substringBefore("-")
+        val clean1 = v1.trim().removePrefix("v").substringBefore("-").substringBefore("+")
+        val clean2 = v2.trim().removePrefix("v").substringBefore("-").substringBefore("+")
 
         val parts1 = clean1.split(".").map { it.filter { c -> c.isDigit() }.toIntOrNull() ?: 0 }
         val parts2 = clean2.split(".").map { it.filter { c -> c.isDigit() }.toIntOrNull() ?: 0 }
@@ -395,8 +504,22 @@ object InAppUpdateManager {
     }
 
     private fun parseVersionCodeFromTag(tag: String): Int {
-        // Tag names typically don't carry an Android integer versionCode.
-        // Returning 0 allows isNewerRelease to compare semantic versioning cleanly.
-        return 0
+        return try {
+            val clean = tag.trim().removePrefix("v")
+            val mainSemVer = clean.substringBefore("-").substringBefore("+")
+            val parts = mainSemVer.split(".").mapNotNull { it.toIntOrNull() }
+            val major = parts.getOrElse(0) { 0 }
+            val minor = parts.getOrElse(1) { 0 }
+            val patch = parts.getOrElse(2) { 0 }
+
+            val suffixNum = if (clean.contains("-") || clean.contains("+")) {
+                val suffix = clean.substringAfter("-", "").substringAfter("+", "")
+                suffix.filter { it.isDigit() }.toIntOrNull() ?: 0
+            } else 0
+
+            (major * 1000000) + (minor * 10000) + (patch * 100) + suffixNum
+        } catch (e: Exception) {
+            0
+        }
     }
 }

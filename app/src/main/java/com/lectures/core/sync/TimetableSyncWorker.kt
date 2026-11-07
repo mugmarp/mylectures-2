@@ -73,7 +73,26 @@ class TimetableSyncWorker(
             try {
                 val updateResult = com.lectures.core.update.InAppUpdateManager.checkForUpdate(applicationContext)
                 updateResult.getOrNull()?.let { updateInfo ->
-                    NotificationHelper.showAppUpdateNotification(applicationContext, updateInfo)
+                    val updatePrefs = applicationContext.getSharedPreferences("app_update_prefs", Context.MODE_PRIVATE)
+                    val lastNotifiedCode = updatePrefs.getInt("last_notified_version_code", -1)
+                    val lastNotifiedTime = updatePrefs.getLong("last_notified_timestamp", 0L)
+                    val now = System.currentTimeMillis()
+                    val throttleWindowMs = 36 * 60 * 60 * 1000L // 36 hours throttle window
+
+                    val shouldNotify = updateInfo.isMandatory ||
+                        updateInfo.versionCode > lastNotifiedCode ||
+                        (now - lastNotifiedTime > throttleWindowMs)
+
+                    if (shouldNotify) {
+                        NotificationHelper.showAppUpdateNotification(applicationContext, updateInfo)
+                        updatePrefs.edit()
+                            .putInt("last_notified_version_code", updateInfo.versionCode)
+                            .putLong("last_notified_timestamp", now)
+                            .apply()
+                        Log.i(TAG, "Posted app update notification for v${updateInfo.versionName} (code=${updateInfo.versionCode})")
+                    } else {
+                        Log.d(TAG, "Suppressed redundant app update notification for v${updateInfo.versionName} (notified within last 36h)")
+                    }
                 }
             } catch (e: Exception) {
                 Log.d(TAG, "Periodic app update check skipped: ${e.message}")

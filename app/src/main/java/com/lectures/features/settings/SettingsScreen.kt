@@ -143,15 +143,26 @@ fun SettingsScreen(
         if (!isCheckingForAppUpdate) {
             isCheckingForAppUpdate = true
             scope.launch {
-                val result = com.lectures.core.update.InAppUpdateManager.checkForUpdate(context)
+                val result = com.lectures.core.update.InAppUpdateManager.checkForUpdate(context, forceRefresh = true)
                 isCheckingForAppUpdate = false
-                val update = result.getOrNull()
-                if (update != null) {
-                    availableUpdateInfo = update
-                    showAppUpdateDialog = true
-                } else {
-                    Toast.makeText(context, "Lectures is up to date (v${BuildConfig.VERSION_NAME})", Toast.LENGTH_SHORT).show()
-                }
+                result.fold(
+                    onSuccess = { update ->
+                        if (update != null) {
+                            availableUpdateInfo = update
+                            showAppUpdateDialog = true
+                        } else {
+                            Toast.makeText(context, "Lectures is up to date (v${BuildConfig.VERSION_NAME})", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    onFailure = { error ->
+                        val msg = if (error is java.net.UnknownHostException || error is java.net.SocketTimeoutException) {
+                            "Unable to check for updates. Please check your internet connection."
+                        } else {
+                            "Check for updates failed: ${error.localizedMessage ?: "Network error"}"
+                        }
+                        Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                    }
+                )
             }
         }
     }

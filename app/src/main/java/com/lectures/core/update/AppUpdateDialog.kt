@@ -70,6 +70,25 @@ fun AppUpdateDialog(
     var showPermissionPrompt by remember { mutableStateOf(false) }
     var showFullChangelog by remember { mutableStateOf(false) }
 
+    // Automatically detect when user returns from system 'Install unknown apps' settings screen
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                if (InAppUpdateManager.canRequestPackageInstalls(context)) {
+                    showPermissionPrompt = false
+                }
+                if (downloadedApk == null) {
+                    downloadedApk = InAppUpdateManager.getDownloadedUpdateApk(context, updateInfo)
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
     fun startDownload() {
         errorMessage = null
         isDownloading = true
@@ -117,7 +136,9 @@ fun AppUpdateDialog(
     }
 
     Dialog(onDismissRequest = {
-        if (!updateInfo.isMandatory && !isDownloading) onDismiss()
+        // If not mandatory, OR if mandatory but an error/offline condition occurred,
+        // permit dismissing so students are NEVER locked out of their saved timetable!
+        if ((!updateInfo.isMandatory || errorMessage != null) && !isDownloading) onDismiss()
     }) {
         Card(
             shape = RoundedCornerShape(24.dp),
@@ -171,7 +192,7 @@ fun AppUpdateDialog(
                         }
                     }
 
-                    if (!updateInfo.isMandatory && !isDownloading) {
+                    if ((!updateInfo.isMandatory || errorMessage != null) && !isDownloading) {
                         IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
                             Icon(
                                 imageVector = Icons.Default.Close,
@@ -401,7 +422,11 @@ fun AppUpdateDialog(
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Download & Update", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            Text(
+                                text = if (errorMessage != null) "Retry Download" else "Download & Update",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            )
                         }
                     }
 
@@ -411,6 +436,18 @@ fun AppUpdateDialog(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text("Remind Me Later", fontSize = 13.sp, color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B))
+                        }
+                    } else if (updateInfo.isMandatory && errorMessage != null && !isDownloading) {
+                        TextButton(
+                            onClick = onDismiss,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "Continue to Offline Timetable",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = primaryColor
+                            )
                         }
                     }
                 }
