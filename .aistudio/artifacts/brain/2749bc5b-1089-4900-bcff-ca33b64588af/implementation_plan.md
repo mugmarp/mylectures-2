@@ -112,3 +112,47 @@ This report outlines the full investigation into MuSTime's notification system (
   - Discarded `tirallab.page` and simplified Developer header row to `Developer` and `Profile`.
   - Refined Developer Profile hero bio: `"BSE student at MUST. Built the Lectures app as a fast, offline-first companion for class schedules and vacant campus rooms."`
 
+---
+
+## 5. Deep Performance, Navigation Speed & Animation Overhaul
+
+### A. Fluid Sub-Screen Navigation Transitions (`MainScaffold.kt`)
+* **Problem**: Navigating to `SettingsScreen`, `VacantRoomsScreen`, or `AccountScreen` used abrupt hard cuts (`if/else` replacements), causing visual flickering and jarring context switching.
+* **Solution**:
+  - Encapsulated screen destinations into `MainScreenDestination` (`TABS`, `SETTINGS`, `VACANT_ROOMS`, `ACCOUNT`).
+  - Implemented Android 14/15-style directional push transitions using `AnimatedContent`:
+    - Entering sub-screen: forward slide from right (`slideInHorizontally + fadeIn(tween(220))`) paired with depth slide out to left (`slideOutHorizontally(-width / 3) + fadeOut(tween(150))`).
+    - Popping back to tabs: reverse slide from left (`slideInHorizontally(-width / 3) + fadeIn(tween(220))`) paired with slide out to right (`slideOutHorizontally(width) + fadeOut(tween(150))`).
+
+### B. Directional Tab Switching Animation (`MainScaffold.kt`)
+* **Problem**: Tapping between bottom dock tabs (Timetable, Calendar, Notes, Tasks) cut instantaneously without spatial continuity.
+* **Solution**:
+  - Integrated `AnimatedContent` on `selectedTab` with directional detection:
+    - Forward tab transitions (e.g. Timetable -> Notes): slide in from right (+14% offset) + subtle fade.
+    - Backward tab transitions (e.g. Tasks -> Timetable): slide in from left (-14% offset) + subtle fade.
+    - Utilizes `spring(stiffness = Spring.StiffnessMediumLow)` for snappy, 60fps transitions without blocking the UI thread.
+
+### C. Tactile Floating Dock Feedback (`MainScaffold.kt`)
+* **Problem**: Selected tabs swapped instantly without tactile indication or smooth color transition.
+* **Solution**:
+  - Added `animateColorAsState(tween(180))` for active pill container background.
+  - Added `animateFloatAsState(spring(dampingRatio = 0.65f, stiffness = Spring.StiffnessMedium))` scaling active icons to `1.08x` with `graphicsLayer`.
+
+### D. Real-Time In-App Foreground Toast Banner (`MainScaffold.kt`)
+* **Problem**: If an alarm or reminder triggered while the user was actively using the app, `InAppNotificationStore.foregroundAlertFlow` was never collected in `MainScaffold.kt`, leaving the student without a heads-up alert.
+* **Solution**:
+  - Added reactive collection of `InAppNotificationStore.foregroundAlertFlow`.
+  - Implemented top-anchored floating heads-up alert banner with `slideInVertically + fadeIn`, 5-second auto-dismiss timer, 1-tap navigation to the alert's target tab, and manual dismiss button.
+
+### E. List Performance & Placements Animation (`animateItem()`)
+* **Problem**: Modifying tasks, swiping calendar days, reordering notes, or filtering rooms caused abrupt visual pops in `LazyColumn` lists.
+* **Solution**:
+  - Added Compose 1.7+ `Modifier.animateItem()` across:
+    - `TimetableScreen.kt` (`TimelineClassCard` & `ActivityCard`)
+    - `TasksScreen.kt` (`TaskCard`)
+    - `NotesScreen.kt` (`NoteCardItem`)
+    - `VacantRoomsScreen.kt` (`RoomVacancyCard`)
+    - `CalendarScreen.kt` (`TaskCard` & `CalendarTimelineItem` cards)
+  - Enables smooth spring-based reordering and entrance/exit animations for all list mutations.
+
+
