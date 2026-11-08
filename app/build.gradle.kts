@@ -14,7 +14,7 @@ android {
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
   defaultConfig {
-    applicationId = "com.lectures"
+    applicationId = "com.lectures.must"
     minSdk = 26
     targetSdk = 35
     versionCode = 3
