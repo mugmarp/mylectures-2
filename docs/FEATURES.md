@@ -241,3 +241,18 @@ The Academic Calendar is the student's unified macro-planning horizon, bridging 
   * 1-tap installation via Android `FileProvider` with automatic `ON_RESUME` permission refresh.
   * Offline-first mandatory update escape hatch ensuring students are never locked out of their saved timetable.
   * 36-hour notification throttling in background worker (`TimetableSyncWorker`) to eliminate notification shade spam.
+
+---
+
+## 10. 📱 Adaptive Viewport & Screen Responsiveness Engine
+
+* **Comprehensive Form-Factor Support**: Fully tested and optimized across compact handsets (320–340dp width), mainstream devices (360–390dp), tall displays (410–430dp), short viewports (<620dp usable height), landscape orientations, and Android multi-window split-screen modes.
+* **FlowRow Dynamic Wrapping**: Replaced rigid horizontal rows with `@OptIn(ExperimentalLayoutApi::class) FlowRow` across room vacancy headers, multi-year degree chips (supporting 5-year programmes such as Medicine `MBChB` and Engineering degrees without edge clipping), and dashboard metric legends.
+* **Compact Header Modes**:
+  * Note Editor automatically collapses segmented Write/Preview controls to icon-only pills on narrow or large-font displays, preserving the "Save" action button on-screen.
+  * Vacant Room Finder dynamically scales the dual-segment Campus and Building filter card, reducing padding and using compact text ("All") on 320dp screens to prevent horizontal overflow.
+* **Viewport Rebalancing**: In Onboarding Class Group selection, the programme summary card scrolls dynamically inside the `LazyColumn` rather than being pinned to the top bar, liberating 80dp of vertical viewport on budget devices with 3-button navigation.
+* **Keyboard Inset Awareness (`.imePadding()`)**: Add/Edit Task dialog incorporates native Compose IME insets, elevating inputs above the software keyboard so action buttons remain reachable.
+* **Bounded Scrollable Pickers & Dialogs**:
+  * Dedicated Time, Date, Schedule, and Day pickers include `verticalScroll(rememberScrollState())` to prevent button clipping on short viewports or in landscape mode.
+  * In-App Update Dialog decouples the scrollable changelog from action buttons, pinning "Install & Restart" and "Download & Update" at the base so 1-tap installation is always immediately visible.

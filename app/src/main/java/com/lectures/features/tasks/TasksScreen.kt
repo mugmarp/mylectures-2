@@ -1260,6 +1260,7 @@ fun AddTaskDialog(
 
     AlertDialog(
         onDismissRequest = handleDismiss,
+        modifier = Modifier.imePadding(),
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(

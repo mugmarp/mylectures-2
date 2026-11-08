@@ -172,3 +172,64 @@ At Mbarara University of Science and Technology (MUST) for the 2026/2027 academi
    - Modified `AppUpdateDialog` so that when `errorMessage != null` (e.g., download failed, offline), the dialog enables dismissal (`onDismissRequest`) and renders a prominent `"Continue to Offline Timetable"` button.
    - **Guaranteed Access:** Students are never prevented from viewing their class timetable or accessing their notes due to network connectivity issues or update server outages.
 
+
+---
+
+## 8. Mobile Screen Responsiveness & Viewport Hardening Audit
+
+### Viewport Matrix & Environmental Constraints
+
+Our audit evaluated the application against the real-world device distribution commonly seen among university students, specifically:
+- **Ultra-Compact Devices (320–340dp width):** Budget handsets (Itel, Tecno Pop, Samsung Galaxy A03 Core, Galaxy Z Fold cover screen). Usable content width after 16dp outer margins is $\approx 288\text{dp}$.
+- **Standard Handhelds (360–390dp width):** Mainstream smartphones (Redmi, Samsung Galaxy A series, Pixel 7a/8a). Usable content width is $\approx 328\text{--}358\text{dp}$.
+- **Short Viewports (<620dp usable height):** Devices with legacy 3-button navigation bars (-56dp), system status bars (-32dp), and bottom navigation bars (-80dp). Total usable screen height can shrink below $450\text{dp}$.
+- **Software Keyboard (IME Active):** Virtual keyboards consume $260\text{--}340\text{dp}$ of vertical height, leaving as little as $280\text{dp}$ of visible window space.
+- **Accessibility Font Scaling (1.15×–1.5×):** Android system settings allowing enlarged text scale factors, expanding string pixel widths and line heights significantly.
+
+---
+
+### Responsiveness Flaws Identified & Mathematical Analysis
+
+1. **Room Vacancy Card Header Badges Clipping Room Codes (`VacantRoomsScreen.kt`):**
+   - **Flaw:** Unconstrained horizontal `Row` placed `displayCode` (e.g. `DS LAB IV`), `FloorIndicatorBadge` (`1st`), and room type `Badge` (`[Computer Lab]`) side-by-side.
+   - **Math:** $110\text{dp (code)} + 40\text{dp (floor)} + 120\text{dp (lab badge)} + 16\text{dp (spacers)} = 286\text{dp}$. On a 320dp screen ($288\text{dp}$ content width minus $24\text{dp}$ card padding $= 264\text{dp}$), the code was crushed into `"DS L..."`.
+   - **Fix:** Switched to `@OptIn(ExperimentalLayoutApi::class) FlowRow`. Anchored `displayCode` and `FloorIndicatorBadge` together, allowing descriptive type badges to wrap to a second line when space is constrained.
+
+2. **Year of Study Chips Clipping 5-Year Degrees (`AcademicProfileSheet.kt`):**
+   - **Flaw:** Year selection used a rigid `Row(horizontalArrangement = Arrangement.spacedBy(8.dp))` for chips `I`, `II`, `III`, `IV`, `V`.
+   - **Math:** 5 chips at $48\text{dp}$ width $+ 32\text{dp}$ spacing $= 272\text{dp}$. On 320dp screens with $32\text{dp}$ sheet padding, total available width is only $288\text{dp}$. When font scaling was increased to 1.25×, chips expanded to $320\text{dp}$, clipping Year `V` completely off the right edge.
+   - **Fix:** Refactored to `FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth())`. 5-year programmes wrap gracefully into two balanced rows.
+
+3. **Note Editor Top Bar Header Collision (`NoteEditorScreen.kt`):**
+   - **Flaw:** Rigid horizontal `Row` accommodated the back button, title ("Edit Note"), the Write/Preview segmented pill control, and the "Save ✓" button without bounding weights.
+   - **Math:** Back button ($48\text{dp}$) + Title ($90\text{dp}$) + Write/Preview pill ($140\text{dp}$) + Save button ($80\text{dp}$) + spacers ($24\text{dp}$) $= 382\text{dp}$, directly exceeding all 320dp and 360dp screens.
+   - **Fix:** Added `windowInfo = rememberLecturesWindow()`. Bounded title with `Modifier.weight(1f, fill = false)` and `TextOverflow.Ellipsis`. On `windowInfo.isNarrow || windowInfo.isTightFont`, collapsed Write/Preview to icon-only pills, saving $60\text{dp}$ of width and ensuring the Save button is always fully visible and clickable.
+
+4. **Dual-Segment Campus & Building Selector Width Exhaustion (`VacantRoomsScreen.kt`):**
+   - **Flaw:** Fixed 8dp padding, 26dp icon boxes, and lengthy default text labels (`"All Campuses"`, `"All Buildings"`) in the dual-segment card required a minimum width of $296\text{dp}$.
+   - **Fix:** Responsive scaling via `windowInfo`. On compact/tight-font viewports, segment horizontal padding scales from 8dp to 4dp, icon boxes reduce from 26dp to 22dp, and fallback labels shorten to `"All"`, reclaiming $28\text{dp}$ of horizontal clearance and eliminating horizontal clipping on 320dp devices.
+
+5. **Onboarding Class Group Viewport Starvation (`OnboardingScreens.kt`):**
+   - **Flaw:** In `ClassGroupSelectionScreen`, the programme summary card was pinned inside `Scaffold.topBar`, consuming $\approx 90\text{dp}$ of fixed height on every frame.
+   - **Math:** On a 640dp budget device with 3-button navigation ($-56\text{dp}$), status bar ($-32\text{dp}$), and bottom continue bar ($-86\text{dp}$), remaining height was $466\text{dp}$. With a $240\text{dp}$ top bar, the `LazyColumn` was starved down to $226\text{dp}$ (rendering only 1.5 class group cards at a time).
+   - **Fix:** Moved the programme summary card into the scrollable `LazyColumn` body as `item(key = "program_summary_header")`. `topBar` height was reduced by $80\text{dp}$, expanding the scrollable view to comfortably display 2.5–3 class cards simultaneously.
+
+6. **Task Progress Dashboard Legend Overlap (`TaskProgressDashboard.kt`):**
+   - **Flaw:** The legend row placed `"Completed: X (Y%)"` and `"Pending: W (Z%)"` in a `Row(horizontalArrangement = Arrangement.SpaceBetween)`.
+   - **Math:** Required width was $275\text{dp}$. Inside the card's $256\text{dp}$ width on 320dp screens, the text lines collided and clipped.
+   - **Fix:** Switched to `@OptIn(ExperimentalLayoutApi::class) FlowRow` and introduced adaptive labels via `rememberLecturesWindow()`: on compact viewports, labels shorten to `"Done: X (Y%)"` and `"Pend: W (Z%)"`.
+
+7. **Add Task Dialog Virtual Keyboard Occlusion (`TasksScreen.kt`):**
+   - **Flaw:** `AddTaskDialog` contains 8 stacked fields. When the soft keyboard (IME) opened, it pushed the action buttons ("Schedule & Save" / "Cancel") below the screen edge.
+   - **Fix:** Added `modifier = Modifier.imePadding()` to `AlertDialog`, allowing the dialog to automatically adjust upward with the window insets so inputs and buttons remain accessible.
+
+8. **Dedicated Pickers Screen Cutoff in Landscape / Split Screen (`DedicatedPickers.kt`):**
+   - **Flaw:** `DedicatedTimePickerDialog` (dial + controls $\approx 470\text{dp}$), `DedicatedCalendarDatePickerDialog` ($\approx 460\text{dp}$), `DedicatedSchedulePickerDialog`, and `DedicatedDayPickerDialog` lacked vertical scrolling. In landscape mode or Android multi-window split-screen (<550dp height), the confirm/dismiss buttons were clipped off-screen.
+   - **Fix:** Applied `Modifier.verticalScroll(rememberScrollState())` to all dialog card Columns. Users on small screens or in split-screen mode can now scroll smoothly to reach the "OK", "Select", and "Cancel" buttons.
+
+9. **App Update Dialog Action Button Below-the-Fold Starvation (`AppUpdateDialog.kt`):**
+   - **Flaw:** The primary action button ("Download & Update" / "Install & Restart") was placed at the very bottom of the card inside a single monolithic `verticalScroll` Column along with release highlights. When release notes were long, the update button was pushed completely below the fold.
+   - **Fix:** Decoupled layout into 3 distinct sections:
+     1. **Pinned Header:** App update icon, version names, close button.
+     2. **Scrollable Body:** Changelog highlights and status banners wrapped in `Column(modifier = Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()))`.
+     3. **Pinned Footer:** Action buttons anchored at the bottom outside the scrollable body, ensuring 1-tap installation is immediately accessible without scrolling.

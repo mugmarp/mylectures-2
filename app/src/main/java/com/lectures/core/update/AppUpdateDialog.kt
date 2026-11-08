@@ -153,10 +153,9 @@ fun AppUpdateDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(22.dp)
+                    .padding(20.dp)
             ) {
-                // Header
+                // Header (Pinned)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -203,10 +202,17 @@ fun AppUpdateDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
-                // Release Highlights Card
-                Surface(
+                // Scrollable Body (Release highlights + progress / status banners)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f, fill = false)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    // Release Highlights Card
+                    Surface(
                     shape = RoundedCornerShape(14.dp),
                     color = if (isDark) Color(0xFF0F172A) else Color(0xFFF8FAFC),
                     border = BorderStroke(1.dp, if (isDark) Color(0xFF334155) else Color(0xFFE2E8F0)),
@@ -389,7 +395,11 @@ fun AppUpdateDialog(
                     Spacer(modifier = Modifier.height(14.dp))
                 }
 
-                // Action Buttons
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Action Buttons (Pinned at bottom, always visible & accessible)
                 Column(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxWidth()
