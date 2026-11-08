@@ -51,6 +51,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lectures.TimetableApplication
 import com.lectures.core.alarm.TaskAlarmScheduler
 import com.lectures.core.alarm.TaskDateTimeParser
+import com.lectures.core.util.NotificationPermissionHelper
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.text.style.TextDecoration
@@ -178,7 +179,9 @@ fun TasksScreen(
     var taskToEdit by remember { mutableStateOf<Assignment?>(null) }
     var showProfileSheet by remember { mutableStateOf(false) }
 
-    var isNotificationBannerDismissed by rememberSaveable { mutableStateOf(false) }
+    var isNotificationBannerDismissed by remember {
+        mutableStateOf(NotificationPermissionHelper.isTaskBannerDismissed(context))
+    }
 
     var hasNotificationPermission by remember {
         mutableStateOf(
@@ -197,21 +200,7 @@ fun TasksScreen(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         hasNotificationPermission = isGranted
-        if (!isGranted) {
-            try {
-                val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
-                    putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                context.startActivity(intent)
-            } catch (_: Exception) {
-                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                    data = Uri.fromParts("package", context.packageName, null)
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                context.startActivity(intent)
-            }
-        }
+        NotificationPermissionHelper.setPromptedNotificationPermission(context, true)
     }
 
     var taskToDelete by remember { mutableStateOf<Assignment?>(null) }
@@ -421,21 +410,10 @@ fun TasksScreen(
                                 val shouldShowRationale = if (activity != null) {
                                     ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.POST_NOTIFICATIONS)
                                 } else false
-                                if (!shouldShowRationale) {
-                                    try {
-                                        val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
-                                            putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                        }
-                                        context.startActivity(intent)
-                                    } catch (_: Exception) {
-                                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                            data = Uri.fromParts("package", context.packageName, null)
-                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                        }
-                                        context.startActivity(intent)
-                                    }
+                                if (!shouldShowRationale && NotificationPermissionHelper.hasPromptedNotificationPermission(context)) {
+                                    NotificationPermissionHelper.openAppNotificationSettings(context)
                                 } else {
+                                    NotificationPermissionHelper.setPromptedNotificationPermission(context, true)
                                     permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                                 }
                             }
@@ -447,7 +425,10 @@ fun TasksScreen(
                             )
                         }
                         IconButton(
-                            onClick = { isNotificationBannerDismissed = true },
+                            onClick = {
+                                isNotificationBannerDismissed = true
+                                NotificationPermissionHelper.setTaskBannerDismissed(context, true)
+                            },
                             modifier = Modifier.size(28.dp)
                         ) {
                             Icon(

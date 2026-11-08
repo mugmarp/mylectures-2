@@ -233,3 +233,57 @@ Our audit evaluated the application against the real-world device distribution c
      1. **Pinned Header:** App update icon, version names, close button.
      2. **Scrollable Body:** Changelog highlights and status banners wrapped in `Column(modifier = Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()))`.
      3. **Pinned Footer:** Action buttons anchored at the bottom outside the scrollable body, ensuring 1-tap installation is immediately accessible without scrolling.
+
+---
+
+## 9. Notification Permission Lifecycle & Repeated Prompt Elimination
+
+### Root Cause Analysis
+
+When users tapped **"Don't allow"** on Android 13+ (API 33+) notification permission dialogs, the app unexpectedly presented the permission prompt again when returning to the Timetable tab.
+
+**Technical Root Cause:**
+1. **Unbounded Composition Lifecycle Execution (`TimetableScreen.kt`):**
+   `TimetableScreen.kt` previously contained a `LaunchedEffect(Unit)` that ran whenever the composable entered the composition tree (on cold start, tab switching to Timetable, or returning from secondary screens like Notes or Rooms).
+   ```kotlin
+   // Buggy pattern:
+   if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+       val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+       if (!granted) {
+           notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+       }
+   }
+   ```
+2. **Absence of Persistent Prompt Tracking:**
+   Because `onResult = { /* Permission handled */ }` was a no-op and no persistent record of the user's decision existed, `granted` remained `false` on every future visit. Consequently, `notificationPermissionLauncher.launch(...)` executed repeatedly on screen transitions. On Android 13+, the OS permits two automatic dialog displays before auto-suppressing, meaning returning to the timetable immediately re-triggered the system dialog.
+3. **Aggressive Settings Redirect in TasksScreen (`TasksScreen.kt`):**
+   When the user tapped "Allow" on the Tasks banner but subsequently clicked "Don't allow" in the OS dialog, `TasksScreen.kt` forcefully opened Android System Settings (`ACTION_APP_NOTIFICATION_SETTINGS`), frustrating users who intentionally declined.
+4. **Transient Banner Dismissal:**
+   The notification banner dismissal state in `TasksScreen.kt` was held in memory via `rememberSaveable`, causing the banner to reappear whenever the app process restarted.
+
+---
+
+### Architectural Solution Implemented
+
+1. **Persistent Permission State Tracking (`NotificationPermissionHelper.kt`):**
+   Added persistent SharedPreferences tracking under `mustime_notification_prefs`:
+   - `hasPromptedNotificationPermission(context): Boolean`: Returns true if the user has ever been presented with the notification permission prompt.
+   - `setPromptedNotificationPermission(context, prompted: Boolean)`: Persists the flag immediately upon prompt dispatch or user resolution.
+   - `isTaskBannerDismissed(context): Boolean` / `setTaskBannerDismissed(context, Boolean)`: Persists manual banner dismissal across app sessions.
+
+2. **Strict One-Time Prompt Guard (`TimetableScreen.kt`):**
+   Refactored `TimetableScreen.kt`'s `LaunchedEffect(Unit)`:
+   - Evaluates `alreadyPrompted = NotificationPermissionHelper.hasPromptedNotificationPermission(context)`.
+   - Checks `isExistingUser = ETagStore(context).isOnboardingCompleted()`.
+   - **Existing Users:** If an existing user who previously set up the app visits Timetable, `setPromptedNotificationPermission(context, true)` is recorded without launching the prompt, ensuring they are never pestered.
+   - **New Users:** If `!granted && !alreadyPrompted`, `setPromptedNotificationPermission(context, true)` is recorded immediately and the prompt is shown at most once.
+   - **Subsequent Screen Visits:** Any subsequent visit to Timetable evaluates `alreadyPrompted == true` and skips launching the permission launcher entirely.
+
+3. **Gentle, Non-Intrusive Contextual Reminders (`ClassAlarmPickerDialog.kt`):**
+   When a student explicitly sets a class alarm while system notifications are disabled, the alarm schedule is saved without failure, and a lightweight informational Toast informs the student:
+   `"Alarm saved! Enable notifications in Settings if you'd like audible alerts."`
+   This eliminates unexpected system popups while keeping the user informed of their alarm's delivery mode.
+
+4. **Task Banner Non-Aggressive Flow (`TasksScreen.kt`):**
+   - Removed the forced redirect to system settings upon permission denial.
+   - Clicking the dismiss `X` button persists `setTaskBannerDismissed(context, true)`, keeping the banner hidden permanently.

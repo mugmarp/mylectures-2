@@ -34,6 +34,7 @@ fun ClassAlarmPickerDialog(
     onConfirm: (Int?) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val isDark = LocalAppTheme.current.isDark
     val primaryColor = MaterialTheme.colorScheme.primary
     val surfaceColor = if (isDark) Color(0xFF1E293B) else Color.White
@@ -228,6 +229,13 @@ fun ClassAlarmPickerDialog(
             Button(
                 onClick = {
                     val finalMinutes = if (isCustomSelected) customText.toIntOrNull() else selectedMinutes
+                    if (finalMinutes != null && !com.lectures.core.util.NotificationPermissionHelper.areNotificationsEnabled(context)) {
+                        android.widget.Toast.makeText(
+                            context,
+                            "Alarm saved! Enable notifications in Settings if you'd like audible alerts.",
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                    }
                     onConfirm(finalMinutes)
                 },
                 enabled = effectiveMinutes != null && effectiveMinutes > 0,

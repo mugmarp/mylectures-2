@@ -105,10 +105,13 @@ fun TimetableScreen(
     val isDark = LocalAppTheme.current.isDark
     val primaryColor = MaterialTheme.colorScheme.primary
 
-    // Prompt notification permission on app open if on Android 13+ (API 33+)
+    // Prompt notification permission at most ONCE on initial setup if on Android 13+ (API 33+)
+    // Respects user choice: if the user denies or already made a decision, NEVER auto-prompts again!
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
-        onResult = { /* Permission handled */ }
+        onResult = { isGranted ->
+            com.lectures.core.util.NotificationPermissionHelper.setPromptedNotificationPermission(context, true)
+        }
     )
     LaunchedEffect(Unit) {
         val app = context.applicationContext as? TimetableApplication
@@ -118,7 +121,15 @@ fun TimetableScreen(
                 context,
                 Manifest.permission.POST_NOTIFICATIONS
             ) == PackageManager.PERMISSION_GRANTED
-            if (!granted) {
+            val alreadyPrompted = com.lectures.core.util.NotificationPermissionHelper.hasPromptedNotificationPermission(context)
+            val isExistingUser = com.lectures.features.timetable.data.ETagStore(context).isOnboardingCompleted()
+
+            if (isExistingUser && !alreadyPrompted) {
+                // Existing install: student has already set up the app. Do not harass them on screen transitions.
+                com.lectures.core.util.NotificationPermissionHelper.setPromptedNotificationPermission(context, true)
+            } else if (!granted && !alreadyPrompted) {
+                // Record prompted immediately to prevent re-triggering across recompositions or tab switches
+                com.lectures.core.util.NotificationPermissionHelper.setPromptedNotificationPermission(context, true)
                 notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
         }
