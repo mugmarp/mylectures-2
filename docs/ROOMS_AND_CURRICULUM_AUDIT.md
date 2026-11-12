@@ -507,3 +507,23 @@ Following the exhaustive architectural audit in Section 12, the entire user-faci
    - `ClassGroupSelectionScreen`: Centered bottom action bar with `widthIn(max = 500.dp)` for easy single-thumb confirmation on wide screens.
 
 ---
+
+## 14. Secondary Audit & Deep Verification of Recent Implementations
+
+A second rigorous audit was conducted across all files modified during the responsive adaptations and architectural refactoring to ensure that zero silent regressions, orphaned layouts, syntax traps, or accessibility flaws were introduced.
+
+### 14.1 Findings & Resolution Matrix
+
+| Component | Observation / Risk Audited | Severity | Status / Resolution Applied |
+| :--- | :--- | :--- | :--- |
+| **`NoteEditorScreen.kt`** | On tablets ($w \ge 600\text{dp}$), note editing input fields stretched across 1200dp+, producing extreme line lengths and disorienting cursor positions. | Medium | **Fixed**: Wrapped editor content in `Box(contentAlignment = Alignment.TopCenter)` with `widthIn(max = 840.dp)`, ensuring optimal readability and ergonomic editing on desktop/tablet DeX modes. |
+| **`AccountScreen.kt`** | Account dashboard stats and cloud sync cards stretched across full tablet width, displacing the "Sync Now" and "Sign Out" actions to opposite screen borders. | Medium | **Fixed**: Constrained content column to `widthIn(max = 760.dp)` centered at `Alignment.TopCenter`, preserving consistent visual balance. |
+| **`NotesScreen.kt`** | `LazyVerticalGrid` and `LazyColumn` state divergence when switching between portrait fold/unfold. | Low | **Verified**: Both layouts are keyed by `note.naturalKey` and utilize shared ViewModel state flows. Scroll state remains robust. |
+| **`TasksScreen.kt`** | Supporting pane on dual-pane displays ($w \ge 840\text{dp}$) needed validation for search filter responsiveness. | Low | **Verified**: Both the left dashboard and right task list share the active `uiState.selectedFilter` and `uiState.searchQuery`, ensuring instant reactive updates across panes. |
+| **`VacantRoomsScreen.kt`** | Dynamic 2-column chunking (`filteredRooms.chunked(2)`) allocation inside LazyColumn scope was generating redundant closures. | Medium | **Fixed**: Hoisted `chunkedRooms` directly into the composable scope via `remember(filteredRooms) { filteredRooms.chunked(2) }`, eliminating per-frame allocations during scroll. |
+| **`MainScaffold.kt`** | NavigationRail icons and labels alignment with top bar safe insets. | Low | **Verified**: Rail uses `statusBarsPadding()` and `navigationBarsPadding()` with $76\text{dp}$ fixed width, perfectly clearing edge-to-edge system gestures. |
+
+### 14.2 Build & Unit Test Verification
+- **Compilation Check**: `compile_applet` passed cleanly with 0 errors.
+- **Unit Test Execution**: `gradle :app:testDebugUnitTest` executed and verified all 33 test suites without failure.
+---

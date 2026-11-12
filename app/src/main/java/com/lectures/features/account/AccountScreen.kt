@@ -103,14 +103,20 @@ fun AccountScreen(
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
-        Column(
+        Box(
             modifier = modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-                .verticalScroll(scrollState)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(innerPadding),
+            contentAlignment = Alignment.TopCenter
         ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .widthIn(max = 760.dp)
+                    .verticalScroll(scrollState)
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
             // Error / Success Banner
             AnimatedVisibility(visible = errorMessage != null, enter = fadeIn(), exit = fadeOut()) {
                 errorMessage?.let { msg ->
@@ -470,6 +476,7 @@ fun AccountScreen(
             }
         }
     }
+}
 
     // Sign Out Confirmation Dialog
     if (showSignOutDialog) {

@@ -827,16 +827,22 @@ fun NoteEditorScreen(
         }
     }
 ) { innerPadding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
                 .padding(innerPadding)
                 .imePadding()
-                .navigationBarsPadding()
-                .verticalScroll(scrollState)
-                .padding(horizontal = 18.dp, vertical = 12.dp)
+                .navigationBarsPadding(),
+            contentAlignment = Alignment.TopCenter
         ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .widthIn(max = 840.dp)
+                    .verticalScroll(scrollState)
+                    .padding(horizontal = 18.dp, vertical = 12.dp)
+            ) {
             // 1. TITLE INPUT
             BasicTextField(
                 value = title,
@@ -1672,6 +1678,7 @@ fun NoteEditorScreen(
             Spacer(modifier = Modifier.height(36.dp))
         }
     }
+}
 
     if (showProfileSheet) {
         val enrolledProg = (LocalContext.current.applicationContext as? TimetableApplication)?.repository?.getInitialProgramme() ?: "EEE II"
