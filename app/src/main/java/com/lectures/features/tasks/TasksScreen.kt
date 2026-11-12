@@ -231,7 +231,7 @@ fun TasksScreen(
 
     val windowInfo = rememberLecturesWindow()
     val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    val listBottomPadding = Chrome.listBottomPadding(navBarBottom)
+    val listBottomPadding = Chrome.listBottomPadding(navBarBottom, windowInfo.useNavigationRail)
     val listState = rememberLazyListState()
 
     // Auto-scroll to target task when launched from notification deep link
@@ -258,7 +258,7 @@ fun TasksScreen(
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier
                         .navigationBarsPadding()
-                        .padding(bottom = Chrome.fabBottomPadding())
+                        .padding(bottom = Chrome.fabBottomPadding(windowInfo.useNavigationRail))
                         .testTag("add_task_fab")
                 ) {
                     Icon(
@@ -292,7 +292,7 @@ fun TasksScreen(
                     },
                     modifier = Modifier
                         .navigationBarsPadding()
-                        .padding(bottom = Chrome.fabBottomPadding())
+                        .padding(bottom = Chrome.fabBottomPadding(windowInfo.useNavigationRail))
                         .testTag("add_task_fab")
                 )
             }
@@ -488,6 +488,200 @@ fun TasksScreen(
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text("Loading tasks...", color = textSecondary, fontSize = 14.sp)
+                }
+            }
+        } else if (windowInfo.isDualPane) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 24.dp),
+                horizontalArrangement = Arrangement.spacedBy(24.dp)
+            ) {
+                // Left Supporting Pane: Task Progress Dashboard
+                Column(
+                    modifier = Modifier
+                        .widthIn(max = 380.dp)
+                        .weight(1f)
+                        .padding(top = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    TaskProgressDashboard(
+                        assignments = assignments,
+                        currentFilter = uiState.selectedFilter,
+                        onFilterChange = { viewModel.setFilter(it) }
+                    )
+                }
+
+                // Right Pane: Search, Filters, and Task Items
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .weight(1.6f)
+                        .fillMaxHeight(),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                    contentPadding = PaddingValues(top = 4.dp, bottom = listBottomPadding + 96.dp)
+                ) {
+                    // Search Field
+                    item(key = "search_field_item") {
+                        OutlinedTextField(
+                            value = uiState.searchQuery,
+                            onValueChange = { viewModel.setSearchQuery(it) },
+                            placeholder = { Text("Search by title or course...", fontSize = 14.sp, color = textSecondary) },
+                            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = textSecondary, modifier = Modifier.size(20.dp)) },
+                            shape = RoundedCornerShape(20.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(52.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = primaryColor,
+                                unfocusedBorderColor = borderColor,
+                                focusedContainerColor = cardBg,
+                                unfocusedContainerColor = cardBg,
+                                focusedTextColor = textPrimary,
+                                unfocusedTextColor = textPrimary
+                            )
+                        )
+                    }
+
+                    // Filter Chips
+                    item(key = "filter_chips_item") {
+                        LazyRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            val filters = listOf("All", "Pending", "Overdue", "Completed", "High Priority")
+                            items(filters) { filter ->
+                                val isSelected = uiState.selectedFilter == filter
+                                val count = when (filter) {
+                                    "Pending" -> assignments.count { !it.completed }
+                                    "Overdue" -> assignments.count { !it.completed && getTaskDueStatus(it.dueDate, it.completed) == TaskDueStatus.OVERDUE }
+                                    "Completed" -> assignments.count { it.completed }
+                                    "High Priority" -> assignments.count { !it.completed && it.priority.equals("High", ignoreCase = true) }
+                                    else -> assignments.size
+                                }
+                                val isOverdueFilter = filter == "Overdue"
+                                val chipBg = when {
+                                    isSelected && isOverdueFilter -> Color(0xFFDC2626)
+                                    isSelected -> primaryColor
+                                    isOverdueFilter && count > 0 -> if (isDark) Color(0xFF7F1D1D).copy(alpha = 0.4f) else Color(0xFFFEE2E2)
+                                    else -> cardBg
+                                }
+                                val chipBorder = when {
+                                    isSelected && isOverdueFilter -> Color(0xFFDC2626)
+                                    isSelected -> primaryColor
+                                    isOverdueFilter && count > 0 -> if (isDark) Color(0xFFB91C1C) else Color(0xFFFCA5A5)
+                                    else -> borderColor
+                                }
+                                val chipTextColor = when {
+                                    isSelected -> Color.White
+                                    isOverdueFilter && count > 0 -> if (isDark) Color(0xFFFCA5A5) else Color(0xFFDC2626)
+                                    else -> textSecondary
+                                }
+
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .background(chipBg)
+                                        .border(1.dp, chipBorder, RoundedCornerShape(16.dp))
+                                        .clickable { viewModel.setFilter(filter) }
+                                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        if (isOverdueFilter && count > 0 && !isSelected) {
+                                            Icon(
+                                                Icons.Default.WarningAmber,
+                                                contentDescription = null,
+                                                tint = chipTextColor,
+                                                modifier = Modifier.size(13.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                        }
+                                        Text(
+                                            text = "$filter ($count)",
+                                            fontSize = 13.sp,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                            color = chipTextColor
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Task items or Empty State
+                    if (filteredTasks.isEmpty()) {
+                        item(key = "empty_tasks_state_dual") {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 32.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(64.dp)
+                                            .background(primaryColor.copy(alpha = 0.12f), CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            Icons.AutoMirrored.Outlined.Assignment,
+                                            contentDescription = null,
+                                            tint = primaryColor,
+                                            modifier = Modifier.size(32.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(14.dp))
+                                    val emptyTitle = when {
+                                        uiState.searchQuery.isNotBlank() -> "No tasks match \"${uiState.searchQuery}\""
+                                        uiState.selectedFilter == "Overdue" -> "No overdue tasks"
+                                        uiState.selectedFilter == "Completed" -> "No completed tasks yet"
+                                        uiState.selectedFilter == "High Priority" -> "No high-priority tasks pending"
+                                        uiState.selectedFilter == "Pending" -> "No pending tasks"
+                                        else -> "No tasks scheduled"
+                                    }
+                                    val emptySubtitle = when {
+                                        uiState.selectedFilter == "Overdue" -> "You're all caught up with your deadlines!"
+                                        uiState.selectedFilter == "Completed" -> "Tasks you check off will appear here."
+                                        else -> "Tap the '+' button to schedule an assignment, set deadlines, and configure reminders."
+                                    }
+                                    Text(
+                                        text = emptyTitle,
+                                        fontSize = 17.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = textPrimary
+                                    )
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(
+                                        text = emptySubtitle,
+                                        fontSize = 13.sp,
+                                        color = textSecondary,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                        lineHeight = 18.sp
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        items(filteredTasks, key = { it.id }) { task ->
+                            TaskCard(
+                                task = task,
+                                isDark = isDark,
+                                isHighlighted = task.id == highlightTaskId,
+                                modifier = Modifier.animateItem(),
+                                onToggleComplete = { viewModel.toggleComplete(task) },
+                                onEdit = {
+                                    taskToEdit = task
+                                    showAddDialog = true
+                                },
+                                onDelete = { taskToDelete = task }
+                            )
+                        }
+                        item(key = "tasks_bottom_clearance_spacer_dual") {
+                            Spacer(modifier = Modifier.height(24.dp))
+                        }
+                    }
                 }
             }
         } else {

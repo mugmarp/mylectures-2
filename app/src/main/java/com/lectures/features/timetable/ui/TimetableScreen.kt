@@ -248,7 +248,7 @@ fun TimetableScreen(
     var dragTotal by remember { mutableFloatStateOf(0f) }
     val windowInfo = rememberLecturesWindow()
     val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    val listBottomPadding = Chrome.listBottomPadding(navBarBottom)
+    val listBottomPadding = Chrome.listBottomPadding(navBarBottom, windowInfo.useNavigationRail)
     val listState = rememberLazyListState()
 
     if (isPeeking) {
@@ -282,7 +282,7 @@ fun TimetableScreen(
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier
                         .navigationBarsPadding()
-                        .padding(bottom = Chrome.fabBottomPadding())
+                        .padding(bottom = Chrome.fabBottomPadding(windowInfo.useNavigationRail))
                         .testTag("timetable_fab")
                 ) {
                     Icon(
@@ -313,7 +313,7 @@ fun TimetableScreen(
                     },
                     modifier = Modifier
                         .navigationBarsPadding()
-                        .padding(bottom = Chrome.fabBottomPadding())
+                        .padding(bottom = Chrome.fabBottomPadding(windowInfo.useNavigationRail))
                         .testTag("timetable_fab")
                 )
             }

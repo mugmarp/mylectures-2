@@ -86,11 +86,26 @@ object AttachmentStore {
         }
     }
 
-    /** Absolute file for a stored relative path, or null when it is missing. */
+    /** Absolute file for a stored relative path, or null when it is missing or outside the attachment directory. */
     fun resolveFile(context: Context, relativePath: String?): File? {
         if (relativePath.isNullOrBlank()) return null
+        // Defense-in-depth: disallow directory traversal sequences and absolute root paths
+        if (relativePath.contains("..") || relativePath.startsWith("/") || relativePath.startsWith("\\")) {
+            return null
+        }
+        val baseDir = attachmentDir(context)
         val file = File(context.filesDir, relativePath)
-        return if (file.exists()) file else null
+        return try {
+            val canonicalBase = baseDir.canonicalPath
+            val canonicalFile = file.canonicalPath
+            if (canonicalFile.startsWith(canonicalBase + File.separator) && file.exists()) {
+                file
+            } else {
+                null
+            }
+        } catch (_: Exception) {
+            null
+        }
     }
 
     /**
@@ -110,11 +125,20 @@ object AttachmentStore {
         }
     }
 
-    /** Deletes the backing file for [relativePath], ignoring a missing file. */
+    /** Deletes the backing file for [relativePath], ignoring a missing file. Strictly guards against directory traversal. */
     fun delete(context: Context, relativePath: String?) {
         if (relativePath.isNullOrBlank()) return
+        if (relativePath.contains("..") || relativePath.startsWith("/") || relativePath.startsWith("\\")) {
+            return
+        }
         try {
-            File(context.filesDir, relativePath).delete()
+            val baseDir = attachmentDir(context)
+            val file = File(context.filesDir, relativePath)
+            val canonicalBase = baseDir.canonicalPath
+            val canonicalFile = file.canonicalPath
+            if (canonicalFile.startsWith(canonicalBase + File.separator)) {
+                file.delete()
+            }
         } catch (_: Exception) {
             // Nothing actionable — the note row is removed regardless.
         }

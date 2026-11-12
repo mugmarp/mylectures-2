@@ -7,17 +7,17 @@ import java.util.regex.Pattern
 object TaskDateTimeParser {
 
     private val TIME_REGEX = Pattern.compile("(\\b[01]?[0-9]|2[0-3]):([0-5][0-9])")
-    private val DATE_FORMATS = listOf(
-        SimpleDateFormat("EEE, MMM d, yyyy", Locale.getDefault()),
-        SimpleDateFormat("EEE, MMM d yyyy", Locale.getDefault()),
-        SimpleDateFormat("MMM d, yyyy", Locale.getDefault()),
-        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()),
-        SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()),
-        SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()),
-        SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()),
-        SimpleDateFormat("MMM d, yyyy HH:mm", Locale.getDefault()),
-        SimpleDateFormat("MMM d HH:mm", Locale.getDefault()),
-        SimpleDateFormat("EEE, MMM d HH:mm", Locale.getDefault())
+    private val DATE_PATTERNS = listOf(
+        "EEE, MMM d, yyyy",
+        "EEE, MMM d yyyy",
+        "MMM d, yyyy",
+        "yyyy-MM-dd",
+        "dd/MM/yyyy",
+        "yyyy-MM-dd HH:mm",
+        "dd/MM/yyyy HH:mm",
+        "MMM d, yyyy HH:mm",
+        "MMM d HH:mm",
+        "EEE, MMM d HH:mm"
     )
 
     private val DAYS_OF_WEEK = mapOf(
@@ -29,6 +29,22 @@ object TaskDateTimeParser {
         "friday" to Calendar.FRIDAY,
         "saturday" to Calendar.SATURDAY
     )
+
+    /**
+     * Safely attempts to parse [dateStr] using a specified pattern across multiple locales.
+     * SimpleDateFormat is not thread-safe, so fresh instances are created per parse.
+     */
+    private fun tryParsePattern(dateStr: String, pattern: String): Date? {
+        val locales = listOf(Locale.US, Locale.getDefault()).distinct()
+        for (locale in locales) {
+            try {
+                val sdf = SimpleDateFormat(pattern, locale).apply { isLenient = false }
+                val parsed = sdf.parse(dateStr)
+                if (parsed != null) return parsed
+            } catch (_: Exception) {}
+        }
+        return null
+    }
 
     /**
      * Extracts an explicit time pattern (HH:mm) from a due date string if present.
@@ -49,27 +65,23 @@ object TaskDateTimeParser {
         val now = Calendar.getInstance()
 
         // 1. Check if it matches any standard date format directly
-        for (format in DATE_FORMATS) {
-            try {
-                format.isLenient = false
-                val parsed = format.parse(trimmed)
-                if (parsed != null) {
-                    val cal = Calendar.getInstance().apply { time = parsed }
-                    // If no year was in format, set to current year
-                    if (cal.get(Calendar.YEAR) < 2000) {
-                        cal.set(Calendar.YEAR, now.get(Calendar.YEAR))
-                    }
-                    val pattern = format.toPattern()
-                    if (!pattern.contains("HH") && !pattern.contains("hh")) {
-                        // Date only: set to 23:59:59 (end of day) so the task remains active and valid all day long
-                        cal.set(Calendar.HOUR_OF_DAY, 23)
-                        cal.set(Calendar.MINUTE, 59)
-                        cal.set(Calendar.SECOND, 59)
-                        cal.set(Calendar.MILLISECOND, 999)
-                    }
-                    return cal.timeInMillis
+        for (pattern in DATE_PATTERNS) {
+            val parsed = tryParsePattern(trimmed, pattern)
+            if (parsed != null) {
+                val cal = Calendar.getInstance().apply { time = parsed }
+                // If no year was in format, set to current year
+                if (cal.get(Calendar.YEAR) < 2000) {
+                    cal.set(Calendar.YEAR, now.get(Calendar.YEAR))
                 }
-            } catch (_: Exception) {}
+                if (!pattern.contains("HH") && !pattern.contains("hh")) {
+                    // Date only: set to 23:59:59 (end of day) so the task remains active and valid all day long
+                    cal.set(Calendar.HOUR_OF_DAY, 23)
+                    cal.set(Calendar.MINUTE, 59)
+                    cal.set(Calendar.SECOND, 59)
+                    cal.set(Calendar.MILLISECOND, 999)
+                }
+                return cal.timeInMillis
+            }
         }
 
         // 2. Extract Time component (HH:mm)

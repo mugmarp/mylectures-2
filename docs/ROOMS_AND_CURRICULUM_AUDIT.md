@@ -287,3 +287,223 @@ When users tapped **"Don't allow"** on Android 13+ (API 33+) notification permis
 4. **Task Banner Non-Aggressive Flow (`TasksScreen.kt`):**
    - Removed the forced redirect to system settings upon permission denial.
    - Clicking the dismiss `X` button persists `setTaskBannerDismissed(context, true)`, keeping the banner hidden permanently.
+
+
+---
+
+## 10. Deep Audit: Silent Bugs, Concurrency Flaws & Security Hardening
+
+### Summary of Audit Findings & Root Causes
+
+A deep-dive audit was conducted to uncover silent runtime bugs, concurrency hazards, data resurrection anomalies, and security vulnerabilities that could compromise stability or user data integrity.
+
+### 1. Concurrency Hazard & Race Condition in Date Parsing (`TaskDateTimeParser.kt`)
+- **Vulnerability:** `SimpleDateFormat` is **not thread-safe** in Java/Android. It maintains an internal mutable `Calendar` instance during `parse()`. In `TaskDateTimeParser.kt`, a static singleton list `DATE_FORMATS` was shared across all threads.
+- **Silent Bug Mechanism:** Background workers (`TimetableSyncWorker`, `BootReceiver`), AlarmManager receivers (`TaskReminderReceiver`), and Compose UI coroutines parsing tasks simultaneously corrupted each other's internal calendar state. This led to random `NumberFormatException: multiple points`, silent date parse failures, or tasks scheduled for corrupt dates.
+- **Locale Bug:** Static formatters initialized with `Locale.getDefault()` failed to parse English day/month strings (e.g. `"Friday"`, `"Oct"`) on devices set to non-English system languages (Swahili, French, German).
+- **Architectural Solution:**
+  - Replaced shared mutable `SimpleDateFormat` instances with immutable pattern strings (`DATE_PATTERNS`).
+  - Implemented `tryParsePattern` that instantiates isolated formatters per parse and tests both `Locale.US` and `Locale.getDefault()`, guaranteeing thread-safety and cross-locale parsing.
+
+### 2. Deleted Notes & Assignments Resurrection Bug (`DataLoader.kt`)
+- **Flaw:** In `DataLoader.loadInitialDataIfNeeded()`:
+  - Line 49: `if (dao.getNotesWithAlarms().isEmpty()) { dao.upsertNote(sampleNote) }`
+  - Line 65: `if (assignmentDao.getCount() == 0) { assignmentDao.upsert(...) }`
+- **Silent Bug Mechanism:**
+  - If a student intentionally deleted the sample "Welcome to Lectures" study guide or authored notes without alarms, `dao.getNotesWithAlarms().isEmpty()` returned `true` on every subsequent app restart, resurrecting the sample note against the student's wishes.
+  - Similarly, if a student finished or deleted all assignments, `assignmentDao.getCount() == 0` triggered on next launch and resurrected the sample assignment.
+- **Architectural Solution:**
+  - Introduced a persistent preference flag `has_seeded_sample_data` in `mustime_settings`.
+  - Seeding occurs strictly once on the initial first launch. Once marked seeded, user deletions are permanent and data is never resurrected.
+
+### 3. Path Traversal Vulnerability (CWE-22) in `AttachmentStore.kt`
+- **Vulnerability:** In `AttachmentStore.resolveFile()` and `AttachmentStore.delete()`, paths were resolved as `File(context.filesDir, relativePath)`.
+- **Exploitation Risk:** If a relative path containing upward traversal sequences (e.g. `"../databases/mustime_app.db"` or `"../shared_prefs/mustime_settings.xml"`) was passed to `resolveFile()` or `delete()`, the app could delete or expose critical database and configuration files through `FileProvider`.
+- **Architectural Solution:**
+  - Added strict prefix guards rejecting any `relativePath` starting with `/`, `\`, or containing `..`.
+  - Enforced canonical path containment: `canonicalFile.startsWith(canonicalBase + File.separator)`, guaranteeing that file operations can never escape the private `filesDir/attachments/` directory.
+
+### 4. Year Boundary Semester Calculation Anomaly (`TimeUtil.kt`)
+- **Flaw:** In `TimeUtil.currentSemesterWeekLabel()` and `TimeUtil.currentAcademicWeek()`:
+  - In MUST's academic calendar, Semester 1 starts in late August and runs through January.
+  - When evaluated during January (e.g. January 10, 2027), `month < Calendar.AUGUST` caused `semStart` to be set to `January 19, 2027` (a future date).
+  - This produced negative elapsed days, clamping `weekNum` to `"Week 1 • Sem 1"` and misidentifying end-of-semester examination weeks as Week 1.
+- **Architectural Solution:**
+  - Evaluates `if (month <= Calendar.JANUARY)` and anchors Semester 1 start date to August 24 of the previous calendar year (`year - 1`).
+  - Accurately tracks Semester 1 weeks 18–21 as `"Recess / Exams"` and starts Semester 2 in February of the current year.
+
+### 5. OEM Notification Crash Hardening (`NotificationHelper.kt`)
+- **Flaw:** Notification dispatch methods caught only `SecurityException`.
+- **Silent Bug Mechanism:** On customized OEM Android distributions (Transsion Tecno HiOS, Infinix XOS, Xiaomi HyperOS/MIUI, Oppo ColorOS), calling `NotificationManagerCompat.notify()` when notification channels are altered or notifications are restricted by battery savers can throw `NullPointerException`, `RemoteServiceException`, or `BadNotificationException`.
+- **Architectural Solution:**
+  - Hardened all `notify()` invocations with catch-all `Exception` guards and informative log messages, preventing background worker or alarm receiver terminations.
+
+
+---
+
+## 11. Application ID Configuration & Rapid Cohort Confirmation
+
+### 1. Application ID Alignment (`build.gradle.kts`)
+- **Configuration:** Updated the Android application ID in `app/build.gradle.kts`:
+  - `applicationId = "com.lectures.must"`
+  - Preserved internal package namespace: `namespace = "com.lectures"`
+- **Asset & Provider Stability:**
+  - Verified `FileProvider` authorities dynamically reference `${applicationId}.fileprovider`.
+  - Preserved existing database migrations, prepackaged assets, and room entity definitions.
+
+### 2. Rapid Cohort Confirmation on Onboarding (`OnboardingScreens.kt`)
+- **Requirement:** When a class group cohort is already chosen/focused, tapping or double-tapping the selected card should immediately proceed to the Timetable without requiring students to reach down to the bottom "Continue to Timetable" action button.
+- **Implementation:**
+  ```kotlin
+  Card(
+      modifier = Modifier
+          .fillMaxWidth()
+          .clip(RoundedCornerShape(16.dp))
+          .clickable {
+              if (selectedGroup == group) {
+                  onConfirm(group) // Immediate progression on tap/double-tap of already selected cohort
+              } else {
+                  selectedGroup = group
+              }
+          }
+  )
+  ```
+- **Student UX:** Provides fluid one-handed onboarding navigation on large screens and one-tap progression once a cohort is active.
+
+
+---
+
+## 12. Tablet & Large Screen Architectural Responsiveness Audit
+
+### Architectural Overview: The Multi-Form-Factor Paradigm
+Modern Android ecosystem devices range from 280dp foldable cover screens to 1280dp+ tablets (Google Pixel Tablet, Samsung Galaxy Tab S9, Lenovo Tab P12), foldable unfolded displays (Galaxy Z Fold, Pixel Fold, $\approx 700\text{dp} - 840\text{dp}$), and ChromeOS / Android desktop (DeX).
+
+Per **Material Design 3 Adaptive Guidelines**, applications must not simply stretch mobile layouts to fill large screens. Stretched single-column layouts create severe ergonomic and visual defects:
+- **Excessive Line Length:** Body text exceeding 75–80 characters per line causes reading disengagement and fatigue.
+- **Thumb Reach Disconnection:** On 10–12 inch tablets held with two hands, placing primary navigation or action buttons in the bottom-center forces the user to uncomfortably let go of one side to reach the screen center.
+- **Vertical Height Exhaustion:** Fixed aspect-ratio components (e.g. 7-column calendar grids with `1:1` aspect ratio) explode on wide screens, pushing supporting information completely off-screen.
+
+### Window Size Class Categorization
+| Window Size Class | Width ($w$) Breakpoint | Target Devices | Recommended Canonical Layout |
+| :--- | :--- | :--- | :--- |
+| **Compact** | $w < 600\text{dp}$ | Handheld phones (portrait), Foldables (folded cover screen) | Bottom Navigation Pill Dock, Single-column vertical scroll |
+| **Medium** | $600\text{dp} \le w < 840\text{dp}$ | Small tablets (7–8"), Large foldables unfolded (portrait), Landscape phones | NavigationRail or persistent docked bar, 2-column adaptive grids |
+| **Expanded** | $w \ge 840\text{dp}$ | Standard & large tablets (10–13"), Foldables unfolded (landscape), Desktop/DeX | **NavigationRail (Leading edge)**, **List-Detail / Supporting Pane (Dual-Pane)**, 2–3 column grids |
+
+---
+
+### Deep Screen-by-Screen Flaw & Opportunity Analysis
+
+#### 1. Top-Level Navigation & App Shell (`MainScaffold.kt`, `Chrome.kt`)
+- **Current Behavior:** `MainScaffold` renders a floating bottom pill dock centered at `Alignment.BottomCenter` with `widthIn(max = 440.dp)`.
+- **Tablet Defect:**
+  - On a 10" tablet in landscape ($w = 1280\text{dp}, h = 800\text{dp}$), the 5 primary tabs are clustered in the middle of the bottom edge. Students holding the device by the sides must reach $\approx 420\text{dp}$ inward to navigate between Timetable, Calendar, Vacant Rooms, Notes, and Tasks.
+  - Furthermore, the bottom dock and its required content padding consume $72\text{dp}$ of vertical height, which is particularly scarce on wide aspect ratio tablets.
+- **Responsive Solution:**
+  - **Adaptive Shell:** On `widthDp >= 600dp` (Medium & Expanded), replace the bottom pill dock with a **Material 3 NavigationRail** anchored to the left leading edge (`Alignment.CenterStart`).
+  - **Ergonomics:** Students can switch tabs instantly with their left thumb while holding the tablet naturally.
+  - **Vertical Space Reclaim:** Reclaims $72\text{dp}$ of vertical canvas across all screens in landscape.
+
+#### 2. Calendar Month Planner (`CalendarScreen.kt`)
+- **Current Behavior:**
+  - The calendar grid renders 7 columns with `.weight(1f).aspectRatio(1f)`.
+- **Tablet Defect:**
+  - On an Expanded display ($w = 1200\text{dp}$), each day cell expands to $1200 / 7 \approx 171\text{dp}$ width and $171\text{dp}$ height.
+  - A 6-row month grid reaches $6 \times 171\text{dp} = \mathbf{1026\text{dp}}$ in height! The calendar grid alone consumes the entire tablet display, pushing the selected date's schedule, lectures, and tasks completely off-screen.
+- **Responsive Solution (Dual-Pane List-Detail):**
+  - **Left Pane ($\approx 400\text{dp} - 440\text{dp}$):** Constrained Month Grid where day cells remain a clean, readable $50\text{dp} - 58\text{dp}$, complete with month switcher and day-of-week headers.
+  - **Right Pane (Remaining flex width $\approx 500\text{dp} - 800\text{dp}$):** Dedicated **Day Horizon Pane** displaying the selected day's lectures, scheduled coursework deadlines, custom activities, and academic milestones side-by-side with the calendar.
+  - **Student Impact:** Zero scrolling needed to view what is scheduled on any day; tapping a date in the left grid instantly updates the schedule on the right.
+
+#### 3. Academic Notes (`NotesScreen.kt`)
+- **Current Behavior:**
+  - Displays notes grouped by course code in a single vertical `LazyColumn` with `fillMaxWidth().padding(horizontal = 20.dp)`.
+- **Tablet Defect:**
+  - On wide tablets, note cards span 1160dp. Small 2-sentence lecture summaries stretch into awkward single-line ribbons with massive empty space on the right, while pin/delete icons are stranded at the extreme edge.
+- **Responsive Solution:**
+  - **Adaptive Grid / Two-Column Grouping:** On `isMedium || isExpanded`, render note cards using an adaptive multi-column grid (`GridCells.Adaptive(minSize = 340.dp)`) or a 2-column staggered layout.
+  - **List-Detail Master View:** On `isExpanded`, option for side-by-side note list on the left and live Markdown reader/editor on the right.
+
+#### 4. Vacant Room Finder (`VacantRoomsScreen.kt`)
+- **Current Behavior:**
+  - Renders vacant rooms as single full-width cards in a vertical `LazyColumn`.
+- **Tablet Defect:**
+  - Empty hall indicators (e.g. `"DS LAB IV"`, `"Free for rest of day"`) stretch across 1200dp. Only 4–5 rooms fit in the vertical viewport.
+- **Responsive Solution:**
+  - **2-Column Adaptive Room Grid:** On wide screens, display rooms in a 2-column grid (`GridCells.Fixed(2)` or `Adaptive(minSize = 380.dp)`).
+  - **Information Density:** Doubles the number of vacant rooms visible at a single glance without scrolling (students can scan 8–10 rooms simultaneously).
+  - **Split Room Schedule Detail:** Clicking a room can open its full day hourly timeline directly in a right-hand supporting pane rather than an overlay dialog.
+
+#### 5. Coursework & Task Management (`TasksScreen.kt`)
+- **Current Behavior:**
+  - Renders `TaskProgressDashboard` at the top of a single-column `LazyColumn`, followed by search, filter chips, and task items.
+- **Tablet Defect:**
+  - The progress doughnut / bar and summary metrics stretch to 1200dp, creating sparse, disjointed visual balance.
+- **Responsive Solution (Supporting Pane Layout):**
+  - **Left Pane ($\approx 380\text{dp}$):** Fixed-width Task Analytics Card (Progress circle, completion rates, filter tabs: All / Urgent / Coursework / Tests).
+  - **Right Pane (Flex):** Search bar and 2-column grid of assignment cards with priority badges, due date counters, and direct completion checkmarks.
+
+#### 6. Welcome & Onboarding Flows (`WelcomeScreen.kt`, `OnboardingScreens.kt`)
+- **Current Behavior:**
+  - Both screens use `Modifier.fillMaxSize().padding(horizontal = 20.dp)`.
+- **Tablet Defect:**
+  - Bento feature cards stretch to 600dp+ each. Faculty list stretches 1200dp across, forcing students to scan across the entire screen width.
+- **Responsive Solution:**
+  - **Centered Bounded Container:** Apply `Modifier.widthIn(max = 640.dp).align(Alignment.CenterHorizontally)` to the Welcome Screen content, preserving optimal visual hierarchy.
+  - **2-Column Faculty / Programme Cards:** In `FacultySelectionScreen` and `ProgrammeSelectionScreen`, display faculties/programmes in a 2-column grid on tablets (`GridCells.Adaptive(minSize = 320.dp)`), allowing quick, scannable selection.
+
+#### 7. Settings & Account (`SettingsScreen.kt`, `AccountScreen.kt`)
+- **Current Behavior:**
+  - Full-width settings section cards and items.
+- **Tablet Defect:**
+  - Setting labels (e.g. "Lecture Reminders") on the far left are separated by 1100dp from their toggle switch on the far right.
+- **Responsive Solution:**
+  - Constrain content column to `Modifier.widthIn(max = 720.dp).align(Alignment.CenterHorizontally)`, restoring standard ergonomic distance between labels and toggles.
+
+---
+
+## 13. Comprehensive Implementation of Adaptive Layouts for Tablets & Large Screens
+
+Following the exhaustive architectural audit in Section 12, the entire user-facing surface was refactored to implement native **Material Design 3 Adaptive Canonical Layouts** for Window Size Classes (`Compact`, `Medium`, and `Expanded` / $w \ge 600\text{dp}$ and $w \ge 840\text{dp}$).
+
+### 13.1 Infrastructure & Window Metrics (`Chrome.kt`)
+1. **Window Size Classes Extracted:**
+   - `isCompact`: $w < 600\text{dp}$
+   - `isMedium`: $600\text{dp} \le w < 840\text{dp}$
+   - `isExpanded`: $w \ge 840\text{dp}$
+   - `isTablet`: $w \ge 600\text{dp}$
+   - `useNavigationRail`: $w \ge 600\text{dp} \text{ and } h \ge 440\text{dp}$
+   - `isDualPane`: $w \ge 840\text{dp}$
+2. **Dynamic Inset & Content Padding:**
+   - `Chrome.NavigationRailWidth` established at $76\text{dp}$.
+   - `listBottomPadding(navBarBottom, useNavigationRail)`: Injects floating dock padding on phones ($110\text{dp}$) while reclaiming vertical space on tablets ($24\text{dp}$), preventing awkward empty bottom gutters on tablets.
+   - `fabBottomPadding(useNavigationRail)`: Repositions FABs on phones ($88\text{dp}$) and tablets ($24\text{dp}$).
+
+### 13.2 Ergonomic Adaptive Navigation Shell (`MainScaffold.kt`)
+1. **Material 3 Leading NavigationRail:**
+   - Active on `windowInfo.useNavigationRail == true` ($w \ge 600\text{dp}$).
+   - Positions primary navigation within natural reach of the user's left thumb when holding a tablet with two hands.
+   - Includes header brand emblem (`Icons.Default.School`), animated pill tab selection indicators (`Timetable`, `Calendar`, `Notes`, `Tasks`), and bottom shortcut buttons for `Vacant Rooms` and `Settings`.
+2. **Compact Floating Pill Dock Retained:**
+   - Active on phones (`!windowInfo.useNavigationRail`), preserving single-handed thumb accessibility and spring animations.
+
+### 13.3 Screen-by-Screen Canonical Adaptations
+1. **Academic Notes Grid (`NotesScreen.kt`):**
+   - Implemented `LazyVerticalGrid` with `GridCells.Adaptive(minSize = 340.dp)` on tablets, with course headers spanning the full width (`GridItemSpan(maxLineSpan)`).
+   - Eliminates 1200dp stretched ribbons; compact phone view retains vertical `LazyColumn`.
+2. **Coursework & Tasks Supporting Pane (`TasksScreen.kt`):**
+   - Implemented dual-pane supporting layout on `windowInfo.isDualPane`:
+     - **Left Supporting Pane ($\le 380\text{dp}$):** Task completion progress dashboard and analytics.
+     - **Right Pane (Flex):** Search field, filter chips, and interactive task cards.
+   - Compact phones retain unified single-column scrolling.
+3. **Vacant Room Finder Adaptive Chunking (`VacantRoomsScreen.kt`):**
+   - On tablets, dynamically chunks room results into 2-column rows (`filteredRooms.chunked(2)`), doubling visible rooms per viewport and eliminating whitespace waste.
+4. **Calendar Planner Responsive Geometry (`CalendarScreen.kt`):**
+   - Connected `windowInfo.useNavigationRail` to `Chrome.listBottomPadding` and `Chrome.fabBottomPadding`, eliminating unused bottom gutters and adjusting FAB clearance.
+5. **Settings, Welcome & Onboarding Centered Bounds (`SettingsScreen.kt`, `WelcomeScreen.kt`, `OnboardingScreens.kt`):**
+   - `SettingsScreen`: Wrapped content in `Box(contentAlignment = Alignment.TopCenter)` with `widthIn(max = 760.dp)`, maintaining comfortable proximity between settings labels and toggle switches.
+   - `WelcomeScreen`: Wrapped hero banner, logo, and bento cards in `widthIn(max = 680.dp)`.
+   - `FacultySelectionScreen` & `ProgrammeSelectionScreen`: Bounded content in `widthIn(max = 760.dp)` centered horizontally.
+   - `ClassGroupSelectionScreen`: Centered bottom action bar with `widthIn(max = 500.dp)` for easy single-thumb confirmation on wide screens.
+
+---

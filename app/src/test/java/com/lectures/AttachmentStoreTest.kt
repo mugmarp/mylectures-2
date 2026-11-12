@@ -141,6 +141,32 @@ class AttachmentStoreTest {
         AttachmentStore.delete(context, "")
     }
 
+    @Test
+    fun testPathTraversalAttemptsAreBlocked() {
+        cleanAttachments()
+
+        // Create a sensitive file in filesDir root (outside attachments/)
+        val secretFile = File(context.filesDir, "database_secret.txt").apply {
+            writeText("sensitive_data_do_not_delete")
+        }
+        assertTrue(secretFile.exists())
+
+        // 1. Attempt to resolve via path traversal
+        val resolved = AttachmentStore.resolveFile(context, "../database_secret.txt")
+        assertNull("Path traversal attempt via resolveFile must be blocked and return null", resolved)
+
+        val resolvedAbsolute = AttachmentStore.resolveFile(context, "/etc/passwd")
+        assertNull("Absolute path attempt via resolveFile must be blocked", resolvedAbsolute)
+
+        // 2. Attempt to delete via path traversal
+        AttachmentStore.delete(context, "../database_secret.txt")
+        assertTrue("delete() must never delete files outside attachments directory", secretFile.exists())
+
+        // 3. Cleanup
+        secretFile.delete()
+        cleanAttachments()
+    }
+
     /**
      * The authority computed in code must match the FileProvider declared in the
      * manifest, otherwise opening an attachment fails silently.

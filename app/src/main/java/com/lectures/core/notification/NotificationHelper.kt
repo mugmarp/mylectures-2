@@ -254,8 +254,8 @@ object NotificationHelper {
                 relatedKey = taskId.toString(),
                 navTab = 3
             )
-        } catch (e: SecurityException) {
-            Log.e(TAG, "SecurityException while posting notification (POST_NOTIFICATIONS missing): ${e.message}")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to post task reminder notification: ${e.message}")
         }
     }
 
@@ -338,8 +338,8 @@ object NotificationHelper {
                 relatedKey = courseCode,
                 navTab = 0
             )
-        } catch (e: SecurityException) {
-            Log.e(TAG, "SecurityException while posting class notification: ${e.message}")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to post class reminder notification: ${e.message}")
         }
     }
 
@@ -445,8 +445,8 @@ object NotificationHelper {
                 relatedKey = courseCode,
                 navTab = 0
             )
-        } catch (e: SecurityException) {
-            Log.e(TAG, "SecurityException while posting class alarm notification: ${e.message}")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to post class alarm notification: ${e.message}")
         }
     }
 
@@ -522,8 +522,8 @@ object NotificationHelper {
                 message = snippet,
                 navTab = 0
             )
-        } catch (e: SecurityException) {
-            Log.e(TAG, "SecurityException while posting daily digest: ${e.message}")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to post daily digest notification: ${e.message}")
         }
     }
 
@@ -580,8 +580,8 @@ object NotificationHelper {
                 relatedKey = versionLabel,
                 navTab = 0
             )
-        } catch (e: SecurityException) {
-            Log.e(TAG, "SecurityException while posting timetable update notification: ${e.message}")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to post timetable update notification: ${e.message}")
         }
     }
 
@@ -651,8 +651,8 @@ object NotificationHelper {
                 relatedKey = "app_update_${updateInfo.versionCode}",
                 navTab = 0
             )
-        } catch (e: SecurityException) {
-            Log.e(TAG, "SecurityException while posting app update notification: ${e.message}")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to post app update notification: ${e.message}")
         }
     }
 

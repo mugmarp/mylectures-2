@@ -13,7 +13,11 @@ import kotlinx.coroutines.withContext
 import java.io.BufferedReader
 import java.io.InputStreamReader
 
-class DataLoader(private val context: Context, private val db: AppDatabase) {
+class DataLoader(
+    private val context: Context,
+    private val db: AppDatabase,
+    private val prefsName: String = "mustime_settings"
+) {
 
     suspend fun loadInitialDataIfNeeded() {
         withContext(Dispatchers.IO) {
@@ -45,36 +49,43 @@ class DataLoader(private val context: Context, private val db: AppDatabase) {
                 dao.upsertTimetableMetadata(meta)
             }
 
-            // Seed initial note if none exist
-            if (dao.getNotesWithAlarms().isEmpty()) {
-                val sampleNote = LectureNote(
-                    naturalKey = "GEN101|University Studies|Monday|09:00|sample1",
-                    title = "Welcome to Lectures - Semester Study Guide",
-                    content = "Keep track of your course schedules, lecture notes, revision tasks, and assignment deadlines all in one place.\n• Attach your notes to your scheduled timetable lectures.\n• Set customizable pre-class alerts so you never miss a lecture.\n• Use markdown formatting and attach key files or voice recordings.",
-                    updatedAt = System.currentTimeMillis() - 3600000L,
-                    colourTag = "#2563EB",
-                    alarmMinutes = 30,
-                    tag = "Study Guide",
-                    attachedClass = "GEN101: University Studies · Monday, 09:00 – 11:00",
-                    isPinned = true
-                )
-                dao.upsertNote(sampleNote)
-            }
+            // Seed initial sample note and assignment ONLY on true first launch
+            val prefs = context.getSharedPreferences(prefsName, Context.MODE_PRIVATE)
+            val hasSeededSampleData = prefs.getBoolean("has_seeded_sample_data", false)
 
-            // Seed initial assignments if none exist
-            if (assignmentDao.getCount() == 0) {
-                assignmentDao.upsert(
-                    Assignment(
-                        id = 0,
-                        title = "Semester Coursework Assignment",
-                        courseCode = "GEN101",
-                        dueDate = "Friday",
-                        reminderMinutes = 60,
-                        priority = "Medium",
-                        notes = "Check course outline and submit deliverables before the deadline.",
-                        completed = false
+            if (!hasSeededSampleData) {
+                // Seed initial note if none exist
+                if (dao.getNotesWithAlarms().isEmpty()) {
+                    val sampleNote = LectureNote(
+                        naturalKey = "GEN101|University Studies|Monday|09:00|sample1",
+                        title = "Welcome to Lectures - Semester Study Guide",
+                        content = "Keep track of your course schedules, lecture notes, revision tasks, and assignment deadlines all in one place.\n• Attach your notes to your scheduled timetable lectures.\n• Set customizable pre-class alerts so you never miss a lecture.\n• Use markdown formatting and attach key files or voice recordings.",
+                        updatedAt = System.currentTimeMillis() - 3600000L,
+                        colourTag = "#2563EB",
+                        alarmMinutes = 30,
+                        tag = "Study Guide",
+                        attachedClass = "GEN101: University Studies · Monday, 09:00 – 11:00",
+                        isPinned = true
                     )
-                )
+                    dao.upsertNote(sampleNote)
+                }
+
+                // Seed initial assignments if none exist
+                if (assignmentDao.getCount() == 0) {
+                    assignmentDao.upsert(
+                        Assignment(
+                            id = 0,
+                            title = "Semester Coursework Assignment",
+                            courseCode = "GEN101",
+                            dueDate = "Friday",
+                            reminderMinutes = 60,
+                            priority = "Medium",
+                            notes = "Check course outline and submit deliverables before the deadline.",
+                            completed = false
+                        )
+                    )
+                }
+                prefs.edit().putBoolean("has_seeded_sample_data", true).apply()
             }
         }
     }

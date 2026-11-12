@@ -673,13 +673,19 @@ fun SettingsScreen(
                 onSelectThemeMode = onSelectThemeMode
             )
         } else {
-            Column(
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(padding)
-                    .verticalScroll(scrollState)
+                    .padding(padding),
+                contentAlignment = Alignment.TopCenter
             ) {
-                Spacer(modifier = Modifier.height(12.dp))
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .widthIn(max = 760.dp)
+                        .verticalScroll(scrollState)
+                ) {
+                    Spacer(modifier = Modifier.height(12.dp))
 
             // User Feedback: Error Message Banner
             AnimatedVisibility(
@@ -1690,6 +1696,7 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(48.dp))
         }
     }
+}
 }
 
     if (showAppUpdateDialog && availableUpdateInfo != null) {

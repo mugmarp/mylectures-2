@@ -12,6 +12,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -147,7 +152,7 @@ fun NotesScreen(
     // Main Academic Notes Dashboard Screen
     val windowInfo = rememberLecturesWindow()
     val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    val listBottomPadding = Chrome.listBottomPadding(navBarBottom)
+    val listBottomPadding = Chrome.listBottomPadding(navBarBottom, windowInfo.useNavigationRail)
     val listState = rememberLazyListState()
 
     Scaffold(
@@ -167,7 +172,7 @@ fun NotesScreen(
                     elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 4.dp),
                     modifier = Modifier
                         .navigationBarsPadding()
-                        .padding(bottom = Chrome.fabBottomPadding())
+                        .padding(bottom = Chrome.fabBottomPadding(windowInfo.useNavigationRail))
                 ) {
                     Icon(Icons.Default.Add, contentDescription = "Add Note", modifier = Modifier.size(24.dp))
                 }
@@ -185,7 +190,7 @@ fun NotesScreen(
                     elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 4.dp),
                     modifier = Modifier
                         .navigationBarsPadding()
-                        .padding(bottom = Chrome.fabBottomPadding())
+                        .padding(bottom = Chrome.fabBottomPadding(windowInfo.useNavigationRail))
                 ) {
                     Icon(Icons.Default.Add, contentDescription = "Add Note", modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(8.dp))
@@ -447,6 +452,70 @@ fun NotesScreen(
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text("Create Note", fontWeight = FontWeight.SemiBold, fontSize = 13.5.sp)
                             }
+                        }
+                    }
+                }
+            } else if (windowInfo.isTablet) {
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(minSize = 340.dp),
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = listBottomPadding),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    grouped.forEach { (courseCode, notes) ->
+                        val courseInfo = uiState.availableCourses.find { it.code.equals(courseCode, ignoreCase = true) }
+                        val courseTitle = courseInfo?.title ?: "Academic Course"
+                        val dotColor = courseInfo?.color?.let {
+                            try { Color(android.graphics.Color.parseColor(it)) } catch (e: Exception) { Color(0xFF2563EB) }
+                        } ?: Color(0xFF2563EB)
+
+                        item(key = "grid_header_$courseCode", span = { GridItemSpan(maxLineSpan) }) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 10.dp, bottom = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(10.dp)
+                                            .clip(CircleShape)
+                                            .background(dotColor)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "$courseCode · $courseTitle",
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isDark) Color.White else Color(0xFF0F172A)
+                                    )
+                                }
+                                Text(
+                                    text = "${notes.size} note${if (notes.size > 1) "s" else ""}",
+                                    fontSize = 12.sp,
+                                    color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
+                                )
+                            }
+                        }
+
+                        items(notes, key = { it.naturalKey }) { note ->
+                            NoteCardItem(
+                                note = note,
+                                courseCode = courseCode,
+                                isDark = isDark,
+                                modifier = Modifier.animateItem(),
+                                onOpen = {
+                                    focusManager.clearFocus()
+                                    keyboardController?.hide()
+                                    noteToEdit = note
+                                    isEditing = true
+                                },
+                                onTogglePin = { viewModel.togglePin(note.naturalKey) },
+                                onDelete = { noteToDelete = note }
+                            )
                         }
                     }
                 }

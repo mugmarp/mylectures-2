@@ -272,6 +272,7 @@ fun VacantRoomsScreen(
     val occupiedCount = vacancyStatuses.count { it.isOccupied && it.room.isStudyFriendly }
     val permanentCount = vacancyStatuses.count { it.room.isPermanentlyVacant && it.room.isStudyFriendly }
     val windowInfo = rememberLecturesWindow()
+    val chunkedRooms = remember(filteredRooms) { filteredRooms.chunked(2) }
 
     Scaffold(
         containerColor = bgColor,
@@ -957,6 +958,30 @@ fun VacantRoomsScreen(
                                     Text("Clear Search & Filters", fontSize = 12.sp)
                                 }
                             }
+                        }
+                    }
+                }
+            } else if (windowInfo.isTablet) {
+                // 2-column adaptive layout on tablets
+                items(chunkedRooms, key = { chunk -> chunk.joinToString("_") { it.room.id } }) { rowRooms ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        for (status in rowRooms) {
+                            Box(modifier = Modifier.weight(1f)) {
+                                RoomVacancyCard(
+                                    status = status,
+                                    isDark = isDark,
+                                    showCampus = selectedCampus == null,
+                                    selectedBuilding = selectedBuilding,
+                                    modifier = Modifier.animateItem(),
+                                    onClick = { selectedRoomForSchedule = status }
+                                )
+                            }
+                        }
+                        if (rowRooms.size == 1) {
+                            Spacer(modifier = Modifier.weight(1f))
                         }
                     }
                 }

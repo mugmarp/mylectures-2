@@ -14,6 +14,7 @@ import com.lectures.features.timetable.domain.TimetableMatcher
 import com.lectures.features.timetable.ui.resolveSessionTypeLabel
 import com.lectures.features.timetable.ui.sessionStyle
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.*
@@ -188,5 +189,74 @@ class AppAuditComprehensiveTest {
         repository.deleteCustomEvent(eventId)
         val afterDelete = repository.getCustomEvents().first()
         assertEquals(0, afterDelete.size)
+    }
+
+    @Test
+    fun testTaskDateTimeParserThreadSafetyAndLocale() {
+        // Test parsing under non-English default locale
+        val originalLocale = java.util.Locale.getDefault()
+        try {
+            java.util.Locale.setDefault(java.util.Locale.FRANCE)
+            val dateStr = "Friday • 17:00"
+            val dueMillis = com.lectures.core.alarm.TaskDateTimeParser.calculateDueMillis(dateStr)
+            assertNotNull("Date parsing must succeed even when system locale is French", dueMillis)
+
+            // Test concurrent execution across 20 coroutines
+            val results = java.util.Collections.synchronizedList(mutableListOf<Long?>())
+            runBlocking(kotlinx.coroutines.Dispatchers.Default) {
+                val jobs = (1..20).map { _ ->
+                    launch {
+                        val parsed = com.lectures.core.alarm.TaskDateTimeParser.calculateDueMillis("2026-12-15 14:30")
+                        results.add(parsed)
+                    }
+                }
+                jobs.forEach { it.join() }
+            }
+            assertEquals(20, results.size)
+            assertTrue("All concurrent parses must yield identical valid timestamps", results.all { it != null && it == results[0] })
+        } finally {
+            java.util.Locale.setDefault(originalLocale)
+        }
+    }
+
+    @Test
+    fun testDataLoaderDoesNotResurrectDeletedNoteOrAssignment() = runBlocking {
+        val testPrefsName = "test_loader_prefs"
+        val prefs = context.getSharedPreferences(testPrefsName, Context.MODE_PRIVATE)
+        prefs.edit().clear().commit()
+
+        val loader = com.lectures.features.timetable.data.DataLoader(context, db, testPrefsName)
+
+        // 1. Initial load seeds sample data
+        loader.loadInitialDataIfNeeded()
+        val initialNotes = db.timetableDao().getNotesWithAlarms()
+        val initialAssignments = db.assignmentDao().getCount()
+        assertEquals(1, initialNotes.size)
+        assertEquals(1, initialAssignments)
+
+        // 2. User deletes the note and assignment
+        db.timetableDao().deleteNote(initialNotes[0].naturalKey)
+        db.assignmentDao().deleteAll()
+        assertEquals(0, db.timetableDao().getNotesWithAlarms().size)
+        assertEquals(0, db.assignmentDao().getCount())
+
+        // 3. App re-launches / loader called again
+        loader.loadInitialDataIfNeeded()
+
+        // 4. Must NOT resurrect the deleted items!
+        assertEquals("Deleted notes must NOT be resurrected on subsequent app launches", 0, db.timetableDao().getNotesWithAlarms().size)
+        assertEquals("Deleted assignments must NOT be resurrected on subsequent app launches", 0, db.assignmentDao().getCount())
+    }
+
+    @Test
+    fun testTimeUtilSemesterWeekCalculation() {
+        val label = com.lectures.core.util.TimeUtil.currentSemesterWeekLabel()
+        assertNotNull(label)
+        assertTrue("Semester label should contain Week or Recess / Exams", label.contains("Week") || label.contains("Recess"))
+        assertTrue("Semester label should contain Sem 1 or Sem 2", label.contains("Sem 1") || label.contains("Sem 2"))
+
+        val acadWeek = com.lectures.core.util.TimeUtil.currentAcademicWeek()
+        assertNotNull(acadWeek)
+        assertTrue("Academic week should be Week X or Recess / Exams", acadWeek.contains("Week") || acadWeek.contains("Recess"))
     }
 }

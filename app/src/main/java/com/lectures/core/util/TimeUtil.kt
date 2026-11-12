@@ -22,21 +22,29 @@ object TimeUtil {
         val year = now.get(Calendar.YEAR)
         val month = now.get(Calendar.MONTH) // 0-based: Jan = 0, Aug = 7, Sep = 8
 
-        // Semester 1 reference start date: Last Monday of August / First Monday of September
+        // Academic Year Semester I runs late August through late January / February.
+        // Semester II runs February through June / July.
         val semStart = Calendar.getInstance().apply {
             set(Calendar.HOUR_OF_DAY, 0)
             set(Calendar.MINUTE, 0)
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
             if (month >= Calendar.AUGUST) {
+                // Semester 1 in current calendar year (e.g. Aug 2026)
                 set(Calendar.YEAR, year)
                 set(Calendar.MONTH, Calendar.AUGUST)
-                set(Calendar.DAY_OF_MONTH, 24) // Late August start
+                set(Calendar.DAY_OF_MONTH, 24)
+            } else if (month <= Calendar.JANUARY) {
+                // Semester 1 finishing in January of next calendar year (e.g. Jan 2027)
+                // Reference start is August 24 of previous year (year - 1)
+                set(Calendar.YEAR, year - 1)
+                set(Calendar.MONTH, Calendar.AUGUST)
+                set(Calendar.DAY_OF_MONTH, 24)
             } else {
-                // Semester 2: Starts mid-January / February
+                // Semester 2: Starts early February
                 set(Calendar.YEAR, year)
-                set(Calendar.MONTH, Calendar.JANUARY)
-                set(Calendar.DAY_OF_MONTH, 19)
+                set(Calendar.MONTH, Calendar.FEBRUARY)
+                set(Calendar.DAY_OF_MONTH, 1)
             }
         }
 
@@ -71,10 +79,14 @@ object TimeUtil {
                 set(Calendar.YEAR, year)
                 set(Calendar.MONTH, Calendar.AUGUST)
                 set(Calendar.DAY_OF_MONTH, 24)
+            } else if (month <= Calendar.JANUARY) {
+                set(Calendar.YEAR, year - 1)
+                set(Calendar.MONTH, Calendar.AUGUST)
+                set(Calendar.DAY_OF_MONTH, 24)
             } else {
                 set(Calendar.YEAR, year)
-                set(Calendar.MONTH, Calendar.JANUARY)
-                set(Calendar.DAY_OF_MONTH, 19)
+                set(Calendar.MONTH, Calendar.FEBRUARY)
+                set(Calendar.DAY_OF_MONTH, 1)
             }
         }
 
