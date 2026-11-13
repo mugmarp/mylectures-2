@@ -120,22 +120,20 @@ fun ActivityCard(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (onEdit != null) {
                             IconButton(
-                                onClick = onEdit,
-                                modifier = Modifier.size(28.dp)
+                                onClick = onEdit
                             ) {
                                 Icon(
                                     imageVector = Icons.Outlined.Edit,
                                     contentDescription = "Edit Activity",
                                     tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(17.dp)
+                                    modifier = Modifier.size(18.dp)
                                 )
                             }
                         }
 
                         if (onDelete != null) {
                             IconButton(
-                                onClick = onDelete,
-                                modifier = Modifier.size(28.dp)
+                                onClick = onDelete
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.DeleteOutline,

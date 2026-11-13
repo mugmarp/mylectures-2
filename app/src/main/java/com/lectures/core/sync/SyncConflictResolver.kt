@@ -173,8 +173,17 @@ object SyncConflictResolver {
                             "\n\n--- [Conflicting Revision from Remote Device] ---\n"
                         }
 
-                        val mergedContent = "${primary.content.trim()}$conflictDivider${secondary.content.trim()}"
+                        val mergedContent = if (primary.content.contains(secondary.content.trim())) {
+                            primary.content.trim()
+                        } else {
+                            "${primary.content.trim()}$conflictDivider${secondary.content.trim()}"
+                        }
                         val unifiedNote = primary.copy(
+                            title = primary.title?.takeIf { it.isNotBlank() } ?: secondary.title,
+                            tag = primary.tag?.takeIf { it.isNotBlank() } ?: secondary.tag,
+                            attachedClass = primary.attachedClass?.takeIf { it.isNotBlank() } ?: secondary.attachedClass,
+                            attachmentName = primary.attachmentName ?: secondary.attachmentName,
+                            attachmentPath = primary.attachmentPath ?: secondary.attachmentPath,
                             content = mergedContent,
                             ownerId = local.ownerId ?: remote.ownerId,
                             updatedAt = maxOf(primary.updatedAt, secondary.updatedAt) + 1000L

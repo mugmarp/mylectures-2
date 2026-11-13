@@ -60,11 +60,13 @@ class TimetableSyncWorker(
                 db.timetableDao().upsertTimetableMetadata(remoteMeta)
 
                 // Notify student via System Tray Notification and In-App notification store
-                NotificationHelper.showTimetableUpdatedNotification(
-                    context = applicationContext,
-                    versionLabel = remoteMeta.versionLabel,
-                    releaseNotes = remoteMeta.releaseNotes
-                )
+                if (app.etagStore.isNotificationsEnabled()) {
+                    NotificationHelper.showTimetableUpdatedNotification(
+                        context = applicationContext,
+                        versionLabel = remoteMeta.versionLabel,
+                        releaseNotes = remoteMeta.releaseNotes
+                    )
+                }
             } else {
                 Log.d(TAG, "Timetable is up to date (${localMeta?.versionLabel})")
             }
@@ -79,9 +81,11 @@ class TimetableSyncWorker(
                     val now = System.currentTimeMillis()
                     val throttleWindowMs = 36 * 60 * 60 * 1000L // 36 hours throttle window
 
-                    val shouldNotify = updateInfo.isMandatory ||
+                    val shouldNotify = app.etagStore.isNotificationsEnabled() && (
+                        updateInfo.isMandatory ||
                         updateInfo.versionCode > lastNotifiedCode ||
                         (now - lastNotifiedTime > throttleWindowMs)
+                    )
 
                     if (shouldNotify) {
                         NotificationHelper.showAppUpdateNotification(applicationContext, updateInfo)
@@ -91,7 +95,7 @@ class TimetableSyncWorker(
                             .apply()
                         Log.i(TAG, "Posted app update notification for v${updateInfo.versionName} (code=${updateInfo.versionCode})")
                     } else {
-                        Log.d(TAG, "Suppressed redundant app update notification for v${updateInfo.versionName} (notified within last 36h)")
+                        Log.d(TAG, "Suppressed app update notification for v${updateInfo.versionName}")
                     }
                 }
             } catch (e: Exception) {
@@ -119,18 +123,13 @@ class TimetableSyncWorker(
         val url = prefs.getString(PREF_REMOTE_METADATA_URL, DEFAULT_METADATA_URL) ?: return null
 
         return try {
-            val client = OkHttpClient.Builder()
-                .connectTimeout(12, TimeUnit.SECONDS)
-                .readTimeout(15, TimeUnit.SECONDS)
-                .build()
-
             val request = Request.Builder()
                 .url(url)
                 .header("Accept", "application/json")
                 .header("User-Agent", "Lectures-Android-SyncWorker")
                 .build()
 
-            client.newCall(request).execute().use { response ->
+            httpClient.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
                     Log.d(TAG, "Remote HTTP check returned code ${response.code}")
                     return null
@@ -165,5 +164,12 @@ class TimetableSyncWorker(
         const val WORK_NAME = "PeriodicTimetableSyncWork"
         const val PREF_REMOTE_METADATA_URL = "remote_timetable_metadata_url"
         const val DEFAULT_METADATA_URL = "https://raw.githubusercontent.com/mustime/timetable/main/timetable_metadata.json"
+
+        private val httpClient: OkHttpClient by lazy {
+            OkHttpClient.Builder()
+                .connectTimeout(12, TimeUnit.SECONDS)
+                .readTimeout(15, TimeUnit.SECONDS)
+                .build()
+        }
     }
 }

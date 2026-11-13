@@ -8,6 +8,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -54,6 +56,8 @@ class FeedbackManager(private val context: Context, private val etagStore: ETagS
         null
     }
 
+    private val queueMutex = Mutex()
+
     private val _recentSubmissions = MutableStateFlow<List<AnonymousFeedback>>(emptyList())
     val recentSubmissions: Flow<List<AnonymousFeedback>> = _recentSubmissions.asStateFlow()
 
@@ -80,66 +84,63 @@ class FeedbackManager(private val context: Context, private val etagStore: ETagS
         includeDiagnostics: Boolean = true
     ): Result<AnonymousFeedback> = withContext(Dispatchers.IO) {
         try {
+            val trimmed = message.trim().take(4000)
+            if (trimmed.isEmpty()) {
+                return@withContext Result.failure(IllegalArgumentException("Feedback message cannot be empty."))
+            }
+
             val instanceId = getOrCreateAppInstanceId()
             val dateFormat = SimpleDateFormat("MMM d, yyyy • HH:mm", Locale.getDefault())
-            val enrolledProg = if (includeDiagnostics) (etagStore.getSavedProgramme() ?: "None") else "Omitted"
+            val enrolledProg = if (includeDiagnostics) (etagStore.getSavedProgramme() ?: "None").take(128) else "Omitted"
 
             val feedback = AnonymousFeedback(
                 id = UUID.randomUUID().toString(),
                 instanceId = instanceId,
                 category = category,
-                message = message.trim(),
+                message = trimmed,
                 formattedDate = dateFormat.format(Date()),
-                appVersion = "1.0 (Build 2026)",
-                androidRelease = if (includeDiagnostics) Build.VERSION.RELEASE else "Hidden",
-                deviceModel = if (includeDiagnostics) "${Build.MANUFACTURER} ${Build.MODEL}" else "Hidden",
+                appVersion = com.lectures.BuildConfig.VERSION_NAME.take(48),
+                androidRelease = if (includeDiagnostics) (Build.VERSION.RELEASE ?: "Unknown").take(32) else "Hidden",
+                deviceModel = if (includeDiagnostics) "${Build.MANUFACTURER} ${Build.MODEL}".take(128) else "Hidden",
                 enrolledProgramme = enrolledProg
             )
 
             // 1. Persist locally in recent submissions UI list
-            val currentList = _recentSubmissions.value.toMutableList()
-            currentList.add(0, feedback)
-            _recentSubmissions.value = currentList.take(20)
-            saveCachedFeedback(currentList.take(20))
+            queueMutex.withLock {
+                val currentList = _recentSubmissions.value.toMutableList()
+                currentList.add(0, feedback)
+                val trimmedList = currentList.take(20)
+                _recentSubmissions.value = trimmedList
+                saveCachedFeedback(trimmedList)
+            }
 
             // 2. Transmit to remote Firestore collection /feedback
             sendFeedbackToRemote(feedback)
 
             Result.success(feedback)
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             Result.failure(e)
         }
     }
 
     /**
-     * Sends feedback item to Firestore /feedback.
+     * Sends feedback item to Firestore /feedback/{id} idempotently.
      * If offline or transmission fails, queues into pending retry storage.
      */
     private suspend fun sendFeedbackToRemote(feedback: AnonymousFeedback): Boolean {
         val store = firestore
         if (store == null) {
-            addToPendingQueue(feedback)
+            queueMutex.withLock { addToPendingQueue(feedback) }
             return false
         }
         return try {
-            val payload = hashMapOf(
-                "id" to feedback.id,
-                "instanceId" to feedback.instanceId,
-                "category" to feedback.category.title,
-                "categoryKey" to feedback.category.name,
-                "message" to feedback.message,
-                "formattedDate" to feedback.formattedDate,
-                "appVersion" to feedback.appVersion,
-                "androidRelease" to feedback.androidRelease,
-                "deviceModel" to feedback.deviceModel,
-                "enrolledProgramme" to feedback.enrolledProgramme,
-                "submittedAt" to System.currentTimeMillis()
-            )
-            store.collection("feedback").add(payload).await()
-            removeFromPendingQueue(feedback.id)
+            val payload = buildFeedbackPayload(feedback)
+            store.collection("feedback").document(feedback.id).set(payload).await()
+            queueMutex.withLock { removeFromPendingQueue(feedback.id) }
             true
         } catch (_: Exception) {
-            addToPendingQueue(feedback)
+            queueMutex.withLock { addToPendingQueue(feedback) }
             false
         }
     }
@@ -148,36 +149,45 @@ class FeedbackManager(private val context: Context, private val etagStore: ETagS
      * Retries flushing any offline pending feedback items when network/app becomes active.
      */
     suspend fun flushPendingSubmissions() = withContext(Dispatchers.IO) {
-        val pending = loadPendingQueue()
+        val pending = queueMutex.withLock { loadPendingQueue() }
         if (pending.isEmpty() || firestore == null) return@withContext
 
-        val remaining = mutableListOf<AnonymousFeedback>()
+        val sentIds = mutableSetOf<String>()
         for (item in pending) {
             val sent = try {
-                val payload = hashMapOf(
-                    "id" to item.id,
-                    "instanceId" to item.instanceId,
-                    "category" to item.category.title,
-                    "categoryKey" to item.category.name,
-                    "message" to item.message,
-                    "formattedDate" to item.formattedDate,
-                    "appVersion" to item.appVersion,
-                    "androidRelease" to item.androidRelease,
-                    "deviceModel" to item.deviceModel,
-                    "enrolledProgramme" to item.enrolledProgramme,
-                    "submittedAt" to System.currentTimeMillis()
-                )
-                firestore.collection("feedback").add(payload).await()
+                firestore.collection("feedback")
+                    .document(item.id)
+                    .set(buildFeedbackPayload(item))
+                    .await()
                 true
             } catch (_: Exception) {
                 false
             }
-            if (!sent) {
-                remaining.add(item)
+            if (sent) {
+                sentIds.add(item.id)
             }
         }
-        savePendingQueue(remaining)
+        if (sentIds.isNotEmpty()) {
+            queueMutex.withLock {
+                val latest = loadPendingQueue().filterNot { it.id in sentIds }
+                savePendingQueue(latest)
+            }
+        }
     }
+
+    private fun buildFeedbackPayload(item: AnonymousFeedback): HashMap<String, Any> = hashMapOf(
+        "id" to item.id.take(64),
+        "instanceId" to item.instanceId.take(64),
+        "category" to item.category.title.take(64),
+        "categoryKey" to item.category.name.take(64),
+        "message" to item.message.take(4000),
+        "formattedDate" to item.formattedDate.take(64),
+        "appVersion" to item.appVersion.take(48),
+        "androidRelease" to item.androidRelease.take(32),
+        "deviceModel" to item.deviceModel.take(128),
+        "enrolledProgramme" to item.enrolledProgramme.take(128),
+        "submittedAt" to System.currentTimeMillis()
+    )
 
     private fun addToPendingQueue(item: AnonymousFeedback) {
         val list = loadPendingQueue().toMutableList()

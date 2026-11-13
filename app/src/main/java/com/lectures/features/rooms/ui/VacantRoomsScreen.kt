@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -89,9 +90,9 @@ fun VacantRoomsScreen(
     val initialTimeStr = remember { "%02d:%02d".format(initialHour, initialMinute) }
 
     // Active Query Parameters
-    var queryDay by remember { mutableStateOf(initialDay) }
-    var queryTime by remember { mutableStateOf(initialTimeStr) }
-    var isLiveNow by remember { mutableStateOf(true) }
+    var queryDay by rememberSaveable { mutableStateOf(initialDay) }
+    var queryTime by rememberSaveable { mutableStateOf(initialTimeStr) }
+    var isLiveNow by rememberSaveable { mutableStateOf(true) }
 
     // Immediate re-sync when returning to foreground from Home screen
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
@@ -135,35 +136,35 @@ fun VacantRoomsScreen(
         programmeDefaults(activeProgramme)
     }
 
-    var selectedCampus by remember(defaultScope) {
+    var selectedCampus by rememberSaveable(defaultScope.campus, defaultScope.buildingCode) {
         mutableStateOf<String?>(defaultScope.campus)
     }
-    var selectedBuilding by remember(defaultScope) {
+    var selectedBuilding by rememberSaveable(defaultScope.campus, defaultScope.buildingCode) {
         mutableStateOf<String?>(defaultScope.buildingCode)
     }
 
     // Filters
-    var minGapMinutes by remember { mutableIntStateOf(30) } // Default 30 min
-    var selectedLevel by remember { mutableStateOf<BuildingLevel?>(null) } // null = All levels
-    var studyFriendlyOnly by remember { mutableStateOf(true) }
-    var showPermanentlyVacant by remember { mutableStateOf(true) }
-    var hideLibrary by remember { mutableStateOf(false) }  // libraries rank last (known baseline)
-    var searchQuery by remember { mutableStateOf("") }
-    var freeOnly by remember { mutableStateOf(false) }
-    var selectedCategory by remember { mutableStateOf("All") } // "All", "Room", "Lab", "Library"
-    var isDefaultResetDismissed by remember(defaultScope) { mutableStateOf(false) }
+    var minGapMinutes by rememberSaveable { mutableIntStateOf(30) } // Default 30 min
+    var selectedLevel by rememberSaveable { mutableStateOf<BuildingLevel?>(null) } // null = All levels
+    var studyFriendlyOnly by rememberSaveable { mutableStateOf(true) }
+    var showPermanentlyVacant by rememberSaveable { mutableStateOf(true) }
+    var hideLibrary by rememberSaveable { mutableStateOf(false) }  // libraries rank last (known baseline)
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    var freeOnly by rememberSaveable { mutableStateOf(false) }
+    var selectedCategory by rememberSaveable { mutableStateOf("All") } // "All", "Room", "Lab", "Library"
+    var isDefaultResetDismissed by rememberSaveable(defaultScope.campus, defaultScope.buildingCode) { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         app?.analyticsManager?.trackFeature("vacant_rooms_search")
     }
 
     // Pickers visibility
-    var campusDropdownExpanded by remember { mutableStateOf(false) }
-    var buildingDropdownExpanded by remember { mutableStateOf(false) }
-    var showFilterSheet by remember { mutableStateOf(false) }
-    var showTimePicker by remember { mutableStateOf(false) }
-    var showDayPicker by remember { mutableStateOf(false) }
-    var selectedRoomForSchedule by remember { mutableStateOf<RoomVacancyStatus?>(null) }
+    var campusDropdownExpanded by rememberSaveable { mutableStateOf(false) }
+    var buildingDropdownExpanded by rememberSaveable { mutableStateOf(false) }
+    var showFilterSheet by rememberSaveable { mutableStateOf(false) }
+    var showTimePicker by rememberSaveable { mutableStateOf(false) }
+    var showDayPicker by rememberSaveable { mutableStateOf(false) }
+    var selectedRoomIdForSchedule by rememberSaveable { mutableStateOf<String?>(null) }
 
     // Reset building when campus changes (a building belongs to one campus)
     LaunchedEffect(selectedCampus) {
@@ -356,8 +357,7 @@ fun VacantRoomsScreen(
                                 val m = nowCal.get(Calendar.MINUTE)
                                 queryTime = "%02d:%02d".format(h, m)
                                 isLiveNow = true
-                            },
-                            modifier = Modifier.size(36.dp)
+                            }
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.RestartAlt,
@@ -446,8 +446,7 @@ fun VacantRoomsScreen(
                             }
                             if (searchQuery.isNotEmpty()) {
                                 IconButton(
-                                    onClick = { searchQuery = "" },
-                                    modifier = Modifier.size(24.dp)
+                                    onClick = { searchQuery = "" }
                                 ) {
                                     Icon(
                                         Icons.Default.Close,
@@ -976,7 +975,7 @@ fun VacantRoomsScreen(
                                     showCampus = selectedCampus == null,
                                     selectedBuilding = selectedBuilding,
                                     modifier = Modifier.animateItem(),
-                                    onClick = { selectedRoomForSchedule = status }
+                                    onClick = { selectedRoomIdForSchedule = status.room.id }
                                 )
                             }
                         }
@@ -993,7 +992,7 @@ fun VacantRoomsScreen(
                         showCampus = selectedCampus == null,
                         selectedBuilding = selectedBuilding,
                         modifier = Modifier.animateItem(),
-                        onClick = { selectedRoomForSchedule = status }
+                        onClick = { selectedRoomIdForSchedule = status.room.id }
                     )
                 }
             }
@@ -1282,12 +1281,15 @@ fun VacantRoomsScreen(
         )
     }
 
+    val selectedRoomForSchedule = remember(selectedRoomIdForSchedule, vacancyStatuses) {
+        selectedRoomIdForSchedule?.let { id -> vacancyStatuses.firstOrNull { it.room.id == id } }
+    }
     selectedRoomForSchedule?.let { status ->
         RoomScheduleDetailDialog(
             status = status,
             dayOfWeek = queryDay,
             isDark = isDark,
-            onDismiss = { selectedRoomForSchedule = null }
+            onDismiss = { selectedRoomIdForSchedule = null }
         )
     }
 }
@@ -1745,18 +1747,20 @@ fun RoomScheduleDetailDialog(
 
                     Spacer(modifier = Modifier.width(8.dp))
 
-                    IconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier
-                            .size(32.dp)
-                            .background(if (isDark) Color(0xFF334155) else Color(0xFFF1F5F9), CircleShape)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Close",
-                            tint = textMuted,
-                            modifier = Modifier.size(16.dp)
-                        )
+                    IconButton(onClick = onDismiss) {
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .background(if (isDark) Color(0xFF334155) else Color(0xFFF1F5F9), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Close",
+                                tint = textMuted,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
                     }
                 }
 

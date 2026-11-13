@@ -579,7 +579,6 @@ object MarkdownUtils {
         return buildAnnotatedString {
             append(rawText)
 
-            val lines = rawText.lines()
             var currentOffset = 0
 
             val headingColor = if (isDark) Color(0xFF60A5FA) else Color(0xFF2563EB)
@@ -588,7 +587,15 @@ object MarkdownUtils {
             val dimSyntaxColor = if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8)
             val highlightBg = if (isDark) Color(0xFF713F12) else Color(0xFFFEF08A)
 
-            for (line in lines) {
+            while (currentOffset <= rawText.length) {
+                val nextNewline = rawText.indexOf('\n', currentOffset)
+                val lineRawEnd = if (nextNewline == -1) rawText.length else nextNewline
+                val lineEnd = if (lineRawEnd > currentOffset && rawText[lineRawEnd - 1] == '\r') {
+                    lineRawEnd - 1
+                } else {
+                    lineRawEnd
+                }
+                val line = rawText.substring(currentOffset, lineEnd)
                 val lineLen = line.length
                 val trimmed = line.trimStart()
                 val lineStart = currentOffset + (lineLen - trimmed.length)
@@ -609,7 +616,7 @@ object MarkdownUtils {
                                 fontSize = fontSize
                             ),
                             lineStart,
-                            currentOffset + lineLen
+                            lineEnd
                         )
                         // Dim the leading hash symbols
                         addStyle(
@@ -628,7 +635,7 @@ object MarkdownUtils {
                             fontWeight = FontWeight.Bold
                         ),
                         lineStart,
-                        currentOffset + lineLen
+                        lineEnd
                     )
                 }
 
@@ -637,7 +644,7 @@ object MarkdownUtils {
                     addStyle(
                         SpanStyle(fontStyle = FontStyle.Italic, color = dimSyntaxColor),
                         lineStart,
-                        currentOffset + lineLen
+                        lineEnd
                     )
                 }
 
@@ -654,7 +661,7 @@ object MarkdownUtils {
                         addStyle(
                             SpanStyle(textDecoration = TextDecoration.LineThrough, color = dimSyntaxColor),
                             lineStart + 6,
-                            currentOffset + lineLen
+                            lineEnd
                         )
                     }
                 }
@@ -668,7 +675,8 @@ object MarkdownUtils {
                     )
                 }
 
-                currentOffset += lineLen + 1 // +1 for the newline character
+                if (nextNewline == -1) break
+                currentOffset = nextNewline + 1
             }
 
             // Inline syntax highlighters:

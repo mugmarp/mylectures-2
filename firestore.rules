@@ -2,30 +2,37 @@ rules_version = '2';
 
 // Firestore security rules for the Lectures app (project: mustttdb).
 //
-// Design constraints, derived from the actual client code:
+// Architecture & Access Model:
 //
-//  * The app NEVER signs in to Firebase Auth. There is no signInAnonymously,
-//    signInWith*, or currentUser usage anywhere in app/src/main/java. Every
-//    request therefore arrives with request.auth == null, so any rule gated on
-//    request.auth != null is unsatisfiable by this client.
-//  * The app WRITES two collections and READS neither:
-//      - /user_telemetry/{installId}  (set + merge, one doc per install)
-//      - /feedback/{autoId}           (add, anonymous submissions)
-//  * The app READS /timetable via snapshot listeners. That path is currently
-//    denied, and the failure is silent because SyncRepository discards the
-//    listener's error parameter. The bundled asset and prepackaged database are
-//    what actually populate the schedule today.
+//  1. Public read-only university timetable:
+//       - /timetable/{entryId}  (public scraped MUST schedule + metadata doc)
+//  2. Pseudonymous device telemetry & feedback (write-only, strict schema bounds):
+//       - /user_telemetry/{installId}  (create/update matching install_id, no reads)
+//       - /feedback/{feedbackId}       (create-only using idempotent UUID doc ID, no reads)
+//  3. Authenticated personal cloud backup & multi-device sync (Google Sign-In):
+//       - /users/{userId}
+//       - /users/{userId}/notes/{noteId}
+//       - /users/{userId}/events/{eventId}
+//       - /users/{userId}/assignments/{assignmentId}
+//       - /users/{userId}/settings/{docId} (docId == 'preferences')
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    function isOptString(val, maxLen) {
+      return val == null || (val is string && val.size() <= maxLen);
+    }
+
+    function isOptInt(val) {
+      return val == null || val is int;
+    }
+
     // ---------------------------------------------------------------------
-    // /timetable — published university teaching timetable.
-    //
-    // Public information (scraped from timetable.must.ac.ug), no personal data.
-    // Readable without auth so the sync path can actually function; the client
-    // cannot authenticate, so requiring auth here makes sync permanently dead.
-    // Writes stay closed: the data is managed out of band.
+    // /timetable — published university teaching timetable (read-only).
     // ---------------------------------------------------------------------
     match /timetable/{entryId} {
       allow read: if true;
@@ -33,21 +40,11 @@ service cloud.firestore {
     }
 
     // ---------------------------------------------------------------------
-    // /user_telemetry — pseudonymous install heartbeat.
-    //
-    // READ IS DENIED. The client never reads this collection; the only access
-    // is the write below. Leaving read open exposed install IDs, device models,
-    // Android versions, enrolled programmes and launch counts to anyone holding
-    // the (public, in-APK) API key.
-    //
-    // Writes cannot be tied to an identity because there is no auth, so the
-    // shape is constrained instead: the document ID must match install_id and
-    // the field set, types and lengths are validated.
+    // /user_telemetry — pseudonymous install heartbeat (write-only).
     // ---------------------------------------------------------------------
     match /user_telemetry/{installId} {
       allow read: if false;
       allow delete: if false;
-
       allow create, update: if isValidTelemetry(installId);
     }
 
@@ -65,11 +62,9 @@ service cloud.firestore {
           'total_launches',
           'features_used'
         ])
-        // Bind the document to its own identifier so one install cannot
-        // overwrite another install's record.
         && d.install_id is string
         && d.install_id == installId
-        && d.install_id.size() <= 64
+        && d.install_id.size() > 0 && d.install_id.size() <= 64
         && d.app_version is string && d.app_version.size() <= 32
         && d.enrolled_programme is string && d.enrolled_programme.size() <= 128
         && d.device_model is string && d.device_model.size() <= 128
@@ -82,18 +77,14 @@ service cloud.firestore {
     }
 
     // ---------------------------------------------------------------------
-    // /feedback — anonymous student feedback.
-    //
-    // Create-only. The client never reads this collection, so read, update and
-    // delete are all denied. Field lengths are capped to keep a public,
-    // unauthenticated write endpoint from being used as bulk storage.
+    // /feedback — anonymous student feedback (idempotent create-only).
     // ---------------------------------------------------------------------
     match /feedback/{feedbackId} {
       allow read, update, delete: if false;
-      allow create: if isValidFeedback();
+      allow create: if isValidFeedback(feedbackId);
     }
 
-    function isValidFeedback() {
+    function isValidFeedback(feedbackId) {
       let d = request.resource.data;
       return d.keys().hasOnly([
           'id',
@@ -108,13 +99,13 @@ service cloud.firestore {
           'enrolledProgramme',
           'submittedAt'
         ])
-        && d.id is string && d.id.size() <= 64
-        && d.instanceId is string && d.instanceId.size() <= 64
+        && d.id is string && d.id == feedbackId && d.id.size() > 0 && d.id.size() <= 64
+        && d.instanceId is string && d.instanceId.size() > 0 && d.instanceId.size() <= 64
         && d.category is string && d.category.size() <= 64
         && d.categoryKey is string && d.categoryKey.size() <= 64
-        && d.message is string && d.message.size() <= 4000
+        && d.message is string && d.message.size() > 0 && d.message.size() <= 4000
         && d.formattedDate is string && d.formattedDate.size() <= 64
-        && d.appVersion is string && d.appVersion.size() <= 32
+        && d.appVersion is string && d.appVersion.size() <= 48
         && d.androidRelease is string && d.androidRelease.size() <= 32
         && d.deviceModel is string && d.deviceModel.size() <= 128
         && d.enrolledProgramme is string && d.enrolledProgramme.size() <= 128
@@ -122,19 +113,152 @@ service cloud.firestore {
     }
 
     // ---------------------------------------------------------------------
-    // /users/{userId} — personal notes sync.
-    //
-    // Requires an authenticated user matching the document ID. The client does
-    // not currently authenticate and startAllSync() has no call sites, so this
-    // path is inert. Left auth-gated deliberately: it holds personal notes and
-    // must not be opened up. Wiring it requires adding Firebase Auth first.
+    // /users/{userId} — authenticated student workspace & cloud backup.
     // ---------------------------------------------------------------------
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if isOwner(userId);
 
       match /notes/{noteId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidNote(userId, noteId);
       }
+
+      match /events/{eventId} {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidEvent(userId, eventId);
+      }
+
+      match /assignments/{assignmentId} {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidAssignment(userId, assignmentId);
+      }
+
+      match /settings/{docId} {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId) && docId == 'preferences' && isValidSettings();
+      }
+    }
+
+    function isValidNote(userId, noteId) {
+      let d = request.resource.data;
+      return d.keys().hasOnly([
+          'natural_key',
+          'title',
+          'content',
+          'colour_tag',
+          'alarm_minutes',
+          'tag',
+          'attached_class',
+          'attachment_name',
+          'attachment_path',
+          'is_pinned',
+          'is_deleted',
+          'owner_id',
+          'updated_at'
+        ])
+        && d.natural_key is string && d.natural_key == noteId && d.natural_key.size() > 0 && d.natural_key.size() <= 256
+        && isOptString(d.title, 300)
+        && d.content is string && d.content.size() <= 100000
+        && isOptString(d.colour_tag, 32)
+        && isOptInt(d.alarm_minutes)
+        && isOptString(d.tag, 64)
+        && isOptString(d.attached_class, 256)
+        && isOptString(d.attachment_name, 256)
+        && isOptString(d.attachment_path, 512)
+        && d.is_pinned is bool
+        && d.is_deleted is bool
+        && d.owner_id is string && d.owner_id == userId
+        && (d.updated_at is int || d.updated_at is timestamp);
+    }
+
+    function isValidEvent(userId, eventId) {
+      let d = request.resource.data;
+      return d.keys().hasOnly([
+          'client_uuid',
+          'title',
+          'day_of_week',
+          'start_time',
+          'end_time',
+          'location',
+          'notes',
+          'repeat_weekly',
+          'alarm_minutes',
+          'category',
+          'color_tag',
+          'owner_id',
+          'updated_at',
+          'is_deleted'
+        ])
+        && d.client_uuid is string && d.client_uuid == eventId && d.client_uuid.size() > 0 && d.client_uuid.size() <= 128
+        && d.title is string && d.title.size() > 0 && d.title.size() <= 300
+        && d.day_of_week is string && d.day_of_week.size() <= 32
+        && d.start_time is string && d.start_time.size() <= 32
+        && d.end_time is string && d.end_time.size() <= 32
+        && d.location is string && d.location.size() <= 200
+        && d.notes is string && d.notes.size() <= 10000
+        && d.repeat_weekly is bool
+        && isOptInt(d.alarm_minutes)
+        && d.category is string && d.category.size() <= 64
+        && d.color_tag is string && d.color_tag.size() <= 32
+        && d.owner_id is string && d.owner_id == userId
+        && d.updated_at is int
+        && d.is_deleted is bool;
+    }
+
+    function isValidAssignment(userId, assignmentId) {
+      let d = request.resource.data;
+      return d.keys().hasOnly([
+          'client_uuid',
+          'title',
+          'course_code',
+          'due_date',
+          'reminder_minutes',
+          'priority',
+          'notes',
+          'completed',
+          'owner_id',
+          'updated_at',
+          'is_deleted'
+        ])
+        && d.client_uuid is string && d.client_uuid == assignmentId && d.client_uuid.size() > 0 && d.client_uuid.size() <= 128
+        && d.title is string && d.title.size() > 0 && d.title.size() <= 300
+        && d.course_code is string && d.course_code.size() <= 64
+        && d.due_date is string && d.due_date.size() <= 64
+        && isOptInt(d.reminder_minutes)
+        && d.priority is string && d.priority.size() <= 32
+        && d.notes is string && d.notes.size() <= 10000
+        && d.completed is bool
+        && d.owner_id is string && d.owner_id == userId
+        && d.updated_at is int
+        && d.is_deleted is bool;
+    }
+
+    function isValidSettings() {
+      let d = request.resource.data;
+      return d.keys().hasOnly([
+          'programme',
+          'theme_mode',
+          'theme_accent',
+          'notifications_enabled',
+          'class_alarm_lead_minutes',
+          'task_reminder_lead_hours',
+          'alarm_vibration',
+          'alarm_sound',
+          'academic_year',
+          'semester',
+          'updated_at'
+        ])
+        && isOptString(d.programme, 128)
+        && d.theme_mode is string && d.theme_mode.size() <= 32
+        && d.theme_accent is int
+        && d.notifications_enabled is bool
+        && d.class_alarm_lead_minutes is int
+        && d.task_reminder_lead_hours is int
+        && d.alarm_vibration is bool
+        && d.alarm_sound is string && d.alarm_sound.size() <= 64
+        && d.academic_year is string && d.academic_year.size() <= 32
+        && d.semester is string && d.semester.size() <= 32
+        && d.updated_at is int;
     }
 
     // Default deny for anything not matched above.

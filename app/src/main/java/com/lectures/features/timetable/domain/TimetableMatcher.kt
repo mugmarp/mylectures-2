@@ -267,10 +267,7 @@ object TimetableMatcher {
 
     fun filterTimetable(entries: List<TimetableEntry>, group: String, day: String? = null): List<TimetableEntry> {
         val matched = entries.filter { entry ->
-            (day == null ||
-             entry.day.equals(day, ignoreCase = true) ||
-             entry.day.startsWith(day.take(3), ignoreCase = true) ||
-             day.startsWith(entry.day.take(3), ignoreCase = true)) &&
+            (day == null || TimetableConflictDetector.daysMatch(entry.day, day)) &&
             entryMatchesGroup(entry, group)
         }
         return deduplicateEntries(matched, group).sortedBy { it.start_time }

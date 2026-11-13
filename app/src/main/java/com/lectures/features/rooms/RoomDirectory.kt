@@ -1768,7 +1768,7 @@ object UniversityDirectory {
         val endOfDayMinutes = 21 * 60 // 21:00
 
         val syntheticCustomEntries = customEvents.filter {
-            it.dayOfWeek.equals(dayOfWeek, ignoreCase = true) && it.location.isNotBlank()
+            com.lectures.features.timetable.domain.TimetableConflictDetector.daysMatch(it.dayOfWeek, dayOfWeek) && it.location.isNotBlank()
         }.map { event ->
             TimetableEntry(
                 natural_key = "custom_event_${event.id}",
@@ -1794,7 +1794,7 @@ object UniversityDirectory {
 
         // Day-scoped pre-filtering & single sort to avoid repeated sorting per room
         val dayEntries = combinedEntries
-            .filter { it.dayOfWeek.equals(dayOfWeek, ignoreCase = true) }
+            .filter { com.lectures.features.timetable.domain.TimetableConflictDetector.daysMatch(it.dayOfWeek, dayOfWeek) }
             .sortedBy { TimeUtil.toMinutes(it.startTime) }
 
         // Cache room matching for each distinct entry location string to eliminate O(rooms * sessions)

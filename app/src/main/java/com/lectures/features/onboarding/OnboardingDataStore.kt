@@ -17,10 +17,7 @@ import kotlinx.coroutines.flow.map
 import java.io.IOException
 
 val Context.onboardingDataStore: DataStore<Preferences> by preferencesDataStore(
-    name = "mustime_onboarding_preferences",
-    produceMigrations = { context ->
-        listOf(SharedPreferencesMigration(context, "mustime_settings", keysToMigrate = setOf("onboarding_completed")))
-    }
+    name = "mustime_onboarding_preferences"
 )
 
 /**
@@ -35,10 +32,18 @@ class OnboardingDataStore(
     companion object {
         val KEY_ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
         val KEY_PROGRAMME = stringPreferencesKey("must_programme")
+        private const val LEGACY_PREFS_NAME = "mustime_settings"
+        private const val LEGACY_ONBOARDING_KEY = "onboarding_completed"
+        private const val LEGACY_PROGRAMME_KEY = "must_programme"
     }
 
+    private val appContext = context.applicationContext
+
     private val dataStore: DataStore<Preferences>
-        get() = customDataStore ?: context.applicationContext.onboardingDataStore
+        get() = customDataStore ?: appContext.onboardingDataStore
+
+    private val legacyPrefs
+        get() = appContext.getSharedPreferences(LEGACY_PREFS_NAME, Context.MODE_PRIVATE)
 
     /**
      * Flow emitting the persisted programme from DataStore, if set.
@@ -53,6 +58,7 @@ class OnboardingDataStore(
         }
         .map { preferences ->
             preferences[KEY_PROGRAMME]?.ifBlank { null }
+                ?: legacyPrefs.getString(LEGACY_PROGRAMME_KEY, null)?.ifBlank { null }
         }
         .distinctUntilChanged()
 
@@ -60,6 +66,7 @@ class OnboardingDataStore(
         dataStore.edit { preferences ->
             preferences[KEY_PROGRAMME] = programme
         }
+        legacyPrefs.edit().putString(LEGACY_PROGRAMME_KEY, programme).apply()
     }
 
     /**
@@ -74,17 +81,20 @@ class OnboardingDataStore(
             }
         }
         .map { preferences ->
-            preferences[KEY_ONBOARDING_COMPLETED] ?: false
+            preferences[KEY_ONBOARDING_COMPLETED]
+                ?: legacyPrefs.getBoolean(LEGACY_ONBOARDING_KEY, false)
         }
         .distinctUntilChanged()
 
     /**
-     * Persist the onboarding completion state into DataStore.
+     * Persist the onboarding completion state into DataStore and mirror to SharedPreferences
+     * so synchronous startup checks never drift out of sync.
      */
     suspend fun setOnboardingCompleted(completed: Boolean) {
         dataStore.edit { preferences ->
             preferences[KEY_ONBOARDING_COMPLETED] = completed
         }
+        legacyPrefs.edit().putBoolean(LEGACY_ONBOARDING_KEY, completed).apply()
     }
 
     /**
@@ -94,7 +104,7 @@ class OnboardingDataStore(
         return try {
             isOnboardingCompleted.first()
         } catch (e: Exception) {
-            false
+            legacyPrefs.getBoolean(LEGACY_ONBOARDING_KEY, false)
         }
     }
 

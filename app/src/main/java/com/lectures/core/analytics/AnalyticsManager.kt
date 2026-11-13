@@ -42,6 +42,8 @@ class AnalyticsManager(private val context: Context) {
         null
     }
 
+    private val featureLock = Any()
+
     private val _featureStats = MutableStateFlow<Map<String, Int>>(emptyMap())
     val featureStats: StateFlow<Map<String, Int>> = _featureStats.asStateFlow()
 
@@ -74,12 +76,14 @@ class AnalyticsManager(private val context: Context) {
      */
     fun recordAppLaunch(programme: String, scope: CoroutineScope) {
         val now = System.currentTimeMillis()
-        val count = prefs.getInt(KEY_LAUNCH_COUNT, 0) + 1
-        prefs.edit()
-            .putLong(KEY_LAST_ACTIVE, now)
-            .putInt(KEY_LAUNCH_COUNT, count)
-            .putString(KEY_ENROLLED_PROGRAMME, programme)
-            .apply()
+        synchronized(featureLock) {
+            val count = prefs.getInt(KEY_LAUNCH_COUNT, 0) + 1
+            prefs.edit()
+                .putLong(KEY_LAST_ACTIVE, now)
+                .putInt(KEY_LAUNCH_COUNT, count)
+                .putString(KEY_ENROLLED_PROGRAMME, programme)
+                .apply()
+        }
 
         trackFeature("app_launch")
         dispatchHeartbeat(programme, scope)
@@ -89,21 +93,23 @@ class AnalyticsManager(private val context: Context) {
      * Track user engagement with a specific feature
      */
     fun trackFeature(featureName: String) {
-        try {
-            val jsonStr = prefs.getString(KEY_FEATURE_COUNTS, "{}") ?: "{}"
-            val json = JSONObject(jsonStr)
-            val current = json.optInt(featureName, 0)
-            json.put(featureName, current + 1)
-            prefs.edit().putString(KEY_FEATURE_COUNTS, json.toString()).apply()
+        synchronized(featureLock) {
+            try {
+                val jsonStr = prefs.getString(KEY_FEATURE_COUNTS, "{}") ?: "{}"
+                val json = JSONObject(jsonStr)
+                val current = json.optInt(featureName, 0)
+                json.put(featureName, current + 1)
+                prefs.edit().putString(KEY_FEATURE_COUNTS, json.toString()).apply()
 
-            val map = mutableMapOf<String, Int>()
-            val keys = json.keys()
-            while (keys.hasNext()) {
-                val k = keys.next()
-                map[k] = json.getInt(k)
-            }
-            _featureStats.value = map
-        } catch (_: Exception) {}
+                val map = mutableMapOf<String, Int>()
+                val keys = json.keys()
+                while (keys.hasNext()) {
+                    val k = keys.next()
+                    map[k] = json.getInt(k)
+                }
+                _featureStats.value = map
+            } catch (_: Exception) {}
+        }
     }
 
     fun getFeatureCount(featureName: String): Int {
@@ -111,17 +117,19 @@ class AnalyticsManager(private val context: Context) {
     }
 
     private fun loadFeatureStats() {
-        try {
-            val jsonStr = prefs.getString(KEY_FEATURE_COUNTS, "{}") ?: "{}"
-            val json = JSONObject(jsonStr)
-            val map = mutableMapOf<String, Int>()
-            val keys = json.keys()
-            while (keys.hasNext()) {
-                val k = keys.next()
-                map[k] = json.getInt(k)
-            }
-            _featureStats.value = map
-        } catch (_: Exception) {}
+        synchronized(featureLock) {
+            try {
+                val jsonStr = prefs.getString(KEY_FEATURE_COUNTS, "{}") ?: "{}"
+                val json = JSONObject(jsonStr)
+                val map = mutableMapOf<String, Int>()
+                val keys = json.keys()
+                while (keys.hasNext()) {
+                    val k = keys.next()
+                    map[k] = json.getInt(k)
+                }
+                _featureStats.value = map
+            } catch (_: Exception) {}
+        }
     }
 
     /**
@@ -130,31 +138,32 @@ class AnalyticsManager(private val context: Context) {
      */
     fun dispatchHeartbeat(programme: String, scope: CoroutineScope) {
         val store = firestore ?: return
-        val installId = getInstallId()
+        val installId = getInstallId().take(64)
         val firstLaunch = prefs.getLong(KEY_FIRST_LAUNCH, System.currentTimeMillis())
-        val launchCount = prefs.getInt(KEY_LAUNCH_COUNT, 1)
+        val launchCount = prefs.getInt(KEY_LAUNCH_COUNT, 1).coerceAtLeast(0)
         val features = _featureStats.value
 
         scope.launch(Dispatchers.IO) {
             try {
                 val telemetryDoc = mutableMapOf<String, Any>(
                     "install_id" to installId,
-                    "app_version" to "1.0",
-                    "enrolled_programme" to programme.ifBlank { "Unselected" },
-                    "device_model" to "${Build.MANUFACTURER} ${Build.MODEL}",
-                    "android_version" to (Build.VERSION.RELEASE ?: "Unknown"),
-                    "sdk_int" to Build.VERSION.SDK_INT,
+                    "app_version" to com.lectures.BuildConfig.VERSION_NAME.take(32),
+                    "enrolled_programme" to programme.ifBlank { "Unselected" }.take(128),
+                    "device_model" to "${Build.MANUFACTURER} ${Build.MODEL}".take(128),
+                    "android_version" to (Build.VERSION.RELEASE ?: "Unknown").take(32),
+                    "sdk_int" to Build.VERSION.SDK_INT.coerceIn(1, 100),
                     "first_launch_timestamp" to firstLaunch,
                     "last_active_at" to FieldValue.serverTimestamp(),
                     "total_launches" to launchCount,
                     "features_used" to features
                 )
 
-                store.collection("user_telemetry")
+                val task = store.collection("user_telemetry")
                     .document(installId)
                     .set(telemetryDoc, SetOptions.merge())
+                com.google.android.gms.tasks.Tasks.await(task)
             } catch (_: Exception) {
-                // Safely handles offline mode
+                // Safely handles offline mode / unprovisioned backend
             }
         }
     }

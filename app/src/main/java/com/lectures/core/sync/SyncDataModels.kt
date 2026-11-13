@@ -31,6 +31,9 @@ data class SyncMergeStats(
     val notesCount: Int = 0,
     val eventsCount: Int = 0,
     val assignmentsCount: Int = 0,
+    val status: SyncState = SyncState.SUCCESS,
+    val failedCount: Int = 0,
+    val errorMessage: String? = null,
     val timestamp: Long = System.currentTimeMillis()
 )
 

@@ -31,6 +31,7 @@ import androidx.compose.material.icons.outlined.School
 import androidx.compose.material.icons.outlined.TaskAlt
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -105,13 +106,29 @@ fun CalendarScreen(
         }
     }
 
-    var showAddActivitySheet by remember { mutableStateOf(false) }
-    var activityToEdit by remember { mutableStateOf<CustomEvent?>(null) }
-    var showProfileSheet by remember { mutableStateOf(false) }
-    var eventToDelete by remember { mutableStateOf<CustomEvent?>(null) }
-    var taskToDelete by remember { mutableStateOf<Assignment?>(null) }
-    var selectedActivityForDetail by remember { mutableStateOf<CustomEvent?>(null) }
-    var selectedLectureForDetail by remember { mutableStateOf<TimetableEntry?>(null) }
+    var showAddActivitySheet by rememberSaveable { mutableStateOf(false) }
+    var editingActivityId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var showProfileSheet by rememberSaveable { mutableStateOf(false) }
+    var deleteEventId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var deleteTaskId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var detailActivityId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var detailLectureKey by rememberSaveable { mutableStateOf<String?>(null) }
+
+    val activityToEdit = remember(editingActivityId, uiState.customEvents) {
+        editingActivityId?.let { id -> uiState.customEvents.firstOrNull { it.id == id } }
+    }
+    val eventToDelete = remember(deleteEventId, uiState.customEvents) {
+        deleteEventId?.let { id -> uiState.customEvents.firstOrNull { it.id == id } }
+    }
+    val taskToDelete = remember(deleteTaskId, uiState.assignments) {
+        deleteTaskId?.let { id -> uiState.assignments.firstOrNull { it.id == id } }
+    }
+    val selectedActivityForDetail = remember(detailActivityId, uiState.customEvents) {
+        detailActivityId?.let { id -> uiState.customEvents.firstOrNull { it.id == id } }
+    }
+    val selectedLectureForDetail = remember(detailLectureKey, uiState.entries) {
+        detailLectureKey?.let { key -> uiState.entries.firstOrNull { it.naturalKey == key } }
+    }
 
     val isDark = LocalAppTheme.current.isDark
 
@@ -308,9 +325,16 @@ fun CalendarScreen(
             }
         }
     ) { innerPadding ->
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.TopCenter
+        ) {
         LazyColumn(
             state = listState,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .widthIn(max = 820.dp)
+                .fillMaxWidth()
+                .fillMaxHeight(),
             contentPadding = PaddingValues(
                 top = innerPadding.calculateTopPadding() + 8.dp,
                 bottom = listBottomPadding
@@ -527,8 +551,7 @@ fun CalendarScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         IconButton(
-                            onClick = { viewModel.previousMonth() },
-                            modifier = Modifier.size(36.dp)
+                            onClick = { viewModel.previousMonth() }
                         ) {
                             Icon(
                                 Icons.Default.ChevronLeft,
@@ -553,8 +576,7 @@ fun CalendarScreen(
                         }
 
                         IconButton(
-                            onClick = { viewModel.nextMonth() },
-                            modifier = Modifier.size(36.dp)
+                            onClick = { viewModel.nextMonth() }
                         ) {
                             Icon(
                                 Icons.Default.ChevronRight,
@@ -765,8 +787,7 @@ fun CalendarScreen(
 
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     IconButton(
-                                        onClick = { viewModel.previousDay() },
-                                        modifier = Modifier.size(32.dp)
+                                        onClick = { viewModel.previousDay() }
                                     ) {
                                         Icon(
                                             Icons.Default.ChevronLeft,
@@ -775,8 +796,7 @@ fun CalendarScreen(
                                         )
                                     }
                                     IconButton(
-                                        onClick = { viewModel.nextDay() },
-                                        modifier = Modifier.size(32.dp)
+                                        onClick = { viewModel.nextDay() }
                                     ) {
                                         Icon(
                                             Icons.Default.ChevronRight,
@@ -923,7 +943,7 @@ fun CalendarScreen(
                                 isDark = isDark,
                                 onToggleComplete = { viewModel.toggleTaskComplete(task) },
                                 onEdit = { },
-                                onDelete = { taskToDelete = task }
+                                onDelete = { deleteTaskId = task.id }
                             )
                         }
                     }
@@ -1023,15 +1043,15 @@ fun CalendarScreen(
                                 is CalendarTimelineItem.Lecture -> {
                                     LectureCard(
                                         entry = item.entry,
-                                        onClick = { selectedLectureForDetail = item.entry }
+                                        onClick = { detailLectureKey = item.entry.naturalKey }
                                     )
                                 }
                                 is CalendarTimelineItem.Activity -> {
                                     ActivityCard(
                                         event = item.event,
-                                        onClick = { selectedActivityForDetail = item.event },
-                                        onEdit = { activityToEdit = item.event },
-                                        onDelete = { eventToDelete = item.event }
+                                        onClick = { detailActivityId = item.event.id },
+                                        onEdit = { editingActivityId = item.event.id },
+                                        onDelete = { deleteEventId = item.event.id }
                                     )
                                 }
                             }
@@ -1040,12 +1060,13 @@ fun CalendarScreen(
                 }
             }
         }
+        }
     }
 
     // Activity Detail Dialog
     selectedActivityForDetail?.let { event ->
         AlertDialog(
-            onDismissRequest = { selectedActivityForDetail = null },
+            onDismissRequest = { detailActivityId = null },
             title = {
                 Text(
                     text = event.title,
@@ -1087,13 +1108,13 @@ fun CalendarScreen(
             confirmButton = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     TextButton(onClick = {
-                        val toEdit = event
-                        selectedActivityForDetail = null
-                        activityToEdit = toEdit
+                        val toEditId = event.id
+                        detailActivityId = null
+                        editingActivityId = toEditId
                     }) {
                         Text("Edit", fontWeight = FontWeight.Bold)
                     }
-                    TextButton(onClick = { selectedActivityForDetail = null }) {
+                    TextButton(onClick = { detailActivityId = null }) {
                         Text("Close")
                     }
                 }
@@ -1101,9 +1122,9 @@ fun CalendarScreen(
             dismissButton = {
                 TextButton(
                     onClick = {
-                        val toDel = event
-                        selectedActivityForDetail = null
-                        eventToDelete = toDel
+                        val toDelId = event.id
+                        detailActivityId = null
+                        deleteEventId = toDelId
                     },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                 ) {
@@ -1116,10 +1137,10 @@ fun CalendarScreen(
     if (activityToEdit != null) {
         AddActivitySheet(
             eventToEdit = activityToEdit,
-            onDismiss = { activityToEdit = null },
+            onDismiss = { editingActivityId = null },
             onSave = { updatedEvent ->
                 viewModel.addCustomEvent(updatedEvent)
-                activityToEdit = null
+                editingActivityId = null
             }
         )
     }
@@ -1131,9 +1152,9 @@ fun CalendarScreen(
             entry = entry,
             onSaveNote = { noteText, reminderMinutes ->
                 viewModel.saveNote(entry, noteText, reminderMinutes)
-                selectedLectureForDetail = null
+                detailLectureKey = null
             },
-            onDismiss = { selectedLectureForDetail = null }
+            onDismiss = { detailLectureKey = null }
         )
     }
 
@@ -1183,14 +1204,14 @@ fun CalendarScreen(
     // Delete Confirmation Dialog for Activity
     eventToDelete?.let { event ->
         AlertDialog(
-            onDismissRequest = { eventToDelete = null },
+            onDismissRequest = { deleteEventId = null },
             title = { Text("Delete Activity") },
             text = { Text("Are you sure you want to delete \"${event.title}\"?") },
             confirmButton = {
                 TextButton(
                     onClick = {
                         viewModel.deleteCustomEvent(event.id)
-                        eventToDelete = null
+                        deleteEventId = null
                     },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                 ) {
@@ -1198,7 +1219,7 @@ fun CalendarScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { eventToDelete = null }) {
+                TextButton(onClick = { deleteEventId = null }) {
                     Text("Cancel")
                 }
             }
@@ -1208,14 +1229,14 @@ fun CalendarScreen(
     // Delete Confirmation Dialog for Task
     taskToDelete?.let { task ->
         AlertDialog(
-            onDismissRequest = { taskToDelete = null },
+            onDismissRequest = { deleteTaskId = null },
             title = { Text("Delete Deadline") },
             text = { Text("Are you sure you want to delete \"${task.title}\"?") },
             confirmButton = {
                 TextButton(
                     onClick = {
                         viewModel.deleteTask(task)
-                        taskToDelete = null
+                        deleteTaskId = null
                     },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                 ) {
@@ -1223,7 +1244,7 @@ fun CalendarScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { taskToDelete = null }) {
+                TextButton(onClick = { deleteTaskId = null }) {
                     Text("Cancel")
                 }
             }

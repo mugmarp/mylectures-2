@@ -30,6 +30,8 @@ import androidx.compose.material.icons.outlined.Notes
 import androidx.compose.material.icons.outlined.TaskAlt
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -77,6 +79,42 @@ sealed class AppNavState {
     data object MainApp : AppNavState()
 }
 
+private val AppNavStateSaver: Saver<AppNavState, String> = Saver(
+    save = { state ->
+        when (state) {
+            is AppNavState.Welcome -> "WELCOME"
+            is AppNavState.FacultySelection -> "FACULTY"
+            is AppNavState.ProgrammeSelection -> "PROG|${state.faculty.id}"
+            is AppNavState.ClassGroupSelection -> "GROUP|${state.faculty.id}|${state.programme.code}"
+            is AppNavState.MainApp -> "MAIN"
+        }
+    },
+    restore = { encoded ->
+        val parts = encoded.split("|")
+        when (parts.firstOrNull()) {
+            "WELCOME" -> AppNavState.Welcome
+            "FACULTY" -> AppNavState.FacultySelection
+            "PROG" -> {
+                val faculty = FACULTIES.firstOrNull { it.id == parts.getOrNull(1) }
+                if (faculty != null) AppNavState.ProgrammeSelection(faculty) else AppNavState.FacultySelection
+            }
+            "GROUP" -> {
+                val faculty = FACULTIES.firstOrNull { it.id == parts.getOrNull(1) }
+                val prog = faculty?.programmes?.firstOrNull { it.code == parts.getOrNull(2) }
+                if (faculty != null && prog != null) {
+                    AppNavState.ClassGroupSelection(faculty, prog)
+                } else if (faculty != null) {
+                    AppNavState.ProgrammeSelection(faculty)
+                } else {
+                    AppNavState.FacultySelection
+                }
+            }
+            "MAIN" -> AppNavState.MainApp
+            else -> AppNavState.Welcome
+        }
+    }
+)
+
 @Composable
 fun MainScaffold(
     initialTab: Int = 0,
@@ -99,14 +137,14 @@ fun MainScaffold(
     val initialOnboarding = remember { repository.isOnboardingCompleted() }
     val onboardingCompleted by repository.onboardingCompletedPref.collectAsState(initial = initialOnboarding)
 
-    var navState by remember {
+    var navState by rememberSaveable(stateSaver = AppNavStateSaver) {
         mutableStateOf<AppNavState>(
             if (initialOnboarding) AppNavState.MainApp else AppNavState.Welcome
         )
     }
-    var selectedTab by remember { mutableIntStateOf(initialTab) }
-    var isNotesEditing by remember { mutableStateOf(false) }
-    var pendingHighlightTaskId by remember { mutableStateOf<Long?>(null) }
+    var selectedTab by rememberSaveable { mutableIntStateOf(initialTab) }
+    var isNotesEditing by rememberSaveable { mutableStateOf(false) }
+    var pendingHighlightTaskId by rememberSaveable { mutableStateOf<Long?>(null) }
 
     // Handle notification deep-link intents.
     LaunchedEffect(notificationIntentFlow) {
@@ -188,7 +226,7 @@ fun MainScaffold(
             )
         }
         is AppNavState.MainApp -> {
-            var currentDestination by remember { mutableStateOf(MainScreenDestination.TABS) }
+            var currentDestination by rememberSaveable { mutableStateOf(MainScreenDestination.TABS) }
 
             val inAppStore = remember(context) { InAppNotificationStore(context) }
             var activeForegroundAlert by remember { mutableStateOf<InAppNotificationItem?>(null) }
@@ -441,8 +479,7 @@ fun MainScaffold(
                                                     )
                                                 }
                                                 IconButton(
-                                                    onClick = { activeForegroundAlert = null },
-                                                    modifier = Modifier.size(28.dp)
+                                                    onClick = { activeForegroundAlert = null }
                                                 ) {
                                                     Icon(
                                                         imageVector = Icons.Default.Close,
@@ -636,7 +673,8 @@ fun MainScaffold(
                                                         fontSize = 11.sp,
                                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                                                         color = if (isSelected) primaryBlue else textMuted,
-                                                        maxLines = 1
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
                                                     )
                                                 }
                                             }
@@ -647,7 +685,9 @@ fun MainScaffold(
                                         // Quick Navigation Shortcuts on Tablet
                                         IconButton(
                                             onClick = { currentDestination = MainScreenDestination.VACANT_ROOMS },
-                                            modifier = Modifier.size(40.dp).testTag("nav_rail_vacant_rooms")
+                                            modifier = Modifier
+                                                .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                                                .testTag("nav_rail_vacant_rooms")
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Default.MeetingRoom,
@@ -661,7 +701,9 @@ fun MainScaffold(
 
                                         IconButton(
                                             onClick = { currentDestination = MainScreenDestination.SETTINGS },
-                                            modifier = Modifier.size(40.dp).testTag("nav_rail_settings")
+                                            modifier = Modifier
+                                                .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                                                .testTag("nav_rail_settings")
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Default.Settings,

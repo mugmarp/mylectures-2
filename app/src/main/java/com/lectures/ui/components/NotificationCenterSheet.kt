@@ -391,8 +391,7 @@ fun NotificationCenterSheet(
                                 }
                                 if (onCancelNoteAlarm != null) {
                                     IconButton(
-                                        onClick = { onCancelNoteAlarm(note) },
-                                        modifier = Modifier.size(32.dp)
+                                        onClick = { onCancelNoteAlarm(note) }
                                     ) {
                                         Icon(
                                             imageVector = Icons.Default.AlarmOff,
@@ -439,8 +438,7 @@ fun NotificationCenterSheet(
                                 }
                                 if (onCancelTaskAlarm != null) {
                                     IconButton(
-                                        onClick = { onCancelTaskAlarm(task) },
-                                        modifier = Modifier.size(32.dp)
+                                        onClick = { onCancelTaskAlarm(task) }
                                     ) {
                                         Icon(
                                             imageVector = Icons.Default.AlarmOff,
@@ -602,14 +600,13 @@ fun NotificationCenterSheet(
                                 }
                                 Spacer(modifier = Modifier.width(6.dp))
                                 IconButton(
-                                    onClick = { notifStore.deleteNotification(item.id) },
-                                    modifier = Modifier.size(24.dp)
+                                    onClick = { notifStore.deleteNotification(item.id) }
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.DeleteOutline,
                                         contentDescription = "Delete",
                                         tint = textSub,
-                                        modifier = Modifier.size(15.dp)
+                                        modifier = Modifier.size(18.dp)
                                     )
                                 }
                             }

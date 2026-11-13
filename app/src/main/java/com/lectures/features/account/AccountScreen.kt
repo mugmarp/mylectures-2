@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -62,9 +63,9 @@ fun AccountScreen(
 
     var isAuthenticating by remember { mutableStateOf(false) }
     var isSyncing by remember { mutableStateOf(false) }
-    var syncMessage by remember { mutableStateOf<String?>(null) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
-    var showSignOutDialog by remember { mutableStateOf(false) }
+    var syncMessage by rememberSaveable { mutableStateOf<String?>(null) }
+    var errorMessage by rememberSaveable { mutableStateOf<String?>(null) }
+    var showSignOutDialog by rememberSaveable { mutableStateOf(false) }
 
     // Live counts
     val notesCount by (app?.database?.timetableDao()?.getAllNotes()?.collectAsState(initial = emptyList())
@@ -132,7 +133,7 @@ fun AccountScreen(
                             Icon(Icons.Default.ErrorOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error)
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(msg, color = MaterialTheme.colorScheme.onErrorContainer, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                            IconButton(onClick = { errorMessage = null }, modifier = Modifier.size(24.dp)) {
+                            IconButton(onClick = { errorMessage = null }) {
                                 Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
                             }
                         }
@@ -154,7 +155,7 @@ fun AccountScreen(
                             Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF15803D))
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(msg, color = Color(0xFF14532D), fontSize = 13.sp, modifier = Modifier.weight(1f))
-                            IconButton(onClick = { syncMessage = null }, modifier = Modifier.size(24.dp)) {
+                            IconButton(onClick = { syncMessage = null }) {
                                 Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = Color(0xFF15803D), modifier = Modifier.size(16.dp))
                             }
                         }
@@ -254,17 +255,23 @@ fun AccountScreen(
                                     result.fold(
                                         onSuccess = { user ->
                                             syncMessage = "Signed in as ${user.email ?: user.displayName}! Syncing your data..."
-                                            // Auto-promote and sync
                                             app?.let { application ->
                                                 val settingsMgr = UserSettingsSyncManager(
                                                     application.etagStore,
                                                     application.onboardingDataStore
                                                 )
-                                                val stats = application.syncRepository.performFullUserSync(
-                                                    user.uid,
-                                                    settingsMgr
-                                                )
-                                                syncMessage = "Connected to ${user.email}! Synced ${stats.notesCount} notes, ${stats.assignmentsCount} tasks to cloud."
+                                                val stats = kotlinx.coroutines.withContext(application.applicationScope.coroutineContext) {
+                                                    application.syncRepository.performFullUserSync(
+                                                        user.uid,
+                                                        settingsMgr
+                                                    )
+                                                }
+                                                if (stats.status == com.lectures.core.sync.SyncState.ERROR || stats.failedCount > 0) {
+                                                    syncMessage = null
+                                                    errorMessage = stats.errorMessage ?: "Signed in as ${user.email}, but cloud sync could not complete."
+                                                } else {
+                                                    syncMessage = "Connected to ${user.email}! Synced ${stats.notesCount} notes, ${stats.assignmentsCount} tasks to cloud."
+                                                }
                                             }
                                         },
                                         onFailure = { err ->
@@ -418,12 +425,18 @@ fun AccountScreen(
                                                 application.etagStore,
                                                 application.onboardingDataStore
                                             )
-                                            val stats = application.syncRepository.performFullUserSync(
-                                                user.uid,
-                                                settingsMgr
-                                            )
-                                            val format = SimpleDateFormat("h:mm a", Locale.getDefault())
-                                            syncMessage = "Synced at ${format.format(Date())}: ${stats.notesCount} notes, ${stats.assignmentsCount} tasks up to date."
+                                            val stats = kotlinx.coroutines.withContext(application.applicationScope.coroutineContext) {
+                                                application.syncRepository.performFullUserSync(
+                                                    user.uid,
+                                                    settingsMgr
+                                                )
+                                            }
+                                            if (stats.status == com.lectures.core.sync.SyncState.ERROR || stats.failedCount > 0) {
+                                                errorMessage = stats.errorMessage ?: "Cloud sync encountered an error (${stats.failedCount} failed)."
+                                            } else {
+                                                val format = SimpleDateFormat("h:mm a", Locale.getDefault())
+                                                syncMessage = "Synced at ${format.format(Date())}: ${stats.notesCount} notes, ${stats.assignmentsCount} tasks up to date."
+                                            }
                                         }
                                         isSyncing = false
                                     }
@@ -511,7 +524,7 @@ fun AccountScreen(
                         showSignOutDialog = false
                         scope.launch {
                             currentUser?.uid?.let { uid ->
-                                // Clean up local personal data to prevent cross-account pollution
+                                app?.syncRepository?.stopUserSync()
                                 app?.syncRepository?.purgeUserDataOnSignOut(uid)
                             }
                             authRepo.signOut(context)

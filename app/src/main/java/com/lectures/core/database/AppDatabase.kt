@@ -133,7 +133,7 @@ abstract class AppDatabase : RoomDatabase() {
                     INSERT OR REPLACE INTO timetable_metadata (
                         id, versionLabel, status, isFinal, academicYear, semester, releaseNotes, lastUpdated, source
                     ) VALUES (
-                        1, 'Final Timetable', 'Official Final', 1, '2026/2027', 'Semester 1', 'Authoritative MUST Teaching Timetable approved by Academic Registrar', ${System.currentTimeMillis()}, 'MUST Academic Registrar'
+                        1, 'Final Timetable', 'Official Final', 1, '2026/2027', 'Semester 1', 'Authoritative MUST Teaching Timetable approved by Academic Registrar', (strftime('%s','now') * 1000), 'MUST Academic Registrar'
                     )
                 """.trimIndent())
             }
@@ -162,7 +162,7 @@ abstract class AppDatabase : RoomDatabase() {
                     INSERT OR REPLACE INTO timetable_metadata (
                         id, versionLabel, status, isFinal, draftNumber, academicYear, semester, releaseNotes, lastUpdated, source, totalSessions
                     ) VALUES (
-                        1, 'Final Timetable', 'Official Final', 1, NULL, '2026/2027', 'Semester 1', 'Authoritative MUST Teaching Timetable approved by Academic Registrar', ${System.currentTimeMillis()}, 'MUST Academic Registrar', 1304
+                        1, 'Final Timetable', 'Official Final', 1, NULL, '2026/2027', 'Semester 1', 'Authoritative MUST Teaching Timetable approved by Academic Registrar', (strftime('%s','now') * 1000), 'MUST Academic Registrar', 1304
                     )
                 """.trimIndent())
                 db.execSQL("DROP TABLE IF EXISTS timetable_metadata_old")
@@ -183,14 +183,14 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE custom_events ADD COLUMN clientUuid TEXT NOT NULL DEFAULT ''")
                 db.execSQL("ALTER TABLE custom_events ADD COLUMN updatedAt INTEGER NOT NULL DEFAULT 0")
                 db.execSQL("ALTER TABLE custom_events ADD COLUMN isDeleted INTEGER NOT NULL DEFAULT 0")
-                db.execSQL("UPDATE custom_events SET clientUuid = lower(hex(randomblob(16))), updatedAt = ${System.currentTimeMillis()} WHERE clientUuid = ''")
+                db.execSQL("UPDATE custom_events SET clientUuid = lower(hex(randomblob(16))), updatedAt = (strftime('%s','now') * 1000) WHERE clientUuid = ''")
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_custom_events_clientUuid ON custom_events (clientUuid)")
 
                 // 2. Upgrade assignments: add clientUuid, updatedAt, isDeleted, and index
                 db.execSQL("ALTER TABLE assignments ADD COLUMN clientUuid TEXT NOT NULL DEFAULT ''")
                 db.execSQL("ALTER TABLE assignments ADD COLUMN updatedAt INTEGER NOT NULL DEFAULT 0")
                 db.execSQL("ALTER TABLE assignments ADD COLUMN isDeleted INTEGER NOT NULL DEFAULT 0")
-                db.execSQL("UPDATE assignments SET clientUuid = lower(hex(randomblob(16))), updatedAt = ${System.currentTimeMillis()} WHERE clientUuid = ''")
+                db.execSQL("UPDATE assignments SET clientUuid = lower(hex(randomblob(16))), updatedAt = (strftime('%s','now') * 1000) WHERE clientUuid = ''")
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_assignments_clientUuid ON assignments (clientUuid)")
 
                 // 3. Upgrade lecture_notes: add isDeleted flag and index

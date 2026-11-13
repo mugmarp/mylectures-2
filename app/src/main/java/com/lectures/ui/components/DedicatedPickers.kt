@@ -85,8 +85,8 @@ fun DedicatedTimePickerDialog(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
-                        Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(18.dp))
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(20.dp))
                     }
                 }
 
@@ -271,8 +271,8 @@ fun DedicatedCalendarDatePickerDialog(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                     }
-                    IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
-                        Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(18.dp))
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(20.dp))
                     }
                 }
 
@@ -292,8 +292,7 @@ fun DedicatedCalendarDatePickerDialog(
                             } else {
                                 viewMonth -= 1
                             }
-                        },
-                        modifier = Modifier.size(34.dp)
+                        }
                     ) {
                         Icon(Icons.Default.ChevronLeft, contentDescription = "Previous Month")
                     }
@@ -313,8 +312,7 @@ fun DedicatedCalendarDatePickerDialog(
                             } else {
                                 viewMonth += 1
                             }
-                        },
-                        modifier = Modifier.size(34.dp)
+                        }
                     ) {
                         Icon(Icons.Default.ChevronRight, contentDescription = "Next Month")
                     }
@@ -544,8 +542,8 @@ fun DedicatedSchedulePickerDialog(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                     }
-                    IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
-                        Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(18.dp))
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(20.dp))
                     }
                 }
 
@@ -739,8 +737,8 @@ fun DedicatedDayPickerDialog(
                             fontWeight = FontWeight.Bold
                         )
                     }
-                    IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
-                        Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(18.dp))
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(20.dp))
                     }
                 }
 
@@ -835,8 +833,8 @@ fun DedicatedCoursePickerDialog(
                             fontWeight = FontWeight.Bold
                         )
                     }
-                    IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
-                        Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(18.dp))
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(20.dp))
                     }
                 }
 

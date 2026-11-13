@@ -1370,14 +1370,13 @@ fun TimelineClassCard(
                     }
 
                     IconButton(
-                        onClick = onToggleAlarm,
-                        modifier = Modifier.size(28.dp)
+                        onClick = onToggleAlarm
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.Notifications,
                             contentDescription = "Set Reminder",
                             tint = if (session.isAlarmSet) PrimaryBlue else textTertiary,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                 }

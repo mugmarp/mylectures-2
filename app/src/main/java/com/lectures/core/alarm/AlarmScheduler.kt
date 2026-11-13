@@ -4,6 +4,7 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.util.Log
 import com.lectures.features.timetable.domain.TimetableEntry
@@ -12,6 +13,54 @@ import java.util.Calendar
 class AlarmScheduler(private val context: Context) {
     private val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
     private val TAG = "AlarmScheduler"
+
+    companion object {
+        const val ACTION_TRIGGER_CLASS_ALARM = "com.lectures.ACTION_TRIGGER_CLASS_ALARM"
+        const val ACTION_TRIGGER_TEST_CLASS_ALARM = "com.lectures.ACTION_TRIGGER_TEST_CLASS_ALARM"
+        const val ACTION_TRIGGER_SNOOZE_CLASS_ALARM = "com.lectures.ACTION_TRIGGER_SNOOZE_CLASS_ALARM"
+
+        fun classAlarmUri(naturalKey: String): Uri =
+            Uri.parse("lectures://alarm/class/${Uri.encode(naturalKey)}")
+
+        fun testClassAlarmUri(naturalKey: String): Uri =
+            Uri.parse("lectures://alarm/class_test/${Uri.encode(naturalKey)}")
+
+        fun snoozeClassAlarmUri(key: String): Uri =
+            Uri.parse("lectures://alarm/class_snooze/${Uri.encode(key)}")
+
+        /**
+         * Computes the next future trigger timestamp in epoch millis for a weekly class occurrence.
+         * Advances to the target day-of-week FIRST before subtracting [minutesBefore], ensuring
+         * early-morning classes whose lead time crosses midnight (e.g. Monday 00:15 - 30m = Sunday 23:45)
+         * advance strictly into the future instead of firing in the past.
+         */
+        fun calculateNextTriggerMillis(
+            targetDow: Int,
+            hour: Int,
+            minute: Int,
+            minutesBefore: Int,
+            nowMillis: Long = System.currentTimeMillis()
+        ): Long {
+            val nowCal = Calendar.getInstance().apply { timeInMillis = nowMillis }
+            val currentDow = nowCal.get(Calendar.DAY_OF_WEEK)
+            val daysDiff = (targetDow - currentDow + 7) % 7
+
+            val triggerCal = Calendar.getInstance().apply {
+                timeInMillis = nowMillis
+                add(Calendar.DAY_OF_YEAR, daysDiff)
+                set(Calendar.HOUR_OF_DAY, hour)
+                set(Calendar.MINUTE, minute)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+                add(Calendar.MINUTE, -minutesBefore)
+            }
+
+            while (triggerCal.timeInMillis <= nowMillis + 60_000L) {
+                triggerCal.add(Calendar.DAY_OF_YEAR, 7)
+            }
+            return triggerCal.timeInMillis
+        }
+    }
 
     private fun parseStartTime(rawTime: String): Pair<Int, Int>? {
         val clean = rawTime.trim().uppercase()
@@ -56,23 +105,15 @@ class AlarmScheduler(private val context: Context) {
         }
         val (hour, minute) = time
 
-        val cal = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, hour)
-            set(Calendar.MINUTE, minute)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-            add(Calendar.MINUTE, -minutesBefore)
-        }
-
-        val currentDow = Calendar.getInstance().get(Calendar.DAY_OF_WEEK)
-        var daysDiff = (targetDow - currentDow + 7) % 7
-        if (daysDiff == 0 && cal.timeInMillis <= System.currentTimeMillis() + 60_000L) {
-            daysDiff = 7
-        }
-        cal.add(Calendar.DAY_OF_YEAR, daysDiff)
-
-        val triggerMillis = cal.timeInMillis
+        val triggerMillis = calculateNextTriggerMillis(
+            targetDow = targetDow,
+            hour = hour,
+            minute = minute,
+            minutesBefore = minutesBefore
+        )
         val intent = Intent(context, ClassAlarmReceiver::class.java).apply {
+            action = ACTION_TRIGGER_CLASS_ALARM
+            data = classAlarmUri(entry.naturalKey)
             putExtra("NATURAL_KEY", entry.naturalKey)
             putExtra("DAY_OF_WEEK", entry.dayOfWeek)
             putExtra("COURSE_CODE", entry.courseCode)
@@ -93,41 +134,67 @@ class AlarmScheduler(private val context: Context) {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        try {
+        return scheduleRtcWakeupWithFallback(
+            triggerMillis = triggerMillis,
+            pendingIntent = pendingIntent,
+            label = "class alarm for ${entry.courseCode}"
+        )
+    }
+
+    private fun scheduleRtcWakeupWithFallback(
+        triggerMillis: Long,
+        pendingIntent: PendingIntent,
+        label: String
+    ): Boolean {
+        val manager = alarmManager ?: return false
+        return try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                if (alarmManager.canScheduleExactAlarms()) {
-                    alarmManager.setExactAndAllowWhileIdle(
+                if (manager.canScheduleExactAlarms()) {
+                    manager.setExactAndAllowWhileIdle(
                         AlarmManager.RTC_WAKEUP,
                         triggerMillis,
                         pendingIntent
                     )
-                    Log.d(TAG, "Scheduled exact alarm for ${entry.courseCode} at ${cal.time}")
+                    Log.d(TAG, "Scheduled exact $label at $triggerMillis")
                 } else {
-                    alarmManager.setAndAllowWhileIdle(
+                    manager.setAndAllowWhileIdle(
                         AlarmManager.RTC_WAKEUP,
                         triggerMillis,
                         pendingIntent
                     )
-                    Log.d(TAG, "Scheduled inexact alarm for ${entry.courseCode} at ${cal.time}")
+                    Log.d(TAG, "Scheduled inexact $label at $triggerMillis")
                 }
             } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                alarmManager.setExactAndAllowWhileIdle(
+                manager.setExactAndAllowWhileIdle(
                     AlarmManager.RTC_WAKEUP,
                     triggerMillis,
                     pendingIntent
                 )
-                Log.d(TAG, "Scheduled M exact alarm for ${entry.courseCode} at ${cal.time}")
+                Log.d(TAG, "Scheduled M exact $label at $triggerMillis")
             } else {
-                alarmManager.set(
+                manager.set(
                     AlarmManager.RTC_WAKEUP,
                     triggerMillis,
                     pendingIntent
                 )
             }
-            return true
+            true
         } catch (e: SecurityException) {
-            Log.e(TAG, "SecurityException while scheduling class alarm: ${e.message}")
-            return false
+            Log.w(TAG, "SecurityException scheduling exact $label, falling back to inexact: ${e.message}")
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    manager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMillis, pendingIntent)
+                } else {
+                    manager.set(AlarmManager.RTC_WAKEUP, triggerMillis, pendingIntent)
+                }
+                true
+            } catch (fallbackEx: Exception) {
+                Log.e(TAG, "Fallback inexact scheduling failed for $label: ${fallbackEx.message}")
+                false
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed scheduling $label: ${e.message}")
+            false
         }
     }
 
@@ -162,6 +229,8 @@ class AlarmScheduler(private val context: Context) {
         if (alarmManager == null) return false
         val triggerMillis = System.currentTimeMillis() + (delaySeconds * 1000L)
         val intent = Intent(context, ClassAlarmReceiver::class.java).apply {
+            action = ACTION_TRIGGER_TEST_CLASS_ALARM
+            data = testClassAlarmUri(entry.naturalKey)
             putExtra("NATURAL_KEY", entry.naturalKey)
             putExtra("DAY_OF_WEEK", entry.dayOfWeek)
             putExtra("COURSE_CODE", entry.courseCode)
@@ -181,53 +250,30 @@ class AlarmScheduler(private val context: Context) {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                if (alarmManager.canScheduleExactAlarms()) {
-                    alarmManager.setExactAndAllowWhileIdle(
-                        AlarmManager.RTC_WAKEUP,
-                        triggerMillis,
-                        pendingIntent
-                    )
-                } else {
-                    alarmManager.setAndAllowWhileIdle(
-                        AlarmManager.RTC_WAKEUP,
-                        triggerMillis,
-                        pendingIntent
-                    )
-                }
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                alarmManager.setExactAndAllowWhileIdle(
-                    AlarmManager.RTC_WAKEUP,
-                    triggerMillis,
-                    pendingIntent
-                )
-            } else {
-                alarmManager.set(
-                    AlarmManager.RTC_WAKEUP,
-                    triggerMillis,
-                    pendingIntent
-                )
-            }
-            return true
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed test alarm: ${e.message}")
-            return false
-        }
+        return scheduleRtcWakeupWithFallback(
+            triggerMillis = triggerMillis,
+            pendingIntent = pendingIntent,
+            label = "test alarm for ${entry.courseCode}"
+        )
     }
 
     fun cancelClassAlarm(naturalKey: String) {
-        if (alarmManager == null) return
-        val intent = Intent(context, ClassAlarmReceiver::class.java)
+        val manager = alarmManager ?: return
+        val intent = Intent(context, ClassAlarmReceiver::class.java).apply {
+            action = ACTION_TRIGGER_CLASS_ALARM
+            data = classAlarmUri(naturalKey)
+        }
         val pendingIntent = PendingIntent.getBroadcast(
             context,
             naturalKey.hashCode(),
             intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
         )
-        alarmManager.cancel(pendingIntent)
-        pendingIntent.cancel()
-        Log.d(TAG, "Cancelled class alarm for $naturalKey")
+        if (pendingIntent != null) {
+            manager.cancel(pendingIntent)
+            pendingIntent.cancel()
+            Log.d(TAG, "Cancelled class alarm for $naturalKey")
+        }
     }
 
     /**
@@ -274,7 +320,10 @@ class AlarmScheduler(private val context: Context) {
     ) {
         if (alarmManager == null) return
         val triggerMillis = System.currentTimeMillis() + (snoozeMinutes * 60 * 1000L)
+        val snoozeKey = naturalKey ?: "$courseCode|$room|$startTime|$dayOfWeek"
         val intent = Intent(context, ClassAlarmReceiver::class.java).apply {
+            action = ACTION_TRIGGER_SNOOZE_CLASS_ALARM
+            data = snoozeClassAlarmUri(snoozeKey)
             putExtra("COURSE_CODE", courseCode)
             putExtra("COURSE_TITLE", courseTitle)
             putExtra("ROOM", room)
@@ -288,38 +337,17 @@ class AlarmScheduler(private val context: Context) {
             putExtra("IS_TEST", false)
             putExtra("IS_SNOOZED", true)
         }
-        val requestCode = ("snooze_" + (naturalKey ?: "$courseCode$room$startTime$dayOfWeek")).hashCode()
+        val requestCode = ("snooze_$snoozeKey").hashCode()
         val pendingIntent = PendingIntent.getBroadcast(
             context,
             requestCode,
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                if (alarmManager.canScheduleExactAlarms()) {
-                    alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMillis, pendingIntent)
-                    Log.d(TAG, "Scheduled EXACT snooze alarm for $courseCode in $snoozeMinutes minutes")
-                } else {
-                    alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMillis, pendingIntent)
-                    Log.d(TAG, "Scheduled INEXACT snooze alarm for $courseCode in $snoozeMinutes minutes (exact permission missing)")
-                }
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMillis, pendingIntent)
-            } else {
-                alarmManager.set(AlarmManager.RTC_WAKEUP, triggerMillis, pendingIntent)
-            }
-        } catch (e: SecurityException) {
-            Log.w(TAG, "SecurityException scheduling exact snooze alarm, falling back to setAndAllowWhileIdle: ${e.message}")
-            try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMillis, pendingIntent)
-                }
-            } catch (fallbackEx: Exception) {
-                Log.e(TAG, "Fallback snooze alarm failed: ${fallbackEx.message}")
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to schedule snooze alarm: ${e.message}")
-        }
+        scheduleRtcWakeupWithFallback(
+            triggerMillis = triggerMillis,
+            pendingIntent = pendingIntent,
+            label = "snooze alarm for $courseCode"
+        )
     }
 }

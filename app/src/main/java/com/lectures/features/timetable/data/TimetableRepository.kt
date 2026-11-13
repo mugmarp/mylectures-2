@@ -22,7 +22,10 @@ class TimetableRepository(
     val etagStore: ETagStore,
     val onboardingDataStore: OnboardingDataStore? = null,
     val syncRepository: com.lectures.core.sync.SyncRepository? = null,
-    val userSettingsSyncManager: com.lectures.core.sync.UserSettingsSyncManager = com.lectures.core.sync.UserSettingsSyncManager(etagStore, onboardingDataStore)
+    val userSettingsSyncManager: com.lectures.core.sync.UserSettingsSyncManager = com.lectures.core.sync.UserSettingsSyncManager(etagStore, onboardingDataStore),
+    private val currentUserIdProvider: () -> String? = {
+        runCatching { com.lectures.core.auth.AuthRepository.getInstance().currentUser.value?.uid }.getOrNull()
+    }
 ) {
     suspend fun performFullUserSync(userId: String): com.lectures.core.sync.SyncMergeStats? {
         return syncRepository?.performFullUserSync(userId, userSettingsSyncManager)
@@ -89,14 +92,24 @@ class TimetableRepository(
     fun getCustomEvents(): Flow<List<CustomEvent>> = eventDao.getAll()
 
     suspend fun saveCustomEvent(event: CustomEvent): Long =
-        eventDao.upsert(event.copy(updatedAt = System.currentTimeMillis()))
+        eventDao.upsert(
+            event.copy(
+                updatedAt = System.currentTimeMillis(),
+                ownerId = event.ownerId ?: currentUserIdProvider()
+            )
+        )
 
     suspend fun deleteCustomEvent(id: Long) = eventDao.softDelete(id)
 
     fun getAssignments(): Flow<List<Assignment>> = assignmentDao.getAll()
 
     suspend fun saveAssignment(assignment: Assignment): Long =
-        assignmentDao.upsert(assignment.copy(updatedAt = System.currentTimeMillis()))
+        assignmentDao.upsert(
+            assignment.copy(
+                updatedAt = System.currentTimeMillis(),
+                ownerId = assignment.ownerId ?: currentUserIdProvider()
+            )
+        )
 
     suspend fun updateAssignmentCompletion(id: Long, completed: Boolean) =
         assignmentDao.updateCompletion(id, completed, System.currentTimeMillis())
@@ -186,8 +199,11 @@ class TimetableRepository(
     }
 
     suspend fun checkIsOnboardingCompleted(): Boolean {
-        return onboardingDataStore?.checkIsOnboardingCompleted()
-            ?: (onboardingCompletedPref == null) // fallback
+        val dsCompleted = onboardingDataStore?.checkIsOnboardingCompleted()
+        if (dsCompleted == true && !etagStore.isOnboardingCompleted()) {
+            etagStore.setOnboardingCompleted(true)
+        }
+        return dsCompleted ?: etagStore.isOnboardingCompleted()
     }
 
     suspend fun deleteAllAssignments() {
@@ -217,13 +233,14 @@ class TimetableRepository(
             attachedClass = attachedClass,
             attachmentName = attachmentName,
             attachmentPath = attachmentPath,
-            isPinned = isPinned
+            isPinned = isPinned,
+            ownerId = currentUserIdProvider()
         )
         dao.upsertNote(note)
     }
 
     suspend fun upsertNote(note: LectureNote) {
-        dao.upsertNote(note)
+        dao.upsertNote(note.copy(ownerId = note.ownerId ?: currentUserIdProvider()))
     }
 
     suspend fun togglePinNote(naturalKey: String) {
@@ -234,7 +251,8 @@ class TimetableRepository(
     }
 
     suspend fun ensureInitialNotesIfEmpty() {
-        val existing = dao.getAllNotesSync()
+        if (etagStore.hasSeededSampleData()) return
+        val existing = dao.getAllNotesRawSync()
         if (existing.isEmpty()) {
             val sampleNotes = listOf(
                 LectureNote(
@@ -252,6 +270,7 @@ class TimetableRepository(
             )
             sampleNotes.forEach { dao.upsertNote(it) }
         }
+        etagStore.setHasSeededSampleData(true)
     }
 
     suspend fun deleteNote(naturalKey: String) {

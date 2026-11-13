@@ -29,13 +29,41 @@ class MainActivity : ComponentActivity() {
         onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST
     )
 
+    companion object {
+        private const val STATE_UPDATE_VERSION_CODE = "state_update_version_code"
+        private const val STATE_UPDATE_VERSION_NAME = "state_update_version_name"
+        private const val STATE_UPDATE_RELEASE_NOTES = "state_update_release_notes"
+        private const val STATE_UPDATE_DOWNLOAD_URL = "state_update_download_url"
+        private const val STATE_UPDATE_FILE_SIZE = "state_update_file_size"
+        private const val STATE_UPDATE_SHA256 = "state_update_sha256"
+        private const val STATE_UPDATE_IS_MANDATORY = "state_update_is_mandatory"
+        private const val STATE_UPDATE_PUBLISHED_AT = "state_update_published_at"
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         window.setBackgroundDrawableResource(android.R.color.transparent)
 
-        // Process notification intent extras on cold start.
-        handleNotificationIntent(intent)
+        if (savedInstanceState == null) {
+            // Process notification intent extras on cold start only (never replay across rotation).
+            handleNotificationIntent(intent)
+        } else {
+            val savedVersionCode = savedInstanceState.getInt(STATE_UPDATE_VERSION_CODE, 0)
+            val savedUrl = savedInstanceState.getString(STATE_UPDATE_DOWNLOAD_URL, "")
+            if (savedVersionCode > 0 && savedUrl.isNotBlank()) {
+                pendingUpdateInfo = com.lectures.core.update.AppUpdateInfo(
+                    versionCode = savedVersionCode,
+                    versionName = savedInstanceState.getString(STATE_UPDATE_VERSION_NAME, ""),
+                    releaseNotes = savedInstanceState.getString(STATE_UPDATE_RELEASE_NOTES, ""),
+                    downloadUrl = savedUrl,
+                    fileSizeBytes = savedInstanceState.getLong(STATE_UPDATE_FILE_SIZE, 0L),
+                    sha256 = savedInstanceState.getString(STATE_UPDATE_SHA256),
+                    isMandatory = savedInstanceState.getBoolean(STATE_UPDATE_IS_MANDATORY, false),
+                    publishedAt = savedInstanceState.getString(STATE_UPDATE_PUBLISHED_AT)
+                )
+            }
+        }
 
         setContent {
             val app = application as? TimetableApplication
@@ -85,8 +113,23 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        pendingUpdateInfo?.let { info ->
+            outState.putInt(STATE_UPDATE_VERSION_CODE, info.versionCode)
+            outState.putString(STATE_UPDATE_VERSION_NAME, info.versionName)
+            outState.putString(STATE_UPDATE_RELEASE_NOTES, info.releaseNotes)
+            outState.putString(STATE_UPDATE_DOWNLOAD_URL, info.downloadUrl)
+            outState.putLong(STATE_UPDATE_FILE_SIZE, info.fileSizeBytes)
+            outState.putString(STATE_UPDATE_SHA256, info.sha256)
+            outState.putBoolean(STATE_UPDATE_IS_MANDATORY, info.isMandatory)
+            outState.putString(STATE_UPDATE_PUBLISHED_AT, info.publishedAt)
+        }
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        setIntent(intent)
         handleNotificationIntent(intent)
     }
 

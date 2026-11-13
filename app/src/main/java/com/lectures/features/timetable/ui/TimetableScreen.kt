@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Today
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -122,7 +123,8 @@ fun TimetableScreen(
                 Manifest.permission.POST_NOTIFICATIONS
             ) == PackageManager.PERMISSION_GRANTED
             val alreadyPrompted = com.lectures.core.util.NotificationPermissionHelper.hasPromptedNotificationPermission(context)
-            val isExistingUser = com.lectures.features.timetable.data.ETagStore(context).isOnboardingCompleted()
+            val isExistingUser = (app?.repository?.checkIsOnboardingCompleted() == true) ||
+                com.lectures.features.timetable.data.ETagStore(context).isOnboardingCompleted()
 
             if (isExistingUser && !alreadyPrompted) {
                 // Existing install: student has already set up the app. Do not harass them on screen transitions.
@@ -140,13 +142,26 @@ fun TimetableScreen(
     val daysList = remember { TimeUtil.DAYS }
 
     // Dialog & BottomSheet state
-    var selectedEntryForDetail by remember { mutableStateOf<TimetableEntry?>(null) }
-    var selectedEntryForAlarm by remember { mutableStateOf<TimetableEntry?>(null) }
-    var showQuickAddSheet by remember { mutableStateOf(false) }
-    var showAcademicProfileSheet by remember { mutableStateOf(false) }
-    var selectedActivityForDetail by remember { mutableStateOf<CustomEvent?>(null) }
-    var activityToEdit by remember { mutableStateOf<CustomEvent?>(null) }
-    var selectedFilter by remember { mutableStateOf("All") }
+    var detailLectureKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var alarmLectureKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var showQuickAddSheet by rememberSaveable { mutableStateOf(false) }
+    var showAcademicProfileSheet by rememberSaveable { mutableStateOf(false) }
+    var detailActivityId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var editingActivityId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var selectedFilter by rememberSaveable { mutableStateOf("All") }
+
+    val selectedEntryForDetail = remember(detailLectureKey, entries) {
+        detailLectureKey?.let { key -> entries.firstOrNull { it.naturalKey == key } }
+    }
+    val selectedEntryForAlarm = remember(alarmLectureKey, entries) {
+        alarmLectureKey?.let { key -> entries.firstOrNull { it.naturalKey == key } }
+    }
+    val selectedActivityForDetail = remember(detailActivityId, customEvents) {
+        detailActivityId?.let { id -> customEvents.firstOrNull { it.id == id } }
+    }
+    val activityToEdit = remember(editingActivityId, customEvents) {
+        editingActivityId?.let { id -> customEvents.firstOrNull { it.id == id } }
+    }
 
     // 1. Compute day dates for the current week (Monday through Sunday)
     val dayInfoList = remember(todayName) {
@@ -320,6 +335,7 @@ fun TimetableScreen(
         }
     ) { innerPadding ->
         Box(
+            contentAlignment = Alignment.TopCenter,
             modifier = Modifier
                 .fillMaxSize()
                 .pointerInput(selectedDay, daysList) {
@@ -351,7 +367,10 @@ fun TimetableScreen(
         ) {
             LazyColumn(
                 state = listState,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .widthIn(max = 840.dp)
+                    .fillMaxWidth()
+                    .fillMaxHeight(),
                 contentPadding = PaddingValues(
                     top = innerPadding.calculateTopPadding(),
                     bottom = listBottomPadding
@@ -563,11 +582,11 @@ fun TimetableScreen(
                                 progress = session.progress,
                                 elapsedText = session.elapsedText,
                                 remainingText = session.remainingText,
-                                onQuickNote = { selectedEntryForDetail = entry },
+                                onQuickNote = { detailLectureKey = entry.naturalKey },
                                 onAlarmDismiss = {
-                                    selectedEntryForAlarm = entry
+                                    alarmLectureKey = entry.naturalKey
                                 },
-                                onClick = { selectedEntryForDetail = entry },
+                                onClick = { detailLectureKey = entry.naturalKey },
                                 modifier = Modifier.padding(top = 6.dp, bottom = 6.dp)
                             )
                         } else {
@@ -591,10 +610,10 @@ fun TimetableScreen(
                             NextUpHeroCard(
                                 session = session,
                                 onSetAlarm = {
-                                    selectedEntryForAlarm = entry
+                                    alarmLectureKey = entry.naturalKey
                                 },
-                                onQuickNote = { selectedEntryForDetail = entry },
-                                onClick = { selectedEntryForDetail = entry },
+                                onQuickNote = { detailLectureKey = entry.naturalKey },
+                                onClick = { detailLectureKey = entry.naturalKey },
                                 modifier = Modifier.padding(top = 6.dp, bottom = 6.dp)
                             )
                         }
@@ -783,13 +802,13 @@ fun TimetableScreen(
                         TimelineClassCard(
                             session = specSession,
                             onToggleAlarm = {
-                                selectedEntryForAlarm = entry
+                                alarmLectureKey = entry.naturalKey
                             },
                             onAttachedNoteClick = {
-                                selectedEntryForDetail = entry
+                                detailLectureKey = entry.naturalKey
                             },
                             onClick = {
-                                selectedEntryForDetail = entry
+                                detailLectureKey = entry.naturalKey
                             },
                             modifier = Modifier
                                 .padding(vertical = 5.dp)
@@ -802,8 +821,8 @@ fun TimetableScreen(
                         PaddingBox(top = 4.dp, bottom = 6.dp, modifier = Modifier.animateItem()) {
                             ActivityCard(
                                 event = event,
-                                onClick = { selectedActivityForDetail = event },
-                                onEdit = { activityToEdit = event },
+                                onClick = { detailActivityId = event.id },
+                                onEdit = { editingActivityId = event.id },
                                 onDelete = { onDeleteActivity(event.id) }
                             )
                         }
@@ -821,7 +840,7 @@ fun TimetableScreen(
     // Activity Detail Dialog
     selectedActivityForDetail?.let { event ->
         AlertDialog(
-            onDismissRequest = { selectedActivityForDetail = null },
+            onDismissRequest = { detailActivityId = null },
             title = {
                 Text(
                     text = event.title,
@@ -859,13 +878,13 @@ fun TimetableScreen(
             confirmButton = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     TextButton(onClick = {
-                        val toEdit = event
-                        selectedActivityForDetail = null
-                        activityToEdit = toEdit
+                        val toEditId = event.id
+                        detailActivityId = null
+                        editingActivityId = toEditId
                     }) {
                         Text("Edit", fontWeight = FontWeight.Bold)
                     }
-                    TextButton(onClick = { selectedActivityForDetail = null }) {
+                    TextButton(onClick = { detailActivityId = null }) {
                         Text("Close")
                     }
                 }
@@ -874,7 +893,7 @@ fun TimetableScreen(
                 TextButton(
                     onClick = {
                         val id = event.id
-                        selectedActivityForDetail = null
+                        detailActivityId = null
                         onDeleteActivity(id)
                     },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
@@ -888,10 +907,10 @@ fun TimetableScreen(
     if (activityToEdit != null) {
         AddActivitySheet(
             eventToEdit = activityToEdit,
-            onDismiss = { activityToEdit = null },
+            onDismiss = { editingActivityId = null },
             onSave = { updatedEvent ->
                 onAddActivity(updatedEvent)
-                activityToEdit = null
+                editingActivityId = null
             }
         )
     }
@@ -904,9 +923,9 @@ fun TimetableScreen(
             initialNote = notes[entry.naturalKey]?.content ?: "",
             onSaveNote = { noteText, reminderMinutes ->
                 onSaveNote(entry, noteText, reminderMinutes)
-                selectedEntryForDetail = null
+                detailLectureKey = null
             },
-            onDismiss = { selectedEntryForDetail = null }
+            onDismiss = { detailLectureKey = null }
         )
     }
 
@@ -920,10 +939,10 @@ fun TimetableScreen(
             onConfirm = { chosenMinutes ->
                 val currentNoteContent = notes[entry.naturalKey]?.content ?: ""
                 onSaveNote(entry, currentNoteContent, chosenMinutes)
-                selectedEntryForAlarm = null
+                alarmLectureKey = null
             },
             onDismiss = {
-                selectedEntryForAlarm = null
+                alarmLectureKey = null
             }
         )
     }

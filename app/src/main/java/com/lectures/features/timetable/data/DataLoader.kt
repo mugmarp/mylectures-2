@@ -54,8 +54,8 @@ class DataLoader(
             val hasSeededSampleData = prefs.getBoolean("has_seeded_sample_data", false)
 
             if (!hasSeededSampleData) {
-                // Seed initial note if none exist
-                if (dao.getNotesWithAlarms().isEmpty()) {
+                // Seed initial note if none exist (including tombstones)
+                if (dao.getAllNotesRawSync().isEmpty()) {
                     val sampleNote = LectureNote(
                         naturalKey = "GEN101|University Studies|Monday|09:00|sample1",
                         title = "Welcome to Lectures - Semester Study Guide",

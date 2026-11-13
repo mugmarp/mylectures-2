@@ -34,6 +34,7 @@ class UserSettingsSyncManager(
         payload.programme?.let { prog ->
             if (prog.isNotBlank()) {
                 etagStore.setProgrammePref(prog)
+                etagStore.setOnboardingCompleted(true)
                 onboardingDataStore?.setProgramme(prog)
                 onboardingDataStore?.setOnboardingCompleted(true)
             }

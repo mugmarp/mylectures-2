@@ -26,6 +26,8 @@ import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import com.lectures.ui.components.FloatingIslandTopBar
 import androidx.compose.ui.Alignment
@@ -71,7 +73,7 @@ fun SettingsScreen(
         currentSubScreen = SettingsSubScreen.MAIN
     }
 
-    var isAccountScreenOpen by remember { mutableStateOf(false) }
+    var isAccountScreenOpen by rememberSaveable { mutableStateOf(false) }
 
     val handleOpenAccount = {
         if (onOpenAccount != null) {
@@ -124,19 +126,50 @@ fun SettingsScreen(
         appTheme.onThemeModeChange(mode)
     }
 
-    var showResetNotesDialog by remember { mutableStateOf(false) }
-    var showResetTasksDialog by remember { mutableStateOf(false) }
-    var showDisclaimerDialog by remember { mutableStateOf(false) }
-    var showTermsDialog by remember { mutableStateOf(false) }
-    var showPrivacyDialog by remember { mutableStateOf(false) }
-    var showDeveloperModal by remember { mutableStateOf(false) }
-    var showFeedbackModal by remember { mutableStateOf(false) }
-    var showCustomLeadDialog by remember { mutableStateOf(false) }
-    var customLeadInput by remember { mutableStateOf("") }
-    var showVersionDetailsDialog by remember { mutableStateOf(false) }
-    var availableUpdateInfo by remember { mutableStateOf<com.lectures.core.update.AppUpdateInfo?>(null) }
+    val updateInfoSaver: Saver<com.lectures.core.update.AppUpdateInfo?, Any> = listSaver(
+        save = { info ->
+            if (info == null) emptyList()
+            else listOf(
+                info.versionCode,
+                info.versionName,
+                info.releaseNotes,
+                info.downloadUrl,
+                info.fileSizeBytes,
+                info.sha256 ?: "",
+                info.isMandatory,
+                info.publishedAt ?: ""
+            )
+        },
+        restore = { list ->
+            if (list.isEmpty()) null
+            else com.lectures.core.update.AppUpdateInfo(
+                versionCode = list[0] as Int,
+                versionName = list[1] as String,
+                releaseNotes = list[2] as String,
+                downloadUrl = list[3] as String,
+                fileSizeBytes = list[4] as Long,
+                sha256 = (list[5] as String).ifBlank { null },
+                isMandatory = list[6] as Boolean,
+                publishedAt = (list[7] as String).ifBlank { null }
+            )
+        }
+    )
+
+    var showResetNotesDialog by rememberSaveable { mutableStateOf(false) }
+    var showResetTasksDialog by rememberSaveable { mutableStateOf(false) }
+    var showDisclaimerDialog by rememberSaveable { mutableStateOf(false) }
+    var showTermsDialog by rememberSaveable { mutableStateOf(false) }
+    var showPrivacyDialog by rememberSaveable { mutableStateOf(false) }
+    var showDeveloperModal by rememberSaveable { mutableStateOf(false) }
+    var showFeedbackModal by rememberSaveable { mutableStateOf(false) }
+    var showCustomLeadDialog by rememberSaveable { mutableStateOf(false) }
+    var customLeadInput by rememberSaveable { mutableStateOf("") }
+    var showVersionDetailsDialog by rememberSaveable { mutableStateOf(false) }
+    var availableUpdateInfo by rememberSaveable(stateSaver = updateInfoSaver) {
+        mutableStateOf<com.lectures.core.update.AppUpdateInfo?>(null)
+    }
     var isCheckingForAppUpdate by remember { mutableStateOf(false) }
-    var showAppUpdateDialog by remember { mutableStateOf(false) }
+    var showAppUpdateDialog by rememberSaveable { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     val checkUpdateAction = {
@@ -709,7 +742,7 @@ fun SettingsScreen(
                             Icon(Icons.Outlined.ErrorOutline, contentDescription = null, tint = Color(0xFFDC2626))
                             Spacer(modifier = Modifier.width(12.dp))
                             Text(error, color = Color(0xFF991B1B), fontSize = 13.sp, modifier = Modifier.weight(1f))
-                            IconButton(onClick = { viewModel.clearFeedbackMessages() }, modifier = Modifier.size(24.dp)) {
+                            IconButton(onClick = { viewModel.clearFeedbackMessages() }) {
                                 Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = Color(0xFFDC2626), modifier = Modifier.size(16.dp))
                             }
                         }
@@ -739,7 +772,7 @@ fun SettingsScreen(
                             Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = Color(0xFF16A34A))
                             Spacer(modifier = Modifier.width(12.dp))
                             Text(success, color = Color(0xFF166534), fontSize = 13.sp, modifier = Modifier.weight(1f))
-                            IconButton(onClick = { viewModel.clearFeedbackMessages() }, modifier = Modifier.size(24.dp)) {
+                            IconButton(onClick = { viewModel.clearFeedbackMessages() }) {
                                 Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = Color(0xFF16A34A), modifier = Modifier.size(16.dp))
                             }
                         }
@@ -871,8 +904,7 @@ fun SettingsScreen(
                         }
                         Spacer(modifier = Modifier.width(8.dp))
                         IconButton(
-                            onClick = { isPermissionBannerDismissed = true },
-                            modifier = Modifier.size(28.dp)
+                            onClick = { isPermissionBannerDismissed = true }
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Close,

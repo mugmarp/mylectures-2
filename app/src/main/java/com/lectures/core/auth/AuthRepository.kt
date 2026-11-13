@@ -55,21 +55,20 @@ class AuthRepository private constructor() {
     /**
      * Initiates Google Sign-In using Android's Jetpack CredentialManager.
      */
-    suspend fun signInWithGoogle(context: Context): Result<FirebaseUser> = withContext(Dispatchers.IO) {
-        val firebaseAuth = auth ?: return@withContext Result.failure(
+    suspend fun signInWithGoogle(context: Context): Result<FirebaseUser> {
+        val firebaseAuth = auth ?: return Result.failure(
             IllegalStateException("Firebase Auth is not available on this device.")
         )
 
-        try {
+        return try {
             val credentialManager = CredentialManager.create(context)
 
-            // Resolve Web Client ID from resources or fallback
             val resId = context.resources.getIdentifier("default_web_client_id", "string", context.packageName)
-            val serverClientId = if (resId != 0) {
-                context.getString(resId)
-            } else {
-                // Fallback client id placeholder if google-services has not generated one
-                "default_web_client_id"
+            val serverClientId = if (resId != 0) context.getString(resId).trim() else ""
+            if (serverClientId.isEmpty() || serverClientId == "default_web_client_id") {
+                return Result.failure(
+                    IllegalStateException("Google Sign-In is not configured for this build (missing web client ID).")
+                )
             }
 
             val googleIdOption = GetSignInWithGoogleOption.Builder(serverClientId)
@@ -90,8 +89,10 @@ class AuthRepository private constructor() {
                 val idToken = googleIdTokenCredential.idToken
 
                 val authCredential = GoogleAuthProvider.getCredential(idToken, null)
-                val authResult = firebaseAuth.signInWithCredential(authCredential).await()
-                val user = authResult.user ?: return@withContext Result.failure(
+                val authResult = withContext(Dispatchers.IO) {
+                    firebaseAuth.signInWithCredential(authCredential).await()
+                }
+                val user = authResult.user ?: return Result.failure(
                     IllegalStateException("Firebase authentication returned no user profile.")
                 )
                 _currentUser.value = user
@@ -100,11 +101,13 @@ class AuthRepository private constructor() {
                 Result.failure(IllegalStateException("Unsupported credential type returned from CredentialManager."))
             }
         } catch (e: GetCredentialCancellationException) {
+            Log.w(TAG, "Google Sign-In cancelled or dismissed: ${e.message}")
             Result.failure(e)
         } catch (e: GetCredentialException) {
             Log.e(TAG, "CredentialManager error: ${e.message}", e)
             Result.failure(e)
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             Log.e(TAG, "Sign-in exception: ${e.message}", e)
             Result.failure(e)
         }
@@ -113,7 +116,7 @@ class AuthRepository private constructor() {
     /**
      * Signs out of Firebase Auth and clears Android system credential state.
      */
-    suspend fun signOut(context: Context) = withContext(Dispatchers.IO) {
+    suspend fun signOut(context: Context) = withContext(kotlinx.coroutines.NonCancellable + Dispatchers.IO) {
         try {
             val credentialManager = CredentialManager.create(context)
             credentialManager.clearCredentialState(ClearCredentialStateRequest())

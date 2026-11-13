@@ -574,8 +574,8 @@ fun QuickChangeProgrammeDialog(
                             color = if (isDark) Color(0xFF94A3B8) else TextMutedLight
                         )
                     }
-                    IconButton(onClick = handleDismiss, modifier = Modifier.size(28.dp)) {
-                        Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(18.dp))
+                    IconButton(onClick = handleDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(20.dp))
                     }
                 }
 

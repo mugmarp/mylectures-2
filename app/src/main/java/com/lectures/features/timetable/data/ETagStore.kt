@@ -6,9 +6,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-class ETagStore(context: Context) {
+class ETagStore(context: Context, prefsName: String = "mustime_settings") {
     private val prefs: SharedPreferences =
-        context.applicationContext.getSharedPreferences("mustime_settings", Context.MODE_PRIVATE)
+        context.applicationContext.getSharedPreferences(prefsName, Context.MODE_PRIVATE)
 
     private val PROGRAMME_KEY = "must_programme"
     private val THEME_DARK_KEY = "theme_dark"
@@ -184,5 +184,13 @@ class ETagStore(context: Context) {
     suspend fun setOnboardingCompleted(completed: Boolean) {
         prefs.edit().putBoolean(ONBOARDING_COMPLETED_KEY, completed).apply()
         _onboardingCompletedPref.value = completed
+    }
+
+    fun hasSeededSampleData(): Boolean {
+        return prefs.getBoolean("has_seeded_sample_data", false)
+    }
+
+    fun setHasSeededSampleData(seeded: Boolean) {
+        prefs.edit().putBoolean("has_seeded_sample_data", seeded).apply()
     }
 }

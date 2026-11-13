@@ -25,7 +25,7 @@ class TimetableApplication : Application() {
     lateinit var feedbackManager: com.lectures.features.feedback.FeedbackManager
     lateinit var analyticsManager: com.lectures.core.analytics.AnalyticsManager
     
-    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onCreate() {
         super.onCreate()
@@ -34,13 +34,19 @@ class TimetableApplication : Application() {
             com.google.firebase.FirebaseApp.initializeApp(this)
         } catch (_: Exception) { }
 
-        // Install App Check so every Firestore request carries a valid attestation token.
-        // Play Integrity is the provider; the debug provider is used automatically in
-        // debug builds when FIREBASE_APPCHECK_DEBUG_TOKEN is configured.
+        // Install App Check: Debug provider in debug builds (via reflection so release builds
+        // compile cleanly without debug-only artifact on classpath), Play Integrity in release.
         try {
+            val factory = if (BuildConfig.DEBUG) {
+                runCatching {
+                    val clazz = Class.forName("com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory")
+                    val getInstance = clazz.getMethod("getInstance")
+                    getInstance.invoke(null) as com.google.firebase.appcheck.AppCheckProviderFactory
+                }.getOrNull()
+            } else null
             com.google.firebase.appcheck.FirebaseAppCheck.getInstance()
                 .installAppCheckProviderFactory(
-                    com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory.getInstance()
+                    factory ?: com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory.getInstance()
                 )
         } catch (_: Exception) { }
 
@@ -104,14 +110,27 @@ class TimetableApplication : Application() {
             feedbackManager.flushPendingSubmissions()
             val prog = etagStore.getSavedProgramme() ?: ""
             analyticsManager.recordAppLaunch(prog, this)
-            if (etagStore.isOnboardingCompleted()) {
-                com.lectures.core.alarm.ReminderScheduler(this@TimetableApplication).scheduleDailyReminder()
-                if (prog.isNotEmpty() && etagStore.isNotificationsEnabled()) {
-                    val enrolledClasses = repository.getLocalSchedule(prog).firstOrNull() ?: emptyList()
-                    if (enrolledClasses.isNotEmpty()) {
-                        val leadMinutes = etagStore.getClassAlarmLeadMinutes()
-                        com.lectures.core.alarm.AlarmScheduler(this@TimetableApplication).scheduleAllEnrolledClassAlarms(enrolledClasses, leadMinutes)
+            if (repository.checkIsOnboardingCompleted()) {
+                if (etagStore.isNotificationsEnabled()) {
+                    com.lectures.core.alarm.ReminderScheduler(this@TimetableApplication).scheduleDailyReminder()
+                    if (prog.isNotEmpty()) {
+                        val enrolledClasses = repository.getLocalSchedule(prog).firstOrNull() ?: emptyList()
+                        if (enrolledClasses.isNotEmpty()) {
+                            val leadMinutes = etagStore.getClassAlarmLeadMinutes()
+                            com.lectures.core.alarm.AlarmScheduler(this@TimetableApplication).scheduleAllEnrolledClassAlarms(enrolledClasses, leadMinutes)
+                        }
                     }
+                }
+            }
+        }
+
+        // Keep authenticated cloud sync listeners bound strictly to the active signed-in user
+        applicationScope.launch {
+            com.lectures.core.auth.AuthRepository.getInstance().currentUser.collect { user ->
+                if (user != null) {
+                    syncRepository.startAllSync(user.uid, applicationScope)
+                } else {
+                    syncRepository.stopUserSync()
                 }
             }
         }

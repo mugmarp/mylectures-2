@@ -17,58 +17,35 @@ object TimeUtil {
      * MUST 2026/2027 Academic Year Semester I commenced around late August / early September.
      * Calculates current active semester week (e.g. "Week 6 • Semester 1").
      */
-    fun currentSemesterWeekLabel(): String {
-        val now = Calendar.getInstance()
-        val year = now.get(Calendar.YEAR)
-        val month = now.get(Calendar.MONTH) // 0-based: Jan = 0, Aug = 7, Sep = 8
+    fun currentSemesterWeekLabel(): String = semesterWeekLabelFor(Calendar.getInstance())
 
-        // Academic Year Semester I runs late August through late January / February.
-        // Semester II runs February through June / July.
-        val semStart = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-            if (month >= Calendar.AUGUST) {
-                // Semester 1 in current calendar year (e.g. Aug 2026)
-                set(Calendar.YEAR, year)
-                set(Calendar.MONTH, Calendar.AUGUST)
-                set(Calendar.DAY_OF_MONTH, 24)
-            } else if (month <= Calendar.JANUARY) {
-                // Semester 1 finishing in January of next calendar year (e.g. Jan 2027)
-                // Reference start is August 24 of previous year (year - 1)
-                set(Calendar.YEAR, year - 1)
-                set(Calendar.MONTH, Calendar.AUGUST)
-                set(Calendar.DAY_OF_MONTH, 24)
-            } else {
-                // Semester 2: Starts early February
-                set(Calendar.YEAR, year)
-                set(Calendar.MONTH, Calendar.FEBRUARY)
-                set(Calendar.DAY_OF_MONTH, 1)
-            }
+    fun semesterWeekLabelFor(now: Calendar): String {
+        val month = now.get(Calendar.MONTH)
+        val dayOfMonth = now.get(Calendar.DAY_OF_MONTH)
+        if ((month == Calendar.AUGUST && dayOfMonth < 24) || month == Calendar.JUNE || month == Calendar.JULY) {
+            return "Academic Recess"
         }
 
-        val diffMillis = now.timeInMillis - semStart.timeInMillis
-        val diffDays = (diffMillis / (1000 * 60 * 60 * 24)).toInt()
-        val weekNum = (diffDays / 7) + 1
+        val weekLabel = academicWeekFor(now)
+        if (weekLabel == "Recess") return "Academic Recess"
         val semesterNumber = if (month >= Calendar.AUGUST || month <= Calendar.JANUARY) 1 else 2
-
-        val clampedWeek = when {
-            weekNum in 1..17 -> "Week $weekNum"
-            weekNum > 17 -> "Recess / Exams"
-            else -> "Week 1"
-        }
-        return "$clampedWeek • Sem $semesterNumber"
+        return "$weekLabel • Sem $semesterNumber"
     }
 
     /**
-     * Returns strictly the week identifier (e.g. "Week 7" or "Recess / Exams")
+     * Returns strictly the week identifier (e.g. "Week 7", "Recess / Exams", or "Recess")
      * without repeating the semester number.
      */
-    fun currentAcademicWeek(): String {
-        val now = Calendar.getInstance()
+    fun currentAcademicWeek(): String = academicWeekFor(Calendar.getInstance())
+
+    fun academicWeekFor(now: Calendar): String {
         val year = now.get(Calendar.YEAR)
         val month = now.get(Calendar.MONTH)
+        val dayOfMonth = now.get(Calendar.DAY_OF_MONTH)
+
+        if ((month == Calendar.AUGUST && dayOfMonth < 24) || month == Calendar.JUNE || month == Calendar.JULY) {
+            return "Recess"
+        }
 
         val semStart = Calendar.getInstance().apply {
             set(Calendar.HOUR_OF_DAY, 0)
@@ -91,13 +68,13 @@ object TimeUtil {
         }
 
         val diffMillis = now.timeInMillis - semStart.timeInMillis
-        val diffDays = (diffMillis / (1000 * 60 * 60 * 24)).toInt()
+        val diffDays = (diffMillis / (1000L * 60L * 60L * 24L)).toInt()
         val weekNum = (diffDays / 7) + 1
 
         return when {
+            weekNum <= 0 -> "Recess"
             weekNum in 1..17 -> "Week $weekNum"
-            weekNum > 17 -> "Recess / Exams"
-            else -> "Week 1"
+            else -> "Recess / Exams"
         }
     }
 
@@ -117,10 +94,17 @@ object TimeUtil {
 
     fun toMinutes(timeString: String): Int {
         if (timeString.isBlank() || !timeString.contains(":")) return 0
-        val parts = timeString.split(":")
+        val clean = timeString.trim().uppercase()
+        val isPm = clean.endsWith("PM")
+        val isAm = clean.endsWith("AM")
+        val stripped = clean.removeSuffix("PM").removeSuffix("AM").trim()
+        val parts = stripped.split(":")
         if (parts.size != 2) return 0
-        val hours = parts[0].trim().toIntOrNull() ?: 0
-        val minutes = parts[1].trim().toIntOrNull() ?: 0
+        var hours = parts[0].trim().toIntOrNull() ?: return 0
+        val minutes = parts[1].trim().toIntOrNull() ?: return 0
+        if (isPm && hours < 12) hours += 12
+        if (isAm && hours == 12) hours = 0
+        if (hours !in 0..23 || minutes !in 0..59) return 0
         return hours * 60 + minutes
     }
 

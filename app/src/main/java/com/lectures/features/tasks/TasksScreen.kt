@@ -175,11 +175,19 @@ fun TasksScreen(
     val assignments = uiState.assignments
 
     val coroutineScope = rememberCoroutineScope()
-    var showAddDialog by remember { mutableStateOf(false) }
-    var taskToEdit by remember { mutableStateOf<Assignment?>(null) }
-    var showProfileSheet by remember { mutableStateOf(false) }
+    var showAddDialog by rememberSaveable { mutableStateOf(false) }
+    var editingTaskId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var showProfileSheet by rememberSaveable { mutableStateOf(false) }
+    var deleteTaskId by rememberSaveable { mutableStateOf<Long?>(null) }
 
-    var isNotificationBannerDismissed by remember {
+    val taskToEdit = remember(editingTaskId, assignments) {
+        editingTaskId?.let { id -> assignments.firstOrNull { it.id == id } }
+    }
+    val taskToDelete = remember(deleteTaskId, assignments) {
+        deleteTaskId?.let { id -> assignments.firstOrNull { it.id == id } }
+    }
+
+    var isNotificationBannerDismissed by rememberSaveable {
         mutableStateOf(NotificationPermissionHelper.isTaskBannerDismissed(context))
     }
 
@@ -202,8 +210,6 @@ fun TasksScreen(
         hasNotificationPermission = isGranted
         NotificationPermissionHelper.setPromptedNotificationPermission(context, true)
     }
-
-    var taskToDelete by remember { mutableStateOf<Assignment?>(null) }
 
     val filteredTasks = remember(assignments, uiState.searchQuery, uiState.selectedFilter) {
         assignments.filter { task ->
@@ -250,7 +256,7 @@ fun TasksScreen(
             if (windowInfo.collapseFab) {
                 FloatingActionButton(
                     onClick = {
-                        taskToEdit = null
+                        editingTaskId = null
                         showAddDialog = true
                     },
                     containerColor = primaryColor,
@@ -270,7 +276,7 @@ fun TasksScreen(
             } else {
                 ExtendedFloatingActionButton(
                     onClick = {
-                        taskToEdit = null
+                        editingTaskId = null
                         showAddDialog = true
                     },
                     containerColor = primaryColor,
@@ -428,8 +434,7 @@ fun TasksScreen(
                             onClick = {
                                 isNotificationBannerDismissed = true
                                 NotificationPermissionHelper.setTaskBannerDismissed(context, true)
-                            },
-                            modifier = Modifier.size(28.dp)
+                            }
                         ) {
                             Icon(
                                 Icons.Default.Close,
@@ -465,7 +470,7 @@ fun TasksScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(msg, color = Color.White, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                        IconButton(onClick = { viewModel.clearMessage() }, modifier = Modifier.size(24.dp)) {
+                        IconButton(onClick = { viewModel.clearMessage() }) {
                             Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = Color.White, modifier = Modifier.size(14.dp))
                         }
                     }
@@ -672,10 +677,10 @@ fun TasksScreen(
                                 modifier = Modifier.animateItem(),
                                 onToggleComplete = { viewModel.toggleComplete(task) },
                                 onEdit = {
-                                    taskToEdit = task
+                                    editingTaskId = task.id
                                     showAddDialog = true
                                 },
-                                onDelete = { taskToDelete = task }
+                                onDelete = { deleteTaskId = task.id }
                             )
                         }
                         item(key = "tasks_bottom_clearance_spacer_dual") {
@@ -685,10 +690,16 @@ fun TasksScreen(
                 }
             }
         } else {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.TopCenter
+            ) {
             LazyColumn(
                 state = listState,
                 modifier = Modifier
-                    .fillMaxSize()
+                    .widthIn(max = 760.dp)
+                    .fillMaxWidth()
+                    .fillMaxHeight()
                     .padding(horizontal = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
                 contentPadding = PaddingValues(top = 4.dp, bottom = listBottomPadding + 96.dp)
@@ -853,16 +864,17 @@ fun TasksScreen(
                             modifier = Modifier.animateItem(),
                             onToggleComplete = { viewModel.toggleComplete(task) },
                             onEdit = {
-                                taskToEdit = task
+                                editingTaskId = task.id
                                 showAddDialog = true
                             },
-                            onDelete = { taskToDelete = task }
+                            onDelete = { deleteTaskId = task.id }
                         )
                     }
                     item(key = "tasks_bottom_clearance_spacer") {
                         Spacer(modifier = Modifier.height(24.dp))
                     }
                 }
+            }
             }
         }
     }
@@ -875,7 +887,7 @@ fun TasksScreen(
             availableCourses = availableCoursePairs,
             onDismiss = {
                 showAddDialog = false
-                taskToEdit = null
+                editingTaskId = null
             },
             onConfirm = { title, course, dueDate, priority, reminderMinutes, notes, category ->
                 val fullTitle = if (category != TaskCategory.GENERAL) {
@@ -906,7 +918,7 @@ fun TasksScreen(
                     )
                 }
                 showAddDialog = false
-                taskToEdit = null
+                editingTaskId = null
             }
         )
     }
@@ -914,7 +926,7 @@ fun TasksScreen(
     if (taskToDelete != null) {
         val task = taskToDelete!!
         AlertDialog(
-            onDismissRequest = { taskToDelete = null },
+            onDismissRequest = { deleteTaskId = null },
             icon = {
                 Icon(
                     Icons.Default.DeleteOutline,
@@ -936,7 +948,7 @@ fun TasksScreen(
                 Button(
                     onClick = {
                         viewModel.deleteAssignment(task.id)
-                        taskToDelete = null
+                        deleteTaskId = null
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
@@ -944,7 +956,7 @@ fun TasksScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { taskToDelete = null }) {
+                TextButton(onClick = { deleteTaskId = null }) {
                     Text("Cancel", color = textSecondary)
                 }
             }
@@ -1099,27 +1111,22 @@ fun TaskCard(
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     // Edit / Reschedule button
-                    IconButton(
-                        onClick = onEdit,
-                        modifier = Modifier.size(30.dp)
-                    ) {
+                    IconButton(onClick = onEdit) {
                         Icon(
                             imageVector = Icons.Outlined.Edit,
                             contentDescription = "Edit or Reschedule Task",
                             tint = primaryColor,
-                            modifier = Modifier.size(17.dp)
+                            modifier = Modifier.size(18.dp)
                         )
                     }
 
-                    Spacer(modifier = Modifier.width(4.dp))
-
                     // Delete button
-                    IconButton(onClick = onDelete, modifier = Modifier.size(30.dp)) {
+                    IconButton(onClick = onDelete) {
                         Icon(
                             Icons.Default.DeleteOutline,
                             contentDescription = "Delete",
                             tint = textSecondary,
-                            modifier = Modifier.size(17.dp)
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                 }
@@ -1410,15 +1417,16 @@ fun AddTaskDialog(
     val fullDueDateTime = remember(dueDateOnly, dueTime) {
         if (dueTime.isNotBlank()) "$dueDateOnly $dueTime".trim() else dueDateOnly
     }
-    var priority by remember(initialTask) { mutableStateOf(initialTask?.priority ?: "Medium") }
-    var reminderMinutes by remember(initialTask) { mutableStateOf<Int?>(initialTask?.reminderMinutes ?: 1440) }
-    var notes by remember(initialTask) { mutableStateOf(initialTask?.notes ?: "") }
+    val taskSaveKey = initialTask?.id ?: -1L
+    var priority by rememberSaveable(taskSaveKey) { mutableStateOf(initialTask?.priority ?: "Medium") }
+    var reminderMinutes by rememberSaveable(taskSaveKey) { mutableStateOf<Int?>(initialTask?.reminderMinutes ?: 1440) }
+    var notes by rememberSaveable(taskSaveKey) { mutableStateOf(initialTask?.notes ?: "") }
 
-    var courseDropdownExpanded by remember { mutableStateOf(false) }
-    var showDueCalendarPicker by remember { mutableStateOf(false) }
-    var showDueTimePicker by remember { mutableStateOf(false) }
-    var titleTouched by remember { mutableStateOf(false) }
-    var courseTouched by remember { mutableStateOf(false) }
+    var courseDropdownExpanded by rememberSaveable(taskSaveKey) { mutableStateOf(false) }
+    var showDueCalendarPicker by rememberSaveable(taskSaveKey) { mutableStateOf(false) }
+    var showDueTimePicker by rememberSaveable(taskSaveKey) { mutableStateOf(false) }
+    var titleTouched by rememberSaveable(taskSaveKey) { mutableStateOf(false) }
+    var courseTouched by rememberSaveable(taskSaveKey) { mutableStateOf(false) }
 
     val primaryColor = MaterialTheme.colorScheme.primary
     val textPrimary = if (isDark) Color.White else TextPrimaryLight
