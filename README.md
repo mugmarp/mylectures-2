@@ -98,10 +98,10 @@ Outside Google Play, Lectures includes a dedicated updater that checks verified 
 
 | Welcome | Timetable | Tasks | Vacant Rooms |
 |---|---|---|---|
-| [![Welcome](https://raw.githubusercontent.com/mugmarp/mylectures/main/docs/screenshots/Lectures_welcome_screen.png)](https://raw.githubusercontent.com/mugmarp/mylectures/main/docs/screenshots/Lectures_welcome_screen.png) | [![Timetable](https://raw.githubusercontent.com/mugmarp/mylectures/main/docs/screenshots/BSE_II_timetable%20screen.png)](https://raw.githubusercontent.com/mugmarp/mylectures/main/docs/screenshots/BSE_II_timetable%20screen.png) | [![Tasks](https://raw.githubusercontent.com/mugmarp/mylectures/main/docs/screenshots/tasks_screen.png)](https://raw.githubusercontent.com/mugmarp/mylectures/main/docs/screenshots/tasks_screen.png) | [![Vacant Rooms](https://raw.githubusercontent.com/mugmarp/mylectures/main/docs/screenshots/room_finder_at_kihumuro.png)](https://raw.githubusercontent.com/mugmarp/mylectures/main/docs/screenshots/room_finder_at_kihumuro.png) |
-| *Welcome & feature overview* | *BSE II live timetable* | *Week progress & deadlines* | *Kihumuro campus, FCI Building* |
+| [![Welcome](docs/screenshots/Lectures_welcome_screen.png)](docs/screenshots/Lectures_welcome_screen.png) | [![Timetable](docs/screenshots/BSE_II_timetable%20screen.png)](docs/screenshots/BSE_II_timetable%20screen.png) | [![Tasks](docs/screenshots/tasks_screen.png)](docs/screenshots/tasks_screen.png) | [![Vacant Rooms](docs/screenshots/room_finder_at_kihumuro.png)](docs/screenshots/room_finder_at_kihumuro.png) |
+| *Welcome & feature overview* | *BSE II schedule & Next Up card* | *Week progress & deadlines* | *Kihumuro campus, FCI Building* |
 
-**[View all 10 screenshots →](docs/SCREENSHOTS.md)**
+**[View all 11 screenshots →](docs/SCREENSHOTS.md)**
 
 ---
 
