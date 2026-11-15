@@ -30,12 +30,12 @@ DEFAULT_SCHEMA_DIR = REPO / "app" / "schemas"
 JSON_ASSET = REPO / "app" / "src" / "main" / "assets" / "timetable_export.json"
 METADATA_ASSET = REPO / "app" / "src" / "main" / "assets" / "timetable_metadata.json"
 ROOM_DIRECTORY = (
-    REPO / "app" / "src" / "main" / "java" / "com" / "mustime"
+    REPO / "app" / "src" / "main" / "java" / "com" / "lectures"
     / "features" / "rooms" / "RoomDirectory.kt"
 )
 OUTPUT_DB = REPO / "app" / "src" / "main" / "assets" / "mustime_prepopulated.db"
 
-DB_VERSION = 10
+DB_VERSION = 12
 
 # Mirrors BuildingLevel.floorNumber in RoomDirectory.kt
 LEVEL_TO_FLOOR = {

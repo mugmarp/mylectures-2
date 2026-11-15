@@ -50,7 +50,7 @@ jobs:
           [ -x "$SM" ] || SM="$(find "$SDK/cmdline-tools" -name sdkmanager -type f 2>/dev/null | head -1)"
           echo "sdkmanager: $SM"
           yes | "$SM" --licenses > /dev/null 2>&1 || true
-          "$SM" "platforms;android-36" || "$SM" "platforms;android-35" || true
+          "$SM" "platforms;android-36" "platforms;android-36.1" || "$SM" "platforms;android-36" || "$SM" "platforms;android-35" || true
           echo "--- platforms now ---"
           ls "$SDK/platforms"
 
@@ -83,36 +83,50 @@ jobs:
             -dname "CN=Android Debug,O=Android,C=US"
           ls -la debug.keystore
 
-      # Ensure google-services.json is available for the Google Services Gradle plugin
+      # Ensure google-services.json is available when configured, without writing
+      # an empty file (which would break the Google Services plugin even though
+      # missingGoogleServicesStrategy = WARN and missing.passthrough=true are set).
       - name: Provision google-services.json from GitHub Secret
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
-          if [ ! -f app/google-services.json ]; then
-            echo "Writing google-services.json from GitHub Secret..."
-            echo "$GOOGLE_SERVICES_JSON" > app/google-services.json
+          if [ -f app/google-services.json ] && [ ! -s app/google-services.json ]; then
+            rm -f app/google-services.json
           fi
-          ls -la app/google-services.json
+          if [ ! -f app/google-services.json ]; then
+            if [ -n "${GOOGLE_SERVICES_JSON//[$' \t\r\n']/}" ]; then
+              echo "Writing google-services.json from GitHub Secret..."
+              printf '%s\n' "$GOOGLE_SERVICES_JSON" > app/google-services.json
+              ls -la app/google-services.json
+            else
+              echo "::notice::GOOGLE_SERVICES_JSON secret is unset; skipping (using missingGoogleServicesStrategy=WARN)."
+            fi
+          else
+            ls -la app/google-services.json
+          fi
 
-      # Materialize the stable upload keystore so signingConfigs.release uses a
-      # long-lived key instead of falling back to the throwaway debug keystore
-      # (which keytool regenerates every run, giving a different SHA-1 each time
-      # and making Google Cloud API-key restrictions impossible to pin down).
+      # Materialize the stable upload keystore when signing secrets are present.
+      # If any signing secret is missing, skip cleanly so signingConfigs.release
+      # falls back to the CI-generated debug.keystore and GitHub still signs the
+      # release APK for testing/artifacts.
       #
       # One `env:` block only — a duplicated `env:` key in the same step is
       # silently dropped by the YAML parser and would leave the other variable
       # unset.
       - name: Materialize upload keystore
+        id: upload_keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           set -euo pipefail
 
-          if [ -z "${KEYSTORE_BASE64:-}" ]; then
-            echo "::error::KEYSTORE_BASE64 secret is empty or unset."
-            echo "Add it with:  base64 -w0 my-upload-key.jks | gh secret set KEYSTORE_BASE64"
-            exit 1
+          if [ -z "${KEYSTORE_BASE64//[$' \t\r\n']/}" ] || [ -z "${STORE_PASSWORD:-}" ] || [ -z "${KEY_PASSWORD:-}" ]; then
+            echo "::notice::Upload keystore secrets (KEYSTORE_BASE64 / STORE_PASSWORD / KEY_PASSWORD) are not configured; skipping upload keystore and signing release with GitHub CI fallback keystore."
+            echo "has_upload_keystore=false" >> "$GITHUB_OUTPUT"
+            rm -f "$GITHUB_WORKSPACE/my-upload-key.jks"
+            exit 0
           fi
 
           echo "$KEYSTORE_BASE64" | base64 -d > "$GITHUB_WORKSPACE/my-upload-key.jks"
@@ -157,6 +171,8 @@ jobs:
             -alias upload -storepass "$STORE_PASSWORD" \
             | grep -E "Alias name:|SHA1:|SHA256:" || true
 
+          echo "has_upload_keystore=true" >> "$GITHUB_OUTPUT"
+
       - name: Compile Kotlin (debug)
         run: ./gradlew compileDebugKotlin --stacktrace --no-daemon
 
@@ -173,20 +189,15 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./gradlew assembleRelease --stacktrace --no-daemon
 
-      # Prove the release APK is signed by the upload key and not the throwaway
-      # debug key.
-      #
-      # The expected fingerprint is DERIVED from the keystore that was just
-      # materialized, so no extra secret is required and it can never go stale.
-      # Verified in CI: keystore SHA1 == APK signer SHA1 (49f65e01...).
-      #
-      # Must use apksigner, NOT `keytool -printcert -jarfile`: AGP signs with
-      # v2/v3 only and the APK has no META-INF/*.RSA v1 signature, so keytool
-      # prints nothing and still exits 0 — a silent pass with an empty hash.
+      # Prove the release APK is validly signed:
+      # - When upload keystore secrets are present, verify it matches my-upload-key.jks.
+      # - When upload secrets are skipped, verify it matches the CI fallback debug.keystore.
       - name: Verify release APK signing certificate
         env:
+          HAS_UPLOAD_KEYSTORE: ${{ steps.upload_keystore.outputs.has_upload_keystore }}
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
-          KEYSTORE: ${{ github.workspace }}/my-upload-key.jks
+          UPLOAD_KEYSTORE: ${{ github.workspace }}/my-upload-key.jks
+          FALLBACK_KEYSTORE: ${{ github.workspace }}/debug.keystore
         run: |
           set -euo pipefail
 
@@ -194,6 +205,18 @@ jobs:
           if [ ! -f "$APK" ]; then
             echo "::error::Release APK not found at $APK"
             exit 1
+          fi
+
+          if [ "${HAS_UPLOAD_KEYSTORE:-false}" = "true" ]; then
+            KEYSTORE="$UPLOAD_KEYSTORE"
+            KEY_ALIAS="upload"
+            KEY_PASS="$STORE_PASSWORD"
+            SIGN_MODE="upload keystore"
+          else
+            KEYSTORE="$FALLBACK_KEYSTORE"
+            KEY_ALIAS="androiddebugkey"
+            KEY_PASS="android"
+            SIGN_MODE="GitHub CI fallback keystore (debug.keystore)"
           fi
 
           if [ ! -s "$KEYSTORE" ]; then
@@ -206,20 +229,13 @@ jobs:
             echo "::error::apksigner not found under ${ANDROID_SDK_ROOT}/build-tools"
             exit 1
           fi
-          echo "Using $APKSIGNER"
+          echo "Using $APKSIGNER (mode: $SIGN_MODE)"
 
-          # Expected: the upload key's own certificate fingerprint.
-          EXPECTED=$(keytool -list -v -keystore "$KEYSTORE" -alias upload -storepass "$STORE_PASSWORD" \
+          # Expected certificate fingerprint from the active keystore.
+          EXPECTED=$(keytool -list -v -keystore "$KEYSTORE" -alias "$KEY_ALIAS" -storepass "$KEY_PASS" \
             | awk '/SHA1:/ {print $2}' | head -1 | tr -d ':' | tr 'a-f' 'A-F')
 
-          # Actual: the certificate that signed the built APK.
-          #
-          # Do NOT split on ": " — build-tools 35.x prints
-          #   "Signer #1 certificate SHA-1 digest: <hex>"
-          # but 37.x prints
-          #   "V2 Signer: certificate SHA-1 digest: <hex>"
-          # so $2 is the label text on 37.x. Take the LAST colon-separated field
-          # and strip anything that is not a hex digit or colon instead.
+          # Actual certificate that signed the built APK.
           ACTUAL=$("$APKSIGNER" verify --print-certs "$APK" 2>/dev/null \
             | grep -i 'certificate SHA-1 digest' | head -1 \
             | sed 's/.*: *//' \
@@ -240,23 +256,18 @@ jobs:
           echo "Release APK  (actual) SHA-1: $ACTUAL"
 
           if [ "$ACTUAL" != "$EXPECTED" ]; then
-            echo "::error::Release APK is NOT signed by the upload key."
-            echo "A mismatch means signingConfigs.release fell back to debug.keystore,"
-            echo "which produces a different certificate on every run."
+            echo "::error::Release APK signature mismatch against $SIGN_MODE."
             exit 1
           fi
 
-          echo "Release APK is signed with the upload key."
+          echo "Release APK is signed with the $SIGN_MODE."
 
-          # Surface the values needed for the Google Cloud API-key restriction
-          # and Firebase App Check / Play Integrity. These are public
-          # fingerprints, not secrets.
           APK_SHA256=$("$APKSIGNER" verify --print-certs "$APK" 2>/dev/null \
             | grep -i 'certificate SHA-256 digest' | head -1 \
             | sed 's/.*: *//' \
             | tr -cd '0-9a-fA-F:' | tr -d ':' | tr 'a-f' 'A-F')
           {
-            echo "### Release signing certificate"
+            echo "### Release signing certificate ($SIGN_MODE)"
             echo ""
             echo "| Purpose | Value |"
             echo "|---|---|"
@@ -331,7 +342,9 @@ jobs:
       - name: Report prepackaged DB asset drift
         if: always()
         run: |
-          if [ "${committed_asset_sha256:-}" != "${rebuilt_asset_sha256:-}" ]; then
+          if [ -z "${rebuilt_asset_sha256:-}" ]; then
+            echo "::warning::Prepackaged DB regeneration did not produce an output hash."
+          elif [ "${committed_asset_sha256:-}" != "${rebuilt_asset_sha256:-}" ]; then
             echo "::warning::Committed mustime_prepopulated.db does not match the current schema. Download the 'prepopulated-db' artifact and commit it."
             echo "  committed: ${committed_asset_sha256:-unknown}"
             echo "  rebuilt:   ${rebuilt_asset_sha256:-unknown}"
