@@ -2,7 +2,9 @@ package com.lectures.features.notes
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
@@ -11,6 +13,7 @@ import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.sp
 
 enum class CalloutType(val defaultTitle: String) {
@@ -53,7 +56,7 @@ sealed class MarkdownBlock {
     data class Header(val level: Int, val text: String) : MarkdownBlock()
     data class ChecklistItem(val isChecked: Boolean, val text: String, val lineIndex: Int) : MarkdownBlock()
     data class BulletItem(val text: String, val indentLevel: Int = 0) : MarkdownBlock()
-    data class NumberedItem(val number: String, val text: String) : MarkdownBlock()
+    data class NumberedItem(val number: String, val text: String, val indentLevel: Int = 0) : MarkdownBlock()
     data class BlockQuote(val text: String) : MarkdownBlock()
     data class Callout(val type: CalloutType, val title: String, val content: String) : MarkdownBlock()
     data class Table(val headers: List<String>, val alignments: List<TableAlignment>, val rows: List<List<String>>) : MarkdownBlock()
@@ -69,6 +72,36 @@ sealed class MarkdownBlock {
  * and Live Preview visual transformation for Obsidian-compatible notes.
  */
 object MarkdownUtils {
+
+    private val REGEX_CALLOUT_PREFIX = Regex("^>\\s*\\[!\\w+\\]\\s*")
+    private val REGEX_CALLOUT_HEADER = Regex("^\\[!(\\w+)\\](.*)")
+    private val REGEX_NUMBERED_PREFIX = Regex("^\\d+\\.\\s+")
+    private val REGEX_NUMBERED_PARTS = Regex("^(\\d+)\\.\\s+(.*)")
+    private val REGEX_HIGHLIGHT = Regex("==(.*?)==")
+    private val REGEX_WIKILINK = Regex("\\[\\[(.*?)\\]\\]")
+    private val REGEX_INLINE_MATH = Regex("\\$(.*?)\\$")
+    private val REGEX_BOLD_ITALIC = Regex("\\*\\*\\*(.*?)\\*\\*\\*")
+    private val REGEX_BOLD = Regex("\\*\\*(.*?)\\*\\*")
+    private val REGEX_ITALIC = Regex("\\*(.*?)\\*")
+    private val REGEX_STRIKE = Regex("~~(.*?)~~")
+    private val REGEX_CODE = Regex("`(.*?)`")
+    private val REGEX_LINK = Regex("\\[(.*?)\\]\\(.*?\\)")
+
+    private val REGEX_SYNTAX_HIGHLIGHT = Regex("==([^=]+)==")
+    private val REGEX_SYNTAX_BOLD = Regex("\\*\\*([^*]+)\\*\\*")
+    private val REGEX_SYNTAX_ITALIC = Regex("(?<!\\*)\\*([^*]+)\\*(?!\\*)")
+    private val REGEX_SYNTAX_CODE = Regex("`([^`]+)`")
+    private val REGEX_SYNTAX_WIKILINK = Regex("\\[\\[([^\\]]+)\\]\\]")
+    private val REGEX_SYNTAX_MATH = Regex("\\$([^\\$]+)\\$")
+    private val REGEX_SYNTAX_TAG = Regex("(?<![\\w/#])#(?!(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})(?![a-zA-Z0-9_-]))[a-zA-Z][a-zA-Z0-9_-]*")
+
+    fun extractInlineTags(markdown: String): List<String> {
+        if (markdown.isBlank()) return emptyList()
+        return REGEX_SYNTAX_TAG.findAll(markdown)
+            .map { it.value.lowercase() }
+            .distinct()
+            .toList()
+    }
 
     /**
      * Strips Markdown syntax for clean card previews and subtitles.
@@ -89,7 +122,7 @@ object MarkdownUtils {
 
                 // Strip Obsidian Callouts e.g. > [!NOTE] Title
                 if (l.startsWith("> [!")) {
-                    l = l.replace(Regex("^>\\s*\\[!\\w+\\]\\s*"), "")
+                    l = l.replace(REGEX_CALLOUT_PREFIX, "")
                 } else if (l.startsWith("> ")) {
                     l = l.removePrefix("> ")
                 }
@@ -99,29 +132,29 @@ object MarkdownUtils {
                 else if (l.startsWith("- [x] ") || l.startsWith("- [X] ")) l = l.removePrefix(l.take(6))
 
                 // Strip bullet points
-                if (l.startsWith("- ") || l.startsWith("* ") || l.startsWith("• ")) l = l.substring(2)
+                if (l.startsWith("- ") || l.startsWith("* ") || l.startsWith("+ ") || l.startsWith("• ")) l = l.substring(2)
 
                 // Strip numbered list
-                l = l.replace(Regex("^\\d+\\.\\s+"), "")
+                l = l.replace(REGEX_NUMBERED_PREFIX, "")
 
                 // Strip highlight ==text== -> text
-                l = l.replace(Regex("==(.*?)=="), "$1")
+                l = l.replace(REGEX_HIGHLIGHT, "$1")
 
                 // Strip WikiLinks [[Note Name]] -> Note Name
-                l = l.replace(Regex("\\[\\[(.*?)\\]\\]"), "$1")
+                l = l.replace(REGEX_WIKILINK, "$1")
 
                 // Strip math $formula$ -> formula
-                l = l.replace(Regex("\\$(.*?)\\$"), "$1")
+                l = l.replace(REGEX_INLINE_MATH, "$1")
 
                 // Strip bold/italics
-                l = l.replace(Regex("\\*\\*\\*(.*?)\\*\\*\\*"), "$1")
-                l = l.replace(Regex("\\*\\*(.*?)\\*\\*"), "$1")
-                l = l.replace(Regex("\\*(.*?)\\*"), "$1")
-                l = l.replace(Regex("~~(.*?)~~"), "$1")
-                l = l.replace(Regex("`(.*?)`"), "$1")
+                l = l.replace(REGEX_BOLD_ITALIC, "$1")
+                l = l.replace(REGEX_BOLD, "$1")
+                l = l.replace(REGEX_ITALIC, "$1")
+                l = l.replace(REGEX_STRIKE, "$1")
+                l = l.replace(REGEX_CODE, "$1")
 
                 // Strip markdown links [text](url) -> text
-                l = l.replace(Regex("\\[(.*?)\\]\\(.*?\\)"), "$1")
+                l = l.replace(REGEX_LINK, "$1")
 
                 // Clean table delimiters
                 if (l.startsWith("|") && l.endsWith("|")) {
@@ -245,7 +278,7 @@ object MarkdownUtils {
             // 5. Obsidian Callout Block (> [!TYPE] Title)
             if (trimmed.startsWith("> [!")) {
                 val headerLine = trimmed.removePrefix(">").trim()
-                val match = Regex("^\\[!(\\w+)\\](.*)").find(headerLine)
+                val match = REGEX_CALLOUT_HEADER.find(headerLine)
                 if (match != null) {
                     val typeStr = match.groupValues[1]
                     val customTitle = match.groupValues[2].trim()
@@ -356,10 +389,11 @@ object MarkdownUtils {
             }
 
             // 10. Bullet item
-            if (trimmed.startsWith("- ") || trimmed.startsWith("* ") || trimmed.startsWith("• ")) {
+            if (trimmed.startsWith("- ") || trimmed.startsWith("* ") || trimmed.startsWith("+ ") || trimmed.startsWith("• ")) {
                 val text = when {
                     trimmed.startsWith("- ") -> trimmed.removePrefix("- ")
                     trimmed.startsWith("* ") -> trimmed.removePrefix("* ")
+                    trimmed.startsWith("+ ") -> trimmed.removePrefix("+ ")
                     else -> trimmed.removePrefix("• ")
                 }.trim()
                 val indent = line.takeWhile { it == ' ' || it == '\t' }.length / 2
@@ -369,13 +403,10 @@ object MarkdownUtils {
             }
 
             // 11. Numbered item
-            if (Regex("^\\d+\\.\\s+").containsMatchIn(trimmed)) {
-                val match = Regex("^(\\d+)\\.\\s+(.*)").find(trimmed)
-                if (match != null) {
-                    blocks.add(MarkdownBlock.NumberedItem(match.groupValues[1], match.groupValues[2]))
-                } else {
-                    blocks.add(MarkdownBlock.Paragraph(line))
-                }
+            val numMatch = REGEX_NUMBERED_PARTS.find(trimmed)
+            if (numMatch != null) {
+                val indent = line.takeWhile { it == ' ' || it == '\t' }.length / 2
+                blocks.add(MarkdownBlock.NumberedItem(numMatch.groupValues[1], numMatch.groupValues[2], indent))
                 i++
                 continue
             }
@@ -403,7 +434,9 @@ object MarkdownUtils {
         isDark: Boolean,
         primaryColor: Color = Color(0xFF2563EB),
         onSurfaceColor: Color = if (isDark) Color(0xFFF1F5F9) else Color(0xFF0F172A),
-        codeBgColor: Color = if (isDark) Color(0xFF1E293B) else Color(0xFFF1F5F9)
+        codeBgColor: Color = if (isDark) Color(0xFF1E293B) else Color(0xFFF1F5F9),
+        onWikiLinkClick: ((String) -> Unit)? = null,
+        onUrlClick: ((String) -> Unit)? = null
     ): AnnotatedString {
         return buildAnnotatedString {
             var i = 0
@@ -411,6 +444,11 @@ object MarkdownUtils {
 
             val highlightBg = if (isDark) Color(0xFF713F12) else Color(0xFFFEF08A)
             val highlightText = if (isDark) Color(0xFFFEF08A) else Color(0xFF713F12)
+            val linkStyle = SpanStyle(
+                color = primaryColor,
+                fontWeight = FontWeight.SemiBold,
+                textDecoration = TextDecoration.Underline
+            )
 
             while (i < len) {
                 // 1. Obsidian Highlight: ==text==
@@ -424,7 +462,7 @@ object MarkdownUtils {
                                 fontWeight = FontWeight.SemiBold
                             )
                         )
-                        append(" " + text.substring(i + 2, end) + " ")
+                        append(text.substring(i + 2, end))
                         pop()
                         i = end + 2
                         continue
@@ -436,15 +474,22 @@ object MarkdownUtils {
                     val end = text.indexOf("]]", i + 2)
                     if (end != -1) {
                         val linkText = text.substring(i + 2, end)
-                        pushStyle(
-                            SpanStyle(
-                                color = primaryColor,
-                                fontWeight = FontWeight.Bold,
-                                textDecoration = TextDecoration.Underline
-                            )
-                        )
-                        append(linkText)
-                        pop()
+                        val wikiStyle = linkStyle.copy(fontWeight = FontWeight.Bold)
+                        if (onWikiLinkClick != null) {
+                            withLink(
+                                LinkAnnotation.Clickable(
+                                    tag = "wikilink:$linkText",
+                                    styles = TextLinkStyles(style = wikiStyle),
+                                    linkInteractionListener = { onWikiLinkClick(linkText) }
+                                )
+                            ) {
+                                append(linkText)
+                            }
+                        } else {
+                            pushStyle(wikiStyle)
+                            append(linkText)
+                            pop()
+                        }
                         i = end + 2
                         continue
                     }
@@ -464,7 +509,7 @@ object MarkdownUtils {
                                 fontWeight = FontWeight.Medium
                             )
                         )
-                        append(" $formula ")
+                        append(formula)
                         pop()
                         i = end + 1
                         continue
@@ -484,7 +529,7 @@ object MarkdownUtils {
                                 fontSize = 13.sp
                             )
                         )
-                        append(" $code ")
+                        append(code)
                         pop()
                         i = nextBacktick + 1
                         continue
@@ -546,15 +591,23 @@ object MarkdownUtils {
                         val closeParen = text.indexOf(')', closeBracket + 2)
                         if (closeParen != -1) {
                             val linkTitle = text.substring(i + 1, closeBracket)
-                            pushStyle(
-                                SpanStyle(
-                                    color = primaryColor,
-                                    textDecoration = TextDecoration.Underline,
-                                    fontWeight = FontWeight.SemiBold
+                            val linkUrl = text.substring(closeBracket + 2, closeParen).trim()
+                            val safeUrl = if (linkUrl.startsWith("http://", true) || linkUrl.startsWith("https://", true)) {
+                                linkUrl
+                            } else {
+                                "https://$linkUrl"
+                            }
+                            withLink(
+                                LinkAnnotation.Url(
+                                    url = safeUrl,
+                                    styles = TextLinkStyles(style = linkStyle),
+                                    linkInteractionListener = onUrlClick?.let { cb ->
+                                        { cb(safeUrl) }
+                                    }
                                 )
-                            )
-                            append(linkTitle)
-                            pop()
+                            ) {
+                                append(linkTitle)
+                            }
                             i = closeParen + 1
                             continue
                         }
@@ -679,24 +732,20 @@ object MarkdownUtils {
                 currentOffset = nextNewline + 1
             }
 
-            // Inline syntax highlighters:
-            // ==highlight==
-            Regex("==([^=]+)==").findAll(rawText).forEach { match ->
+            // Inline syntax highlighters (using pre-compiled Regex instances):
+            REGEX_SYNTAX_HIGHLIGHT.findAll(rawText).forEach { match ->
                 addStyle(SpanStyle(background = highlightBg, fontWeight = FontWeight.SemiBold), match.range.first, match.range.last + 1)
             }
 
-            // **bold**
-            Regex("\\*\\*([^*]+)\\*\\*").findAll(rawText).forEach { match ->
+            REGEX_SYNTAX_BOLD.findAll(rawText).forEach { match ->
                 addStyle(SpanStyle(fontWeight = FontWeight.Bold), match.range.first, match.range.last + 1)
             }
 
-            // *italic*
-            Regex("(?<!\\*)\\*([^*]+)\\*(?!\\*)").findAll(rawText).forEach { match ->
+            REGEX_SYNTAX_ITALIC.findAll(rawText).forEach { match ->
                 addStyle(SpanStyle(fontStyle = FontStyle.Italic), match.range.first, match.range.last + 1)
             }
 
-            // `code`
-            Regex("`([^`]+)`").findAll(rawText).forEach { match ->
+            REGEX_SYNTAX_CODE.findAll(rawText).forEach { match ->
                 addStyle(
                     SpanStyle(
                         fontFamily = FontFamily.Monospace,
@@ -708,8 +757,7 @@ object MarkdownUtils {
                 )
             }
 
-            // [[WikiLink]]
-            Regex("\\[\\[([^\\]]+)\\]\\]").findAll(rawText).forEach { match ->
+            REGEX_SYNTAX_WIKILINK.findAll(rawText).forEach { match ->
                 addStyle(
                     SpanStyle(
                         color = primaryColor,
@@ -721,8 +769,7 @@ object MarkdownUtils {
                 )
             }
 
-            // $math$
-            Regex("\\$([^\\$]+)\\$").findAll(rawText).forEach { match ->
+            REGEX_SYNTAX_MATH.findAll(rawText).forEach { match ->
                 addStyle(
                     SpanStyle(
                         fontStyle = FontStyle.Italic,
@@ -734,8 +781,7 @@ object MarkdownUtils {
                 )
             }
 
-            // #tag
-            Regex("#[a-zA-Z0-9_]+").findAll(rawText).forEach { match ->
+            REGEX_SYNTAX_TAG.findAll(rawText).forEach { match ->
                 addStyle(
                     SpanStyle(color = tagColor, fontWeight = FontWeight.SemiBold),
                     match.range.first,

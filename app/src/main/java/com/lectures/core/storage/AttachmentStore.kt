@@ -143,4 +143,20 @@ object AttachmentStore {
             // Nothing actionable — the note row is removed regardless.
         }
     }
+
+    /** Deletes all copied attachments from private storage (e.g. when resetting all notes). */
+    fun deleteAll(context: Context) {
+        try {
+            val dir = File(context.filesDir, DIR_NAME)
+            if (dir.exists() && dir.isDirectory) {
+                dir.listFiles()?.forEach { file ->
+                    if (file.isFile) {
+                        file.delete()
+                    }
+                }
+            }
+        } catch (_: Exception) {
+            // Best-effort cleanup
+        }
+    }
 }

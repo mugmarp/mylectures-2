@@ -2,14 +2,20 @@ package com.lectures.features.settings
 
 import android.app.Application
 import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.lectures.BuildConfig
 import com.lectures.core.alarm.AlarmScheduler
 import com.lectures.core.alarm.ReminderScheduler
 import com.lectures.core.alarm.TaskAlarmScheduler
+import com.lectures.core.auth.AuthRepository
 import com.lectures.core.notification.NotificationHelper
+import com.lectures.core.storage.AttachmentStore
+import com.lectures.core.update.AppUpdateInfo
+import com.lectures.core.update.InAppUpdateManager
 import com.lectures.features.timetable.data.DataLoader
 import com.lectures.features.timetable.data.TimetableRepository
 import com.lectures.ui.ThemeMode
@@ -21,6 +27,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -42,6 +50,9 @@ data class SettingsUiState(
     val metadata: com.lectures.features.timetable.domain.TimetableMetadata? = null,
     val isSyncing: Boolean = false,
     val isResetting: Boolean = false,
+    val isCheckingForAppUpdate: Boolean = false,
+    val availableUpdateInfo: AppUpdateInfo? = null,
+    val showAppUpdateDialog: Boolean = false,
     val userNotesCount: Int = 0,
     val userEventsCount: Int = 0,
     val userAssignmentsCount: Int = 0,
@@ -87,7 +98,11 @@ class SettingsViewModel(
                 }
                 _uiState.value = _uiState.value.copy(
                     themeMode = mode,
-                    darkMode = mode == ThemeMode.DARK
+                    darkMode = when (mode) {
+                        ThemeMode.DARK -> true
+                        ThemeMode.LIGHT -> false
+                        ThemeMode.SYSTEM -> _uiState.value.darkMode
+                    }
                 )
             }
         }
@@ -95,7 +110,9 @@ class SettingsViewModel(
         // Collect dark mode fallback
         viewModelScope.launch {
             repository.themeDarkPref.collect { dark ->
-                _uiState.value = _uiState.value.copy(darkMode = dark)
+                if (_uiState.value.themeMode != ThemeMode.SYSTEM || dark) {
+                    _uiState.value = _uiState.value.copy(darkMode = dark)
+                }
             }
         }
 
@@ -211,7 +228,7 @@ class SettingsViewModel(
             _uiState.value = _uiState.value.copy(isBackingUpUserData = true, errorMessage = null, successMessage = null)
             try {
                 val currentUid = try {
-                    com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+                    AuthRepository.getInstance().currentUser.value?.uid
                 } catch (_: Throwable) { null }
 
                 val stats = withContext(ioDispatcher) {
@@ -495,17 +512,138 @@ class SettingsViewModel(
         }
     }
 
+    fun checkForAppUpdate() {
+        if (_uiState.value.isCheckingForAppUpdate) return
+        _uiState.value = _uiState.value.copy(isCheckingForAppUpdate = true, errorMessage = null, successMessage = null)
+        viewModelScope.launch {
+            val result = InAppUpdateManager.checkForUpdate(getApplication(), forceRefresh = true)
+            result.fold(
+                onSuccess = { update ->
+                    if (update != null) {
+                        _uiState.value = _uiState.value.copy(
+                            isCheckingForAppUpdate = false,
+                            availableUpdateInfo = update,
+                            showAppUpdateDialog = true
+                        )
+                    } else {
+                        _uiState.value = _uiState.value.copy(
+                            isCheckingForAppUpdate = false,
+                            availableUpdateInfo = null,
+                            successMessage = "Lectures is up to date (v${BuildConfig.VERSION_NAME})."
+                        )
+                    }
+                },
+                onFailure = { error ->
+                    val msg = if (error is java.net.UnknownHostException || error is java.net.SocketTimeoutException) {
+                        "Unable to check for updates. Please check your internet connection."
+                    } else {
+                        "Check for updates failed: ${error.localizedMessage ?: "Network error"}"
+                    }
+                    _uiState.value = _uiState.value.copy(
+                        isCheckingForAppUpdate = false,
+                        errorMessage = msg
+                    )
+                }
+            )
+        }
+    }
+
+    fun openUpdateDialog() {
+        if (_uiState.value.availableUpdateInfo != null) {
+            _uiState.value = _uiState.value.copy(showAppUpdateDialog = true)
+        }
+    }
+
+    fun dismissUpdateDialog() {
+        _uiState.value = _uiState.value.copy(showAppUpdateDialog = false)
+    }
+
+    fun exportUserDataBackup(targetUri: Uri) {
+        viewModelScope.launch {
+            try {
+                val (notesCount, eventsCount, tasksCount) = withContext(ioDispatcher) {
+                    val notes = repository.dao.getAllNotesSync()
+                    val events = repository.getCustomEvents().firstOrNull() ?: emptyList()
+                    val tasks = repository.getAssignments().firstOrNull() ?: emptyList()
+
+                    val root = JSONObject().apply {
+                        put("appVersion", BuildConfig.VERSION_NAME)
+                        put("exportedAt", System.currentTimeMillis())
+                        put("programme", _uiState.value.currentProgramme)
+                        put("notes", JSONArray().apply {
+                            notes.forEach { n ->
+                                put(JSONObject().apply {
+                                    put("naturalKey", n.naturalKey)
+                                    put("title", n.title ?: "")
+                                    put("content", n.content)
+                                    put("tag", n.tag ?: "")
+                                    put("attachedClass", n.attachedClass ?: "")
+                                    put("alarmMinutes", n.alarmMinutes ?: JSONObject.NULL)
+                                    put("isPinned", n.isPinned)
+                                    put("updatedAt", n.updatedAt)
+                                })
+                            }
+                        })
+                        put("customEvents", JSONArray().apply {
+                            events.forEach { e ->
+                                put(JSONObject().apply {
+                                    put("id", e.id)
+                                    put("title", e.title)
+                                    put("category", e.category)
+                                    put("dayOfWeek", e.dayOfWeek)
+                                    put("startTime", e.startTime)
+                                    put("endTime", e.endTime)
+                                    put("location", e.location)
+                                })
+                            }
+                        })
+                        put("assignments", JSONArray().apply {
+                            tasks.forEach { t ->
+                                put(JSONObject().apply {
+                                    put("id", t.id)
+                                    put("title", t.title)
+                                    put("courseCode", t.courseCode)
+                                    put("dueDate", t.dueDate)
+                                    put("priority", t.priority)
+                                    put("completed", t.completed)
+                                })
+                            }
+                        })
+                    }
+
+                    getApplication<Application>().contentResolver.openOutputStream(targetUri)?.use { out ->
+                        out.write(root.toString(2).toByteArray(Charsets.UTF_8))
+                    } ?: throw IllegalStateException("Could not open destination file")
+
+                    Triple(notes.size, events.size, tasks.size)
+                }
+
+                _uiState.value = _uiState.value.copy(
+                    successMessage = "Backup exported ($notesCount notes, $eventsCount events, $tasksCount tasks)."
+                )
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                _uiState.value = _uiState.value.copy(
+                    errorMessage = "Backup export failed: ${e.localizedMessage ?: "Storage error"}"
+                )
+            }
+        }
+    }
+
     fun syncTimetable() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isSyncing = true, errorMessage = null, successMessage = null)
             try {
                 var remoteSynced = false
+                var assetFallbackLoaded = false
+                var totalEntries = 0
                 withContext(ioDispatcher) {
+                    val existingCount = repository.dao.getEntryCount()
                     val remoteMeta = repository.syncRepository?.fetchRemoteTimetableMetadata()
                     if (remoteMeta != null) {
                         repository.updateTimetableMetadata(remoteMeta)
                         remoteSynced = true
-                    } else if (dataLoader != null) {
+                    } else if (dataLoader != null && (repository.syncRepository == null || existingCount == 0)) {
                         val entries = dataLoader.loadFromAssets()
                         if (entries.isNotEmpty()) {
                             repository.dao.deleteAllEntries()
@@ -515,13 +653,18 @@ class SettingsViewModel(
                         if (meta != null) {
                             repository.updateTimetableMetadata(meta.copy(lastUpdated = System.currentTimeMillis()))
                         }
+                        assetFallbackLoaded = true
                     }
+                    totalEntries = repository.dao.getEntryCount()
                 }
                 val format = SimpleDateFormat("h:mm a, MMM d", Locale.getDefault())
                 val timeString = "Synced at ${format.format(Date())}"
                 repository.setLastSyncTime(timeString)
-                val totalEntries = withContext(ioDispatcher) { repository.dao.getEntryCount() }
-                val syncStatus = if (remoteSynced) "Cloud release verified · $totalEntries lectures" else "$totalEntries lectures loaded"
+                val syncStatus = when {
+                    remoteSynced -> "Cloud release verified · $totalEntries lectures"
+                    assetFallbackLoaded -> "$totalEntries lectures loaded"
+                    else -> "Offline mode · $totalEntries cached lectures preserved"
+                }
                 _uiState.value = _uiState.value.copy(
                     isSyncing = false,
                     lastSyncTime = timeString,
@@ -541,11 +684,16 @@ class SettingsViewModel(
             _uiState.value = _uiState.value.copy(isResetting = true, errorMessage = null)
             try {
                 withContext(ioDispatcher) {
+                    val notesWithAlarms = repository.getNotesWithAlarms()
+                    notesWithAlarms.forEach { note ->
+                        classAlarmScheduler?.cancelClassAlarm(note.naturalKey)
+                    }
+                    AttachmentStore.deleteAll(getApplication())
                     repository.deleteAllNotes()
                 }
                 _uiState.value = _uiState.value.copy(
                     isResetting = false,
-                    successMessage = "All lecture notes have been reset."
+                    successMessage = "All lecture notes, attachments, and note alerts have been reset."
                 )
                 onComplete()
             } catch (e: Exception) {

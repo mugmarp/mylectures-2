@@ -16,11 +16,43 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 
 val AccentColors = listOf(
-    Color(0xFF2563EB) // Royal Blue (Default)
+    Color(0xFF2563EB), // Royal Blue (Default)
+    Color(0xFF059669), // Emerald Green
+    Color(0xFF7C3AED), // Academic Violet
+    Color(0xFFD97706), // Warm Amber
+    Color(0xFF0284C7)  // Ocean Teal
 )
 
 val AccentColorNames = listOf(
-    "Royal Blue"
+    "Royal Blue",
+    "Emerald",
+    "Violet",
+    "Amber",
+    "Ocean Teal"
+)
+
+private val AccentDarkColors = listOf(
+    Color(0xFF3B82F6),
+    Color(0xFF10B981),
+    Color(0xFFA78BFA),
+    Color(0xFFF59E0B),
+    Color(0xFF38BDF8)
+)
+
+private val AccentLightContainers = listOf(
+    Color(0xFFE2EDFE) to Color(0xFF1D4ED8),
+    Color(0xFFD1FAE5) to Color(0xFF047857),
+    Color(0xFFEDE9FE) to Color(0xFF6D28D9),
+    Color(0xFFFEF3C7) to Color(0xFFB45309),
+    Color(0xFFE0F2FE) to Color(0xFF0369A1)
+)
+
+private val AccentDarkContainers = listOf(
+    Color(0xFF1E3258) to Color(0xFFBFDBFE),
+    Color(0xFF064E3B) to Color(0xFFA7F3D0),
+    Color(0xFF3B0764) to Color(0xFFDDD6FE),
+    Color(0xFF451A03) to Color(0xFFFDE68A),
+    Color(0xFF0C4A6E) to Color(0xFFBAE6FD)
 )
 
 enum class ThemeMode(val title: String, val subtitle: String) {
@@ -60,15 +92,18 @@ fun AppTheme(
         }
     }
 
-    val primaryColor = Color(0xFF2563EB) // Royal Blue default
-    val primaryDark = Color(0xFF3B82F6)  // Luminous blue for dark theme legibility
+    val safeAccentIndex = accentIndex.coerceIn(0, AccentColors.lastIndex)
+    val primaryColor = AccentColors[safeAccentIndex]
+    val primaryDark = AccentDarkColors[safeAccentIndex]
+    val (lightContainer, onLightContainer) = AccentLightContainers[safeAccentIndex]
+    val (darkContainer, onDarkContainer) = AccentDarkContainers[safeAccentIndex]
 
     val colorScheme: ColorScheme = if (isDark) {
         darkColorScheme(
             primary = primaryDark,
             onPrimary = Color.White,
-            primaryContainer = Color(0xFF1E3258),
-            onPrimaryContainer = Color(0xFFBFDBFE),
+            primaryContainer = darkContainer,
+            onPrimaryContainer = onDarkContainer,
             secondary = primaryDark,
             onSecondary = Color.White,
             background = Color(0xFF101216),       // Neutral deep charcoal/obsidian
@@ -84,8 +119,8 @@ fun AppTheme(
         lightColorScheme(
             primary = primaryColor,
             onPrimary = Color.White,
-            primaryContainer = Color(0xFFE2EDFE),
-            onPrimaryContainer = Color(0xFF1D4ED8),
+            primaryContainer = lightContainer,
+            onPrimaryContainer = onLightContainer,
             secondary = primaryColor,
             onSecondary = Color.White,
             background = Color(0xFFF8FAFC),       // Slate 50 daylight

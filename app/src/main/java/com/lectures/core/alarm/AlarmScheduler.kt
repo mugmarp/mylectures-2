@@ -200,14 +200,47 @@ class AlarmScheduler(private val context: Context) {
 
     /**
      * Schedules a class alarm directly from a saved LectureNote metadata.
+     * Supports both timetable-keyed notes (`CODE|Title|Day|Time|Room`) and
+     * standalone notes that have an `attachedClass` (`CODE: Title · Day, HH:mm – HH:mm`).
      */
     fun scheduleClassAlarmFromNote(note: com.lectures.features.timetable.domain.LectureNote, minutesBefore: Int): Boolean {
         val parts = note.naturalKey.split("|")
-        val code = parts.getOrNull(0)?.trim() ?: (note.title?.take(10) ?: "Lecture")
-        val title = note.title ?: parts.getOrNull(1)?.trim() ?: code
-        val day = parts.getOrNull(2)?.trim() ?: "Monday"
-        val time = parts.getOrNull(3)?.trim() ?: "09:00"
-        val room = parts.getOrNull(4)?.trim() ?: (note.attachedClass ?: "Lecture Room")
+        val code = parts.getOrNull(0)?.trim()?.ifBlank { null } ?: (note.title?.take(10) ?: "Lecture")
+        val title = note.title?.ifBlank { null } ?: parts.getOrNull(1)?.trim() ?: code
+
+        val keyDay = parts.getOrNull(2)?.trim()
+        val keyTime = parts.getOrNull(3)?.trim()
+        val keyRoom = parts.getOrNull(4)?.trim()
+
+        val hasValidKeySchedule = keyDay != null && parseDayPrefix(keyDay) != null &&
+            keyTime != null && parseStartTime(keyTime) != null
+
+        var day = if (hasValidKeySchedule) keyDay!! else ""
+        var time = if (hasValidKeySchedule) keyTime!! else ""
+        val room = keyRoom?.ifBlank { null } ?: "Lecture Room"
+
+        if (!hasValidKeySchedule && !note.attachedClass.isNullOrBlank()) {
+            // Parse format: "SWE2107: Systems Analysis · Monday, 11:00 – 13:00"
+            val schedulePart = note.attachedClass.substringAfter("·", "").trim()
+            if (schedulePart.isNotBlank()) {
+                val tokens = schedulePart.split(",", limit = 2).map { it.trim() }
+                val candidateDay = tokens.getOrNull(0).orEmpty()
+                val timeRange = tokens.getOrNull(1).orEmpty()
+                val candidateStart = timeRange
+                    .split("–", "-", "to")
+                    .firstOrNull()
+                    ?.trim()
+                    .orEmpty()
+                if (parseDayPrefix(candidateDay) != null && parseStartTime(candidateStart) != null) {
+                    day = candidateDay
+                    time = candidateStart
+                }
+            }
+        }
+
+        if (day.isBlank() || time.isBlank()) {
+            return false
+        }
 
         val syntheticEntry = TimetableEntry(
             natural_key = note.naturalKey,
@@ -223,6 +256,17 @@ class AlarmScheduler(private val context: Context) {
             room = room
         )
         return scheduleClassAlarm(syntheticEntry, minutesBefore)
+    }
+
+    private fun parseDayPrefix(rawDay: String): Int? = when (rawDay.trim().lowercase().take(3)) {
+        "mon" -> Calendar.MONDAY
+        "tue" -> Calendar.TUESDAY
+        "wed" -> Calendar.WEDNESDAY
+        "thu" -> Calendar.THURSDAY
+        "fri" -> Calendar.FRIDAY
+        "sat" -> Calendar.SATURDAY
+        "sun" -> Calendar.SUNDAY
+        else -> null
     }
 
     fun triggerTestAlarm(entry: TimetableEntry, delaySeconds: Int = 3): Boolean {

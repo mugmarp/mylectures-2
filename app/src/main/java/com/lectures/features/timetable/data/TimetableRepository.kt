@@ -258,7 +258,7 @@ class TimetableRepository(
                 LectureNote(
                     naturalKey = "GEN101|Welcome & Orientation|Monday|09:00|sample1",
                     title = "Welcome to Lectures - Semester Study Guide",
-                    content = "Keep track of your course schedules, lecture notes, revision tasks, and assignment deadlines all in one place.\n• Attach your notes to your scheduled timetable lectures.\n• Set customizable pre-class alerts so you never miss a lecture.\n• Use markdown formatting and attach key files or voice recordings.",
+                    content = "Keep track of your course schedules, lecture notes, revision tasks, and assignment deadlines all in one place.\n• Attach your notes to your scheduled timetable lectures.\n• Set customizable pre-class alerts so you never miss a lecture.\n• Use Markdown formatting, checklists, and attach lecture slides or whiteboard photos.",
                     updatedAt = System.currentTimeMillis() - 3600000L,
                     colourTag = "#2563EB",
                     alarmMinutes = 30,

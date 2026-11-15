@@ -7,6 +7,7 @@ import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -36,7 +37,9 @@ import com.lectures.ui.LocalAppTheme
 fun MarkdownViewer(
     markdown: String,
     modifier: Modifier = Modifier,
-    onToggleChecklist: ((lineIndex: Int) -> Unit)? = null
+    onToggleChecklist: ((lineIndex: Int) -> Unit)? = null,
+    onWikiLinkClick: ((title: String) -> Unit)? = null,
+    onUrlClick: ((url: String) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val isDark = LocalAppTheme.current.isDark
@@ -138,7 +141,13 @@ fun MarkdownViewer(
                             if (block.content.isNotBlank()) {
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(
-                                    text = MarkdownUtils.renderInlineMarkdown(block.content, isDark, calloutColor),
+                                    text = MarkdownUtils.renderInlineMarkdown(
+                                        block.content,
+                                        isDark,
+                                        calloutColor,
+                                        onWikiLinkClick = onWikiLinkClick,
+                                        onUrlClick = onUrlClick
+                                    ),
                                     fontSize = 13.5.sp,
                                     color = MaterialTheme.colorScheme.onSurface,
                                     lineHeight = 21.sp
@@ -182,7 +191,13 @@ fun MarkdownViewer(
                                         }
                                     ) {
                                         Text(
-                                            text = MarkdownUtils.renderInlineMarkdown(header, isDark, MaterialTheme.colorScheme.primary),
+                                            text = MarkdownUtils.renderInlineMarkdown(
+                                                header,
+                                                isDark,
+                                                MaterialTheme.colorScheme.primary,
+                                                onWikiLinkClick = onWikiLinkClick,
+                                                onUrlClick = onUrlClick
+                                            ),
                                             fontSize = 13.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.primary,
@@ -222,7 +237,13 @@ fun MarkdownViewer(
                                             }
                                         ) {
                                             Text(
-                                                text = MarkdownUtils.renderInlineMarkdown(cell, isDark, MaterialTheme.colorScheme.primary),
+                                                text = MarkdownUtils.renderInlineMarkdown(
+                                                    cell,
+                                                    isDark,
+                                                    MaterialTheme.colorScheme.primary,
+                                                    onWikiLinkClick = onWikiLinkClick,
+                                                    onUrlClick = onUrlClick
+                                                ),
                                                 fontSize = 12.5.sp,
                                                 color = MaterialTheme.colorScheme.onSurface,
                                                 lineHeight = 18.sp,
@@ -279,13 +300,13 @@ fun MarkdownViewer(
                                         clipboard.setPrimaryClip(ClipData.newPlainText("Formula", block.formula))
                                         Toast.makeText(context, "Formula copied", Toast.LENGTH_SHORT).show()
                                     },
-                                    modifier = Modifier.size(24.dp)
+                                    modifier = Modifier.minimumInteractiveComponentSize()
                                 ) {
                                     Icon(
                                         Icons.Outlined.ContentCopy,
                                         contentDescription = "Copy formula",
                                         tint = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
-                                        modifier = Modifier.size(15.dp)
+                                        modifier = Modifier.size(18.dp)
                                     )
                                 }
                             }
@@ -311,23 +332,34 @@ fun MarkdownViewer(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 2.dp),
+                            .defaultMinSize(minHeight = 48.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable(enabled = onToggleChecklist != null) {
+                                onToggleChecklist?.invoke(block.lineIndex)
+                            }
+                            .padding(vertical = 4.dp, horizontal = 2.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Checkbox(
                             checked = block.isChecked,
-                            onCheckedChange = {
-                                onToggleChecklist?.invoke(block.lineIndex)
-                            },
+                            onCheckedChange = if (onToggleChecklist != null) {
+                                { onToggleChecklist.invoke(block.lineIndex) }
+                            } else null,
                             colors = CheckboxDefaults.colors(
                                 checkedColor = MaterialTheme.colorScheme.primary,
                                 uncheckedColor = MaterialTheme.colorScheme.onSurfaceVariant
                             ),
                             modifier = Modifier.size(24.dp)
                         )
-                        Spacer(modifier = Modifier.width(10.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
                         Text(
-                            text = MarkdownUtils.renderInlineMarkdown(block.text, isDark, MaterialTheme.colorScheme.primary),
+                            text = MarkdownUtils.renderInlineMarkdown(
+                                block.text,
+                                isDark,
+                                MaterialTheme.colorScheme.primary,
+                                onWikiLinkClick = onWikiLinkClick,
+                                onUrlClick = onUrlClick
+                            ),
                             fontSize = 14.sp,
                             color = if (block.isChecked) {
                                 MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
@@ -358,7 +390,13 @@ fun MarkdownViewer(
                         )
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
-                            text = MarkdownUtils.renderInlineMarkdown(block.text, isDark, MaterialTheme.colorScheme.primary),
+                            text = MarkdownUtils.renderInlineMarkdown(
+                                block.text,
+                                isDark,
+                                MaterialTheme.colorScheme.primary,
+                                onWikiLinkClick = onWikiLinkClick,
+                                onUrlClick = onUrlClick
+                            ),
                             fontSize = 14.sp,
                             color = MaterialTheme.colorScheme.onSurface,
                             lineHeight = 22.sp,
@@ -372,7 +410,7 @@ fun MarkdownViewer(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 2.dp),
+                            .padding(start = (block.indentLevel * 16).dp, top = 2.dp, bottom = 2.dp),
                         verticalAlignment = Alignment.Top
                     ) {
                         Box(
@@ -391,7 +429,13 @@ fun MarkdownViewer(
                         }
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
-                            text = MarkdownUtils.renderInlineMarkdown(block.text, isDark, MaterialTheme.colorScheme.primary),
+                            text = MarkdownUtils.renderInlineMarkdown(
+                                block.text,
+                                isDark,
+                                MaterialTheme.colorScheme.primary,
+                                onWikiLinkClick = onWikiLinkClick,
+                                onUrlClick = onUrlClick
+                            ),
                             fontSize = 14.sp,
                             color = MaterialTheme.colorScheme.onSurface,
                             lineHeight = 22.sp,
@@ -424,7 +468,13 @@ fun MarkdownViewer(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = MarkdownUtils.renderInlineMarkdown(block.text, isDark, MaterialTheme.colorScheme.primary),
+                                text = MarkdownUtils.renderInlineMarkdown(
+                                    block.text,
+                                    isDark,
+                                    MaterialTheme.colorScheme.primary,
+                                    onWikiLinkClick = onWikiLinkClick,
+                                    onUrlClick = onUrlClick
+                                ),
                                 fontSize = 13.sp,
                                 fontStyle = FontStyle.Italic,
                                 color = MaterialTheme.colorScheme.onSurface,
@@ -463,13 +513,13 @@ fun MarkdownViewer(
                                         clipboard.setPrimaryClip(ClipData.newPlainText("Code", block.code))
                                         Toast.makeText(context, "Code copied to clipboard", Toast.LENGTH_SHORT).show()
                                     },
-                                    modifier = Modifier.size(24.dp)
+                                    modifier = Modifier.minimumInteractiveComponentSize()
                                 ) {
                                     Icon(
                                         Icons.Outlined.ContentCopy,
                                         contentDescription = "Copy code",
                                         tint = Color(0xFF94A3B8),
-                                        modifier = Modifier.size(15.dp)
+                                        modifier = Modifier.size(18.dp)
                                     )
                                 }
                             }
@@ -498,7 +548,13 @@ fun MarkdownViewer(
                 // 11. Paragraph
                 is MarkdownBlock.Paragraph -> {
                     Text(
-                        text = MarkdownUtils.renderInlineMarkdown(block.text, isDark, MaterialTheme.colorScheme.primary),
+                        text = MarkdownUtils.renderInlineMarkdown(
+                            block.text,
+                            isDark,
+                            MaterialTheme.colorScheme.primary,
+                            onWikiLinkClick = onWikiLinkClick,
+                            onUrlClick = onUrlClick
+                        ),
                         fontSize = 14.sp,
                         color = MaterialTheme.colorScheme.onSurface,
                         lineHeight = 22.sp

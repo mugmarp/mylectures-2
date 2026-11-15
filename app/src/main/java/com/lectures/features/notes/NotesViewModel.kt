@@ -1,12 +1,16 @@
 package com.lectures.features.notes
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.lectures.core.alarm.AlarmScheduler
+import com.lectures.core.storage.AttachmentStore
 import com.lectures.features.timetable.data.TimetableRepository
 import com.lectures.features.timetable.domain.LectureNote
 import com.lectures.features.timetable.domain.TimetableEntry
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -131,10 +135,12 @@ class NotesViewModel(
     ): List<LectureNote> {
         return notes.filter { note ->
             val courseCode = note.naturalKey.split("|").firstOrNull() ?: ""
-            val matchesFilter = if (filter == "All Notes" || filter.isBlank()) {
-                true
-            } else {
-                courseCode.equals(filter, ignoreCase = true)
+            val matchesFilter = when {
+                filter == "All Notes" || filter.isBlank() -> true
+                filter == "Pinned" -> note.isPinned
+                filter == "Alerts" -> note.alarmMinutes != null
+                filter == "Checklists" -> MarkdownUtils.countChecklistProgress(note.content) != null
+                else -> courseCode.equals(filter, ignoreCase = true)
             }
 
             val q = query.trim().lowercase()
@@ -150,6 +156,42 @@ class NotesViewModel(
 
             matchesFilter && matchesSearch
         }.sortedWith(compareByDescending<LectureNote> { it.isPinned }.thenByDescending { it.updatedAt })
+    }
+
+    fun findNoteByTitle(targetTitle: String): LectureNote? {
+        val normalized = targetTitle.trim()
+        if (normalized.isEmpty()) return null
+        return _uiState.value.notes.firstOrNull {
+            it.title?.trim()?.equals(normalized, ignoreCase = true) == true
+        } ?: _uiState.value.notes.firstOrNull {
+            it.title?.trim()?.contains(normalized, ignoreCase = true) == true
+        }
+    }
+
+    fun toggleChecklist(naturalKey: String, lineIndex: Int) {
+        viewModelScope.launch {
+            try {
+                val note = _uiState.value.notes.firstOrNull { it.naturalKey == naturalKey } ?: return@launch
+                val updatedContent = MarkdownUtils.toggleChecklistAt(note.content, lineIndex)
+                if (updatedContent == note.content) return@launch
+                repository.saveNote(
+                    naturalKey = note.naturalKey,
+                    content = updatedContent,
+                    alarmMinutes = note.alarmMinutes,
+                    title = note.title,
+                    tag = note.tag,
+                    attachedClass = note.attachedClass,
+                    attachmentName = note.attachmentName,
+                    attachmentPath = note.attachmentPath,
+                    colourTag = note.colourTag,
+                    isPinned = note.isPinned
+                )
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    errorMessage = "Failed to update checklist: ${e.localizedMessage}"
+                )
+            }
+        }
     }
 
     fun saveNote(
@@ -180,10 +222,44 @@ class NotesViewModel(
                 // Pick color for course
                 val courseColor = _uiState.value.availableCourses.find { it.code.equals(courseCode, ignoreCase = true) }?.color ?: "#2563EB"
 
+                var savedAlarmMinutes = alarmMinutes
+                var alarmStatusNote: String? = null
+
+                if (alarmMinutes != null) {
+                    val entry = repository.getTimetableEntryByNaturalKey(key)
+                    if (classAlarmScheduler != null) {
+                        val scheduled = if (entry != null) {
+                            classAlarmScheduler.scheduleClassAlarm(entry, alarmMinutes)
+                        } else {
+                            val syntheticNote = LectureNote(
+                                naturalKey = key,
+                                content = content,
+                                updatedAt = System.currentTimeMillis(),
+                                alarmMinutes = alarmMinutes,
+                                title = title,
+                                attachedClass = attachedClass
+                            )
+                            classAlarmScheduler.scheduleClassAlarmFromNote(syntheticNote, alarmMinutes)
+                        }
+                        if (scheduled) {
+                            alarmStatusNote = "Note saved • Alarm set (${alarmMinutes}m before)"
+                        } else {
+                            // Avoid storing an unschedulable alarm when no class day/time is linked
+                            savedAlarmMinutes = null
+                            classAlarmScheduler.cancelClassAlarm(key)
+                            alarmStatusNote = "Note saved (attach a timetable class to arm alerts)"
+                        }
+                    } else {
+                        alarmStatusNote = "Note saved • Alarm set (${alarmMinutes}m before)"
+                    }
+                } else {
+                    classAlarmScheduler?.cancelClassAlarm(key)
+                }
+
                 repository.saveNote(
                     naturalKey = key,
                     content = content,
-                    alarmMinutes = alarmMinutes,
+                    alarmMinutes = savedAlarmMinutes,
                     title = title.ifBlank { "Untitled Note" },
                     tag = tag,
                     attachedClass = attachedClass,
@@ -193,27 +269,8 @@ class NotesViewModel(
                     isPinned = isPinned
                 )
 
-                if (alarmMinutes != null) {
-                    val entry = repository.getTimetableEntryByNaturalKey(key)
-                    if (entry != null) {
-                        classAlarmScheduler?.scheduleClassAlarm(entry, alarmMinutes)
-                    } else {
-                        val syntheticNote = LectureNote(
-                            naturalKey = key,
-                            content = content,
-                            updatedAt = System.currentTimeMillis(),
-                            alarmMinutes = alarmMinutes,
-                            title = title,
-                            attachedClass = attachedClass
-                        )
-                        classAlarmScheduler?.scheduleClassAlarmFromNote(syntheticNote, alarmMinutes)
-                    }
-                } else {
-                    classAlarmScheduler?.cancelClassAlarm(key)
-                }
-
                 _uiState.value = _uiState.value.copy(
-                    userMessage = if (alarmMinutes != null) "Note saved • Alarm set (${alarmMinutes}m before)" else "Note saved successfully",
+                    userMessage = alarmStatusNote ?: "Note saved successfully",
                     errorMessage = null
                 )
             } catch (e: Exception) {
@@ -236,11 +293,22 @@ class NotesViewModel(
         }
     }
 
-    fun deleteNote(naturalKey: String) {
+    fun deleteNote(
+        naturalKey: String,
+        attachmentPath: String? = null,
+        context: Context? = null
+    ) {
         viewModelScope.launch {
             try {
                 classAlarmScheduler?.cancelClassAlarm(naturalKey)
+                val targetPath = attachmentPath
+                    ?: _uiState.value.notes.firstOrNull { it.naturalKey == naturalKey }?.attachmentPath
                 repository.deleteNote(naturalKey)
+                if (context != null && !targetPath.isNullOrBlank()) {
+                    withContext(Dispatchers.IO) {
+                        AttachmentStore.delete(context, targetPath)
+                    }
+                }
                 _uiState.value = _uiState.value.copy(
                     userMessage = "Note deleted successfully",
                     errorMessage = null

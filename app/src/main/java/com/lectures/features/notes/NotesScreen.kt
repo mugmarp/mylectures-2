@@ -105,6 +105,8 @@ fun NotesScreen(
 
     val coroutineScope = rememberCoroutineScope()
 
+    var editingInitialTab by rememberSaveable { mutableStateOf(NoteEditorTab.WRITE) }
+
     LaunchedEffect(isEditing) {
         onEditingChanged(isEditing)
     }
@@ -112,6 +114,7 @@ fun NotesScreen(
     if (isEditing) {
         NoteEditorScreen(
             initialNote = noteToEdit,
+            initialTab = editingInitialTab,
             availableCourses = uiState.availableCourses,
             timetableClasses = uiState.timetableClasses,
             onSettingsClick = onSettingsClick,
@@ -137,6 +140,19 @@ fun NotesScreen(
                     message,
                     android.widget.Toast.LENGTH_SHORT
                 ).show()
+            },
+            onWikiLinkClick = { linkTitle ->
+                val target = viewModel.findNoteByTitle(linkTitle)
+                if (target != null) {
+                    editingNoteKey = target.naturalKey
+                    editingInitialTab = if (target.content.isNotBlank()) NoteEditorTab.PREVIEW else NoteEditorTab.WRITE
+                } else {
+                    android.widget.Toast.makeText(
+                        context,
+                        "Linked note \"$linkTitle\" not found",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }
             },
             onSave = { key, course, title, content, alarm, tag, attachedClass, attachment, attachmentPath ->
                 viewModel.saveNote(
@@ -176,6 +192,7 @@ fun NotesScreen(
                         focusManager.clearFocus()
                         keyboardController?.hide()
                         editingNoteKey = null
+                        editingInitialTab = NoteEditorTab.WRITE
                         isEditing = true
                     },
                     containerColor = MaterialTheme.colorScheme.primary,
@@ -194,6 +211,7 @@ fun NotesScreen(
                         focusManager.clearFocus()
                         keyboardController?.hide()
                         editingNoteKey = null
+                        editingInitialTab = NoteEditorTab.WRITE
                         isEditing = true
                     },
                     containerColor = MaterialTheme.colorScheme.primary,
@@ -357,7 +375,77 @@ fun NotesScreen(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // USER FEEDBACK MESSAGES
+            // COURSE & QUICK FILTER STRIP
+            val filterChips = remember(uiState.notes, uiState.availableCourses) {
+                val base = mutableListOf("All Notes" to uiState.notes.size)
+                val pinnedCount = uiState.notes.count { it.isPinned }
+                if (pinnedCount > 0) base.add("Pinned" to pinnedCount)
+                val checklistCount = uiState.notes.count { MarkdownUtils.countChecklistProgress(it.content) != null }
+                if (checklistCount > 0) base.add("Checklists" to checklistCount)
+                val alertCount = uiState.notes.count { it.alarmMinutes != null }
+                if (alertCount > 0) base.add("Alerts" to alertCount)
+
+                val notesByCourse = uiState.notes.groupingBy {
+                    it.naturalKey.split("|").firstOrNull()?.trim().orEmpty()
+                }.eachCount()
+                uiState.availableCourses.forEach { course ->
+                    val count = notesByCourse[course.code] ?: 0
+                    if (count > 0) {
+                        base.add(course.code to count)
+                    }
+                }
+                base
+            }
+
+            if (filterChips.size > 1) {
+                androidx.compose.foundation.lazy.LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(horizontal = 20.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(filterChips.size) { index ->
+                        val (label, count) = filterChips[index]
+                        val selected = uiState.selectedFilter.equals(label, ignoreCase = true)
+                        FilterChip(
+                            selected = selected,
+                            onClick = { viewModel.onFilterSelected(label) },
+                            label = {
+                                Text(
+                                    text = "$label ($count)",
+                                    fontSize = 12.sp,
+                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+                                )
+                            },
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+            }
+
+            // USER FEEDBACK MESSAGES (Success + Error)
+            AnimatedVisibility(visible = uiState.errorMessage != null) {
+                uiState.errorMessage?.let { err ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 4.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(err, color = MaterialTheme.colorScheme.onErrorContainer, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                            IconButton(onClick = { viewModel.clearFeedback() }) {
+                                Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.size(16.dp))
+                            }
+                        }
+                    }
+                }
+            }
+
             AnimatedVisibility(visible = uiState.userMessage != null) {
                 uiState.userMessage?.let { msg ->
                     Card(
@@ -454,6 +542,7 @@ fun NotesScreen(
                             Button(
                                 onClick = {
                                     editingNoteKey = null
+                                    editingInitialTab = NoteEditorTab.WRITE
                                     isEditing = true
                                 },
                                 shape = RoundedCornerShape(20.dp),
@@ -528,6 +617,14 @@ fun NotesScreen(
                                     focusManager.clearFocus()
                                     keyboardController?.hide()
                                     editingNoteKey = note.naturalKey
+                                    editingInitialTab = if (note.content.isNotBlank()) NoteEditorTab.PREVIEW else NoteEditorTab.WRITE
+                                    isEditing = true
+                                },
+                                onEdit = {
+                                    focusManager.clearFocus()
+                                    keyboardController?.hide()
+                                    editingNoteKey = note.naturalKey
+                                    editingInitialTab = NoteEditorTab.WRITE
                                     isEditing = true
                                 },
                                 onTogglePin = { viewModel.togglePin(note.naturalKey) },
@@ -592,6 +689,14 @@ fun NotesScreen(
                                     focusManager.clearFocus()
                                     keyboardController?.hide()
                                     editingNoteKey = note.naturalKey
+                                    editingInitialTab = if (note.content.isNotBlank()) NoteEditorTab.PREVIEW else NoteEditorTab.WRITE
+                                    isEditing = true
+                                },
+                                onEdit = {
+                                    focusManager.clearFocus()
+                                    keyboardController?.hide()
+                                    editingNoteKey = note.naturalKey
+                                    editingInitialTab = NoteEditorTab.WRITE
                                     isEditing = true
                                 },
                                 onTogglePin = { viewModel.togglePin(note.naturalKey) },
@@ -624,10 +729,11 @@ fun NotesScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        // Drop the backing file too, so files/attachments/ does not
-                        // accumulate orphans after the note row is removed.
-                        AttachmentStore.delete(context, target.attachmentPath)
-                        viewModel.deleteNote(target.naturalKey)
+                        viewModel.deleteNote(
+                            naturalKey = target.naturalKey,
+                            attachmentPath = target.attachmentPath,
+                            context = context
+                        )
                         deleteNoteKey = null
                     },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
@@ -644,7 +750,7 @@ fun NotesScreen(
     }
 
     if (showProfileSheet) {
-        val enrolledProg = repository.getInitialProgramme() ?: "EEE II"
+        val enrolledProg = repository.getInitialProgramme() ?: ""
         AcademicProfileSheet(
             programme = uiState.userProgramme,
             enrolledProgramme = enrolledProg,
@@ -682,6 +788,7 @@ fun NoteCardItem(
     isDark: Boolean = false,
     modifier: Modifier = Modifier,
     onOpen: () -> Unit,
+    onEdit: () -> Unit = onOpen,
     onTogglePin: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -689,13 +796,16 @@ fun NoteCardItem(
 
     val categoryTag = note.tag ?: "Lecture"
 
-    val scheduleTag = when {
-        note.naturalKey.contains("Friday") -> "📅 Friday"
-        note.naturalKey.contains("Wednesday") -> "🕒 Wednesday"
-        note.naturalKey.contains("Monday") -> "📅 Monday"
-        note.naturalKey.contains("Tuesday") -> "📅 Tuesday"
-        note.naturalKey.contains("Thursday") -> "📅 Thursday"
-        else -> "📅 Scheduled Class"
+    val scheduleTag = remember(note.naturalKey, note.attachedClass) {
+        val classText = note.attachedClass.orEmpty()
+        val combined = "${note.naturalKey}|$classText"
+        val dayMatch = listOf("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
+            .firstOrNull { combined.contains(it, ignoreCase = true) }
+        when {
+            dayMatch != null -> "📅 $dayMatch"
+            classText.isNotBlank() -> "📅 Attached Class"
+            else -> "📝 Course Note"
+        }
     }
 
     Card(
@@ -716,18 +826,21 @@ fun NoteCardItem(
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.weight(1f, fill = false)
                 ) {
                     // Category Badge
                     val tagBg = when (categoryTag) {
                         "Lab Prep" -> if (isDark) Color(0xFF312E81) else Color(0xFFEEF2FF)
                         "Study Guide" -> if (isDark) Color(0xFF1E3A8A) else Color(0xFFEFF6FF)
+                        "Revision", "Exam Prep" -> if (isDark) Color(0xFF064E3B) else Color(0xFFECFDF5)
                         "Assignment" -> if (isDark) Color(0xFF581C87) else Color(0xFFF3E8FF)
                         else -> if (isDark) Color(0xFF1E293B) else Color(0xFFF1F5F9)
                     }
                     val tagText = when (categoryTag) {
                         "Lab Prep" -> if (isDark) Color(0xFFA5B4FC) else Color(0xFF4338CA)
                         "Study Guide" -> if (isDark) Color(0xFF93C5FD) else Color(0xFF1D4ED8)
+                        "Revision", "Exam Prep" -> if (isDark) Color(0xFF6EE7B7) else Color(0xFF047857)
                         "Assignment" -> if (isDark) Color(0xFFD8B4FE) else Color(0xFF7E22CE)
                         else -> if (isDark) Color(0xFFCBD5E1) else Color(0xFF334155)
                     }
@@ -752,7 +865,9 @@ fun NoteCardItem(
                             scheduleTag,
                             fontSize = 11.sp,
                             color = if (isDark) Color(0xFF94A3B8) else Color(0xFF475569),
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -760,12 +875,12 @@ fun NoteCardItem(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(
                         onClick = onTogglePin,
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier.minimumInteractiveComponentSize()
                     ) {
                         Icon(
                             if (note.isPinned) Icons.Default.PushPin else Icons.Outlined.PushPin,
-                            contentDescription = "Pin Note",
-                            tint = if (note.isPinned) Color(0xFF2563EB) else (if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8)),
+                            contentDescription = if (note.isPinned) "Unpin Note" else "Pin Note",
+                            tint = if (note.isPinned) MaterialTheme.colorScheme.primary else (if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8)),
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -773,12 +888,12 @@ fun NoteCardItem(
                     Box {
                         IconButton(
                             onClick = { showMenu = true },
-                            modifier = Modifier.size(28.dp)
+                            modifier = Modifier.minimumInteractiveComponentSize()
                         ) {
                             Icon(
                                 Icons.Default.MoreVert,
                                 contentDescription = "Options",
-                                tint = if (isDark) Color(0xFF94A3B8) else Color(0xFF94A3B8),
+                                tint = Color(0xFF94A3B8),
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -791,7 +906,7 @@ fun NoteCardItem(
                                 text = { Text("Edit Note") },
                                 onClick = {
                                     showMenu = false
-                                    onOpen()
+                                    onEdit()
                                 },
                                 leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
                             )
@@ -927,8 +1042,15 @@ fun NoteCardItem(
                         )
                     }
                 } else {
-                    val relativeTime = remember(note.updatedAt) {
-                        val diff = System.currentTimeMillis() - note.updatedAt
+                    var currentTimeMillis by remember { mutableStateOf(System.currentTimeMillis()) }
+                    LaunchedEffect(note.updatedAt) {
+                        while (true) {
+                            currentTimeMillis = System.currentTimeMillis()
+                            kotlinx.coroutines.delay(60_000L)
+                        }
+                    }
+                    val relativeTime = remember(note.updatedAt, currentTimeMillis) {
+                        val diff = currentTimeMillis - note.updatedAt
                         when {
                             diff < 0 -> "Just now"
                             diff < 60_000L -> "Just now"
@@ -941,7 +1063,7 @@ fun NoteCardItem(
                     Text(
                         text = relativeTime,
                         fontSize = 11.sp,
-                        color = if (isDark) Color(0xFF94A3B8) else Color(0xFF94A3B8)
+                        color = Color(0xFF94A3B8)
                     )
                 }
             }

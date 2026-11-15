@@ -2,8 +2,9 @@ package com.lectures.features.settings
 
 import android.content.Intent
 import android.provider.Settings
-import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import com.lectures.BuildConfig
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -21,13 +22,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.CloudUpload
+import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.NotificationsActive
+import androidx.compose.material.icons.outlined.NotificationsOff
+import androidx.compose.material.icons.outlined.Vibration
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.Saver
-import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import com.lectures.ui.components.FloatingIslandTopBar
 import androidx.compose.ui.Alignment
@@ -36,23 +39,31 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationManagerCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lectures.TimetableApplication
 import com.lectures.core.alarm.AlarmScheduler
 import com.lectures.core.alarm.ReminderScheduler
 import com.lectures.core.alarm.TaskAlarmScheduler
+import com.lectures.core.notification.NotificationHelper
 import com.lectures.features.onboarding.FacultyCatalog
+import com.lectures.features.rooms.UniversityDirectory
 import com.lectures.ui.AccentColorNames
 import com.lectures.ui.AccentColors
 import com.lectures.ui.AppThemeState
 import com.lectures.ui.LocalAppTheme
 import com.lectures.ui.ThemeMode
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 enum class SettingsSubScreen {
     MAIN,
@@ -126,34 +137,29 @@ fun SettingsScreen(
         appTheme.onThemeModeChange(mode)
     }
 
-    val updateInfoSaver: Saver<com.lectures.core.update.AppUpdateInfo?, Any> = listSaver(
-        save = { info ->
-            if (info == null) emptyList()
-            else listOf(
-                info.versionCode,
-                info.versionName,
-                info.releaseNotes,
-                info.downloadUrl,
-                info.fileSizeBytes,
-                info.sha256 ?: "",
-                info.isMandatory,
-                info.publishedAt ?: ""
-            )
-        },
-        restore = { list ->
-            if (list.isEmpty()) null
-            else com.lectures.core.update.AppUpdateInfo(
-                versionCode = list[0] as Int,
-                versionName = list[1] as String,
-                releaseNotes = list[2] as String,
-                downloadUrl = list[3] as String,
-                fileSizeBytes = list[4] as Long,
-                sha256 = (list[5] as String).ifBlank { null },
-                isMandatory = list[6] as Boolean,
-                publishedAt = (list[7] as String).ifBlank { null }
+    val onSelectAccent: (Int) -> Unit = { idx ->
+        viewModel.setSelectedAccent(idx)
+        appTheme.onAccentChange(idx)
+    }
+
+    val exportBackupLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null) {
+            viewModel.exportUserDataBackup(uri)
+        }
+    }
+
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(uiState.successMessage, uiState.errorMessage) {
+        val msg = uiState.errorMessage ?: uiState.successMessage
+        if (msg != null) {
+            snackbarHostState.showSnackbar(
+                message = msg,
+                duration = SnackbarDuration.Short
             )
         }
-    )
+    }
 
     var showResetNotesDialog by rememberSaveable { mutableStateOf(false) }
     var showResetTasksDialog by rememberSaveable { mutableStateOf(false) }
@@ -165,40 +171,6 @@ fun SettingsScreen(
     var showCustomLeadDialog by rememberSaveable { mutableStateOf(false) }
     var customLeadInput by rememberSaveable { mutableStateOf("") }
     var showVersionDetailsDialog by rememberSaveable { mutableStateOf(false) }
-    var availableUpdateInfo by rememberSaveable(stateSaver = updateInfoSaver) {
-        mutableStateOf<com.lectures.core.update.AppUpdateInfo?>(null)
-    }
-    var isCheckingForAppUpdate by remember { mutableStateOf(false) }
-    var showAppUpdateDialog by rememberSaveable { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
-
-    val checkUpdateAction = {
-        if (!isCheckingForAppUpdate) {
-            isCheckingForAppUpdate = true
-            scope.launch {
-                val result = com.lectures.core.update.InAppUpdateManager.checkForUpdate(context, forceRefresh = true)
-                isCheckingForAppUpdate = false
-                result.fold(
-                    onSuccess = { update ->
-                        if (update != null) {
-                            availableUpdateInfo = update
-                            showAppUpdateDialog = true
-                        } else {
-                            Toast.makeText(context, "Lectures is up to date (v${BuildConfig.VERSION_NAME})", Toast.LENGTH_SHORT).show()
-                        }
-                    },
-                    onFailure = { error ->
-                        val msg = if (error is java.net.UnknownHostException || error is java.net.SocketTimeoutException) {
-                            "Unable to check for updates. Please check your internet connection."
-                        } else {
-                            "Check for updates failed: ${error.localizedMessage ?: "Network error"}"
-                        }
-                        Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
-                    }
-                )
-            }
-        }
-    }
 
     // Custom Alarm Lead Time Dialog
     if (showCustomLeadDialog) {
@@ -559,8 +531,18 @@ fun SettingsScreen(
         val meta = uiState.metadata
         val isFinal = uiState.isFinal || uiState.timetableVersion.contains("Final", ignoreCase = true)
         val stageLabel = if (isFinal) "Official Final Release" else "Active Draft ${meta?.draftNumber ?: ""}".trim()
-        val badgeBg = if (isFinal) Color(0xFFDCFCE7) else Color(0xFFFEF3C7)
-        val badgeColor = if (isFinal) Color(0xFF15803D) else Color(0xFFB45309)
+        val badgeBg = when {
+            isFinal && isDark -> Color(0xFF064E3B)
+            isFinal -> Color(0xFFDCFCE7)
+            isDark -> Color(0xFF78350F)
+            else -> Color(0xFFFEF3C7)
+        }
+        val badgeColor = when {
+            isFinal && isDark -> Color(0xFF6EE7B7)
+            isFinal -> Color(0xFF15803D)
+            isDark -> Color(0xFFFCD34D)
+            else -> Color(0xFFB45309)
+        }
 
         AlertDialog(
             onDismissRequest = { showVersionDetailsDialog = false },
@@ -636,7 +618,7 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text("Scheduled Sessions", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("${meta?.totalSessions ?: 1304} Sessions · 90 Rooms", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        Text("${meta?.totalSessions ?: 1304} Sessions · ${UniversityDirectory.ALL_ROOMS.size} Rooms", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -662,15 +644,16 @@ fun SettingsScreen(
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
-            if (onBack != null || currentSubScreen != SettingsSubScreen.MAIN) {
-                FloatingIslandTopBar {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+            FloatingIslandTopBar {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (onBack != null || currentSubScreen != SettingsSubScreen.MAIN) {
                         IconButton(onClick = {
                             if (currentSubScreen != SettingsSubScreen.MAIN) {
                                 currentSubScreen = SettingsSubScreen.MAIN
@@ -685,13 +668,30 @@ fun SettingsScreen(
                             )
                         }
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = if (currentSubScreen == SettingsSubScreen.APPEARANCE) "Appearance & Theme" else "Settings",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
+                    } else {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(MaterialTheme.colorScheme.primary),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Settings,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
                     }
+                    Text(
+                        text = if (currentSubScreen == SettingsSubScreen.APPEARANCE) "Appearance & Theme" else "Settings",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
                 }
             }
         }
@@ -703,7 +703,8 @@ fun SettingsScreen(
                     .padding(padding),
                 uiState = uiState,
                 appTheme = appTheme,
-                onSelectThemeMode = onSelectThemeMode
+                onSelectThemeMode = onSelectThemeMode,
+                onSelectAccent = onSelectAccent
             )
         } else {
             Box(
@@ -720,7 +721,7 @@ fun SettingsScreen(
                 ) {
                     Spacer(modifier = Modifier.height(12.dp))
 
-            // User Feedback: Error Message Banner
+            // User Feedback: Error Message Banner (dark-mode safe)
             AnimatedVisibility(
                 visible = uiState.errorMessage != null,
                 enter = fadeIn(),
@@ -732,48 +733,52 @@ fun SettingsScreen(
                             .fillMaxWidth()
                             .padding(horizontal = 20.dp, vertical = 8.dp),
                         shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2)),
-                        border = BorderStroke(1.dp, Color(0xFFFECACA))
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.45f))
                     ) {
                         Row(
                             modifier = Modifier.padding(14.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Outlined.ErrorOutline, contentDescription = null, tint = Color(0xFFDC2626))
+                            Icon(Icons.Outlined.ErrorOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error)
                             Spacer(modifier = Modifier.width(12.dp))
-                            Text(error, color = Color(0xFF991B1B), fontSize = 13.sp, modifier = Modifier.weight(1f))
+                            Text(error, color = MaterialTheme.colorScheme.onErrorContainer, fontSize = 13.sp, modifier = Modifier.weight(1f))
                             IconButton(onClick = { viewModel.clearFeedbackMessages() }) {
-                                Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = Color(0xFFDC2626), modifier = Modifier.size(16.dp))
+                                Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.size(16.dp))
                             }
                         }
                     }
                 }
             }
 
-            // User Feedback: Success Message Banner
+            // User Feedback: Success Message Banner (dark-mode safe)
             AnimatedVisibility(
                 visible = uiState.successMessage != null,
                 enter = fadeIn(),
                 exit = fadeOut()
             ) {
                 uiState.successMessage?.let { success ->
+                    val successBg = if (isDark) Color(0xFF064E3B) else Color(0xFFF0FDF4)
+                    val successBorder = if (isDark) Color(0xFF059669) else Color(0xFFBBF7D0)
+                    val successContent = if (isDark) Color(0xFFA7F3D0) else Color(0xFF166534)
+                    val successIcon = if (isDark) Color(0xFF34D399) else Color(0xFF16A34A)
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 20.dp, vertical = 8.dp),
                         shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4)),
-                        border = BorderStroke(1.dp, Color(0xFFBBF7D0))
+                        colors = CardDefaults.cardColors(containerColor = successBg),
+                        border = BorderStroke(1.dp, successBorder)
                     ) {
                         Row(
                             modifier = Modifier.padding(14.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = Color(0xFF16A34A))
+                            Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = successIcon)
                             Spacer(modifier = Modifier.width(12.dp))
-                            Text(success, color = Color(0xFF166534), fontSize = 13.sp, modifier = Modifier.weight(1f))
+                            Text(success, color = successContent, fontSize = 13.sp, modifier = Modifier.weight(1f))
                             IconButton(onClick = { viewModel.clearFeedbackMessages() }) {
-                                Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = Color(0xFF16A34A), modifier = Modifier.size(16.dp))
+                                Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = successIcon, modifier = Modifier.size(16.dp))
                             }
                         }
                     }
@@ -823,8 +828,11 @@ fun SettingsScreen(
             // NOTIFICATIONS & ALARMS
             SectionHeader("NOTIFICATIONS & ALARMS")
 
-            val areNotificationsAllowed = remember(context) {
-                NotificationManagerCompat.from(context).areNotificationsEnabled()
+            var areNotificationsAllowed by remember {
+                mutableStateOf(NotificationManagerCompat.from(context).areNotificationsEnabled())
+            }
+            LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+                areNotificationsAllowed = NotificationManagerCompat.from(context).areNotificationsEnabled()
             }
             var isPermissionBannerDismissed by rememberSaveable { mutableStateOf(false) }
 
@@ -919,6 +927,60 @@ fun SettingsScreen(
             }
 
 
+            // Card 1: Master Notifications & Quiet Mode Toggle
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(18.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(
+                                if (uiState.notificationsEnabled) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                else MaterialTheme.colorScheme.surfaceVariant,
+                                CircleShape
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            if (uiState.notificationsEnabled) Icons.Outlined.NotificationsActive else Icons.Outlined.NotificationsOff,
+                            contentDescription = null,
+                            tint = if (uiState.notificationsEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Class & Task Reminders",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = if (uiState.notificationsEnabled) "Active · Lectures, tasks & morning digest" else "Paused (Quiet Mode)",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = uiState.notificationsEnabled,
+                        onCheckedChange = { viewModel.setNotificationsEnabled(it) },
+                        modifier = Modifier.testTag("settings_notifications_switch")
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
             // Card 2: Lecture & Class Alarms Configuration
             Card(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
@@ -931,10 +993,10 @@ fun SettingsScreen(
                         Box(
                             modifier = Modifier
                                 .size(36.dp)
-                                .background(Color(0xFF2563EB).copy(alpha = 0.12f), CircleShape),
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Default.Alarm, contentDescription = null, tint = Color(0xFF2563EB), modifier = Modifier.size(20.dp))
+                            Icon(Icons.Default.Alarm, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                         }
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
@@ -969,12 +1031,13 @@ fun SettingsScreen(
                     ) {
                         classLeadOptions.forEach { (mins, label) ->
                             val isSelected = uiState.classAlarmLeadMinutes == mins
-                            val chipBg = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-                            val chipText = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                            val chipBg = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                            val chipText = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
 
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
+                                    .defaultMinSize(minHeight = 48.dp)
                                     .clip(RoundedCornerShape(10.dp))
                                     .background(chipBg)
                                     .clickable { viewModel.setClassAlarmLeadMinutes(mins) }
@@ -983,7 +1046,7 @@ fun SettingsScreen(
                             ) {
                                 Text(
                                     text = label,
-                                    fontSize = 11.sp,
+                                    fontSize = 12.sp,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                                     color = chipText
                                 )
@@ -991,11 +1054,12 @@ fun SettingsScreen(
                         }
 
                         // Custom Chip
-                        val customChipBg = if (isCustomActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-                        val customChipText = if (isCustomActive) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                        val customChipBg = if (isCustomActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        val customChipText = if (isCustomActive) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                         Box(
                             modifier = Modifier
                                 .weight(1.3f)
+                                .defaultMinSize(minHeight = 48.dp)
                                 .clip(RoundedCornerShape(10.dp))
                                 .background(customChipBg)
                                 .clickable {
@@ -1007,7 +1071,7 @@ fun SettingsScreen(
                         ) {
                             Text(
                                 text = if (isCustomActive) "${uiState.classAlarmLeadMinutes}m" else "Custom",
-                                fontSize = 11.sp,
+                                fontSize = 12.sp,
                                 fontWeight = if (isCustomActive) FontWeight.Bold else FontWeight.Medium,
                                 color = customChipText
                             )
@@ -1016,7 +1080,7 @@ fun SettingsScreen(
 
                     Spacer(modifier = Modifier.height(10.dp))
                     Text(
-                        text = "• Default is 30 minutes before lecture start. Reminders include lecture hall venue, course code, and lecturer.",
+                        text = "• Currently ${uiState.classAlarmLeadMinutes} minutes before lecture start. Reminders include lecture hall venue, course code, and lecturer.",
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                     )
@@ -1025,63 +1089,216 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Card 4: Audio & Haptic Feedback
+            // Card 3: Assignment / Task Deadline Lead Time
             Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .clickable {
-                        val intent = Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS).apply {
-                            putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-                            putExtra(Settings.EXTRA_CHANNEL_ID, com.lectures.core.notification.NotificationHelper.CHANNEL_CLASS_ALARMS)
-                        }
-                        try {
-                            context.startActivity(intent)
-                        } catch (e: Exception) {
-                            val fallback = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
-                                putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-                            }
-                            try {
-                                context.startActivity(fallback)
-                            } catch (_: Exception) {}
-                        }
-                    },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(18.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            "Notification Sounds",
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            "System ringtones, vibration & alert priority",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                Column(modifier = Modifier.padding(18.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.AssignmentTurnedIn, contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(20.dp))
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                "Task & Deadline Lead Time",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                "Default alert window before coursework deadlines",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    val taskLeadOptions = listOf(
+                        1 to "1h",
+                        2 to "2h",
+                        6 to "6h",
+                        12 to "12h",
+                        24 to "1d"
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        taskLeadOptions.forEach { (hours, label) ->
+                            val isSelected = uiState.taskReminderLeadHours == hours
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .defaultMinSize(minHeight = 48.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(
+                                        if (isSelected) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                    )
+                                    .clickable { viewModel.setTaskReminderLeadHours(hours) }
+                                    .padding(vertical = 8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = label,
+                                    fontSize = 12.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Card 4: Audio, Vibration & OS Channels
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                Column(modifier = Modifier.padding(18.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.12f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Outlined.MusicNote, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(20.dp))
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "Sound Profile & Channels",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                "Tap a sound to preview and apply to alert channels",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        TextButton(
+                            onClick = {
+                                val intent = Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS).apply {
+                                    putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                                    putExtra(Settings.EXTRA_CHANNEL_ID, NotificationHelper.CHANNEL_CLASS_ALARMS)
+                                }
+                                try {
+                                    context.startActivity(intent)
+                                } catch (_: Exception) {
+                                    val fallback = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                                        putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                                    }
+                                    try { context.startActivity(fallback) } catch (_: Exception) {}
+                                }
+                            },
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text("OS Channels", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    val soundOptions = listOf("Chime", "Gentle Bell", "Standard", "System Default")
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        soundOptions.forEach { soundName ->
+                            val isSelected = uiState.alarmSound.equals(soundName, ignoreCase = true)
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .defaultMinSize(minHeight = 48.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(
+                                        if (isSelected) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                    )
+                                    .clickable {
+                                        viewModel.setAlarmSound(soundName)
+                                        NotificationHelper.previewSound(context, soundName)
+                                    }
+                                    .padding(horizontal = 4.dp, vertical = 8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = if (soundName == "System Default") "System" else soundName,
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Outlined.Vibration, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Alarm Vibration", fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
+                            Text("Vibrate when class & coursework alerts ring", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(
+                            checked = uiState.alarmVibration,
+                            onCheckedChange = { viewModel.setAlarmVibration(it) },
+                            modifier = Modifier.testTag("settings_vibration_switch")
                         )
                     }
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+
+                    // Alarm Diagnostics Row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(
-                            text = "System",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
-                        )
+                        OutlinedButton(
+                            onClick = { viewModel.sendTestNotification(context) },
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.weight(1f).defaultMinSize(minHeight = 44.dp)
+                        ) {
+                            Icon(Icons.Default.Notifications, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Test Alert", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                        OutlinedButton(
+                            onClick = { viewModel.rescheduleAllAlarms() },
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.weight(1f).defaultMinSize(minHeight = 44.dp)
+                        ) {
+                            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Re-Arm All", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        }
                     }
                 }
             }
@@ -1090,6 +1307,8 @@ fun SettingsScreen(
 
             // APPEARANCE & THEME
             SectionHeader("APPEARANCE & THEME")
+            val activeAccentIdx = uiState.selectedAccent.coerceIn(0, AccentColorNames.lastIndex)
+            val activeAccentName = AccentColorNames[activeAccentIdx]
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1118,25 +1337,33 @@ fun SettingsScreen(
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = when (uiState.themeMode) {
-                                ThemeMode.LIGHT -> "Light · Bright & Crisp"
-                                ThemeMode.DARK -> "Dark · Deep Comfort"
-                                ThemeMode.SYSTEM -> "System · Follows Device"
+                                ThemeMode.LIGHT -> "Light · $activeAccentName"
+                                ThemeMode.DARK -> "Dark · $activeAccentName"
+                                ThemeMode.SYSTEM -> "System · $activeAccentName"
                             },
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                    ) {
-                        Text(
-                            text = if (appTheme.isDark) "Dark" else "Light",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Box(
+                            modifier = Modifier
+                                .size(14.dp)
+                                .clip(CircleShape)
+                                .background(AccentColors[activeAccentIdx])
                         )
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                        ) {
+                            Text(
+                                text = if (appTheme.isDark) "Dark" else "Light",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -1243,23 +1470,37 @@ fun SettingsScreen(
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text(
-                                        "Cloud Sync Active",
+                                        uiState.userDataBackupStatus,
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Medium,
-                                        color = Color(0xFF15803D)
+                                        color = if (isDark) Color(0xFF6EE7B7) else Color(0xFF15803D)
                                     )
                                 }
                             }
-                            Button(
-                                onClick = { handleOpenAccount() },
-                                shape = RoundedCornerShape(10.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                                    contentColor = MaterialTheme.colorScheme.primary
-                                ),
-                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                            ) {
-                                Text("Manage", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                FilledTonalButton(
+                                    onClick = { viewModel.syncUserData() },
+                                    enabled = !uiState.isBackingUpUserData,
+                                    shape = RoundedCornerShape(10.dp),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                                ) {
+                                    if (uiState.isBackingUpUserData) {
+                                        CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
+                                    } else {
+                                        Text("Sync Cloud", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                                Button(
+                                    onClick = { handleOpenAccount() },
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                                        contentColor = MaterialTheme.colorScheme.primary
+                                    ),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                                ) {
+                                    Text("Manage", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
                             }
                         }
                     } else {
@@ -1304,7 +1545,7 @@ fun SettingsScreen(
                                 shape = RoundedCornerShape(10.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = MaterialTheme.colorScheme.primary,
-                                    contentColor = Color.White
+                                    contentColor = MaterialTheme.colorScheme.onPrimary
                                 ),
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                                 modifier = Modifier.testTag("settings_google_signin_btn")
@@ -1347,17 +1588,68 @@ fun SettingsScreen(
                                 text = if (uiState.isCloudSyncActive) "SYNCED" else "OFFLINE-SAFE",
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF16A34A)
+                                color = if (isDark) Color(0xFF6EE7B7) else Color(0xFF15803D)
                             )
                         }
                     }
 
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 14.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Export Local JSON Backup Action
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable {
+                                val stamp = SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date())
+                                exportBackupLauncher.launch("lectures_backup_$stamp.json")
+                            }
+                            .padding(vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(38.dp)
+                                .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Outlined.Download, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.size(20.dp))
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Export Data Backup (JSON)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+                            Text("Save notes, coursework & custom events offline", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant
+                        ) {
+                            Text(
+                                text = "EXPORT",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
 
                     val isFinalRelease = uiState.isFinal || uiState.timetableVersion.contains("Final", ignoreCase = true)
                     val badgeText = uiState.metadata?.displayBadge ?: if (isFinalRelease) "FINAL" else uiState.timetableStatus.uppercase()
-                    val badgeBg = if (isFinalRelease) Color(0xFFDCFCE7) else Color(0xFFFEF3C7)
-                    val badgeColor = if (isFinalRelease) Color(0xFF15803D) else Color(0xFFB45309)
+                    val badgeBg = when {
+                        isFinalRelease && isDark -> Color(0xFF064E3B)
+                        isFinalRelease -> Color(0xFFDCFCE7)
+                        isDark -> Color(0xFF78350F)
+                        else -> Color(0xFFFEF3C7)
+                    }
+                    val badgeColor = when {
+                        isFinalRelease && isDark -> Color(0xFF6EE7B7)
+                        isFinalRelease -> Color(0xFF15803D)
+                        isDark -> Color(0xFFFCD34D)
+                        else -> Color(0xFFB45309)
+                    }
 
                     Row(
                         modifier = Modifier
@@ -1391,16 +1683,17 @@ fun SettingsScreen(
 
                     HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
 
-                    // App Updates & Releases row
+                    // App Updates & Releases row (driven by SettingsViewModel)
+                    val availableUpdate = uiState.availableUpdateInfo
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
                             .clickable {
-                                if (availableUpdateInfo != null) {
-                                    showAppUpdateDialog = true
+                                if (availableUpdate != null) {
+                                    viewModel.openUpdateDialog()
                                 } else {
-                                    checkUpdateAction()
+                                    viewModel.checkForAppUpdate()
                                 }
                             }
                             .padding(vertical = 4.dp),
@@ -1428,22 +1721,22 @@ fun SettingsScreen(
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = if (availableUpdateInfo != null) {
-                                    "Update available: v${availableUpdateInfo?.versionName} · Tap to install"
+                                text = if (availableUpdate != null) {
+                                    "Update available: v${availableUpdate.versionName} · Tap to install"
                                 } else {
                                     "v${BuildConfig.VERSION_NAME} (Build ${BuildConfig.VERSION_CODE}) · Tap to check updates"
                                 },
                                 fontSize = 12.sp,
-                                color = if (availableUpdateInfo != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                color = if (availableUpdate != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        if (isCheckingForAppUpdate) {
+                        if (uiState.isCheckingForAppUpdate) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(18.dp),
                                 strokeWidth = 2.dp,
                                 color = MaterialTheme.colorScheme.primary
                             )
-                        } else if (availableUpdateInfo != null) {
+                        } else if (availableUpdate != null) {
                             Box(
                                 modifier = Modifier
                                     .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp))
@@ -1652,14 +1945,14 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(28.dp))
 
             // DANGER ZONE (Isolated at the bottom)
-            SectionHeader("DANGER ZONE", color = Color(0xFFDC2626))
+            SectionHeader("DANGER ZONE", color = MaterialTheme.colorScheme.error)
             Spacer(modifier = Modifier.height(8.dp))
 
             Card(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, Color(0xFFFECACA)),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.45f)),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -1672,21 +1965,21 @@ fun SettingsScreen(
                             .padding(vertical = 8.dp, horizontal = 6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.DeleteOutline, contentDescription = null, tint = Color(0xFFDC2626), modifier = Modifier.size(24.dp))
+                        Icon(Icons.Default.DeleteOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(24.dp))
                         Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("Reset All Lecture Notes", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = Color(0xFFDC2626))
-                            Text("Permanently delete saved notes and annotations", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Reset All Lecture Notes", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.error)
+                            Text("Permanently delete saved notes and attachments", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Surface(
                             shape = RoundedCornerShape(8.dp),
-                            color = Color(0xFFDC2626).copy(alpha = 0.12f)
+                            color = MaterialTheme.colorScheme.error.copy(alpha = 0.12f)
                         ) {
                             Text(
                                 text = "Reset",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFFDC2626),
+                                color = MaterialTheme.colorScheme.error,
                                 modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
                             )
                         }
@@ -1703,21 +1996,21 @@ fun SettingsScreen(
                             .padding(vertical = 8.dp, horizontal = 6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.AlarmOff, contentDescription = null, tint = Color(0xFFDC2626), modifier = Modifier.size(24.dp))
+                        Icon(Icons.Default.AlarmOff, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(24.dp))
                         Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("Reset Academic Tasks & Alarms", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = Color(0xFFDC2626))
+                            Text("Reset Academic Tasks & Alarms", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.error)
                             Text("Cancel all scheduled alarms and clear coursework", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Surface(
                             shape = RoundedCornerShape(8.dp),
-                            color = Color(0xFFDC2626).copy(alpha = 0.12f)
+                            color = MaterialTheme.colorScheme.error.copy(alpha = 0.12f)
                         ) {
                             Text(
                                 text = "Reset",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFFDC2626),
+                                color = MaterialTheme.colorScheme.error,
                                 modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
                             )
                         }
@@ -1731,10 +2024,11 @@ fun SettingsScreen(
 }
 }
 
-    if (showAppUpdateDialog && availableUpdateInfo != null) {
+    val updateInfoToShow = uiState.availableUpdateInfo
+    if (uiState.showAppUpdateDialog && updateInfoToShow != null) {
         com.lectures.core.update.AppUpdateDialog(
-            updateInfo = availableUpdateInfo!!,
-            onDismiss = { showAppUpdateDialog = false }
+            updateInfo = updateInfoToShow,
+            onDismiss = { viewModel.dismissUpdateDialog() }
         )
     }
 }
@@ -1872,10 +2166,12 @@ private fun AppearanceSettingsView(
     modifier: Modifier = Modifier,
     uiState: SettingsUiState,
     appTheme: AppThemeState,
-    onSelectThemeMode: (ThemeMode) -> Unit
+    onSelectThemeMode: (ThemeMode) -> Unit,
+    onSelectAccent: (Int) -> Unit
 ) {
     Column(
         modifier = modifier
+            .verticalScroll(rememberScrollState())
             .padding(vertical = 16.dp)
     ) {
         SectionHeader("THEME MODE")
@@ -1930,6 +2226,78 @@ private fun AppearanceSettingsView(
                     modifier = Modifier.weight(1f),
                     onClick = { onSelectThemeMode(ThemeMode.SYSTEM) }
                 )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        SectionHeader("ACCENT COLOR")
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Highlight color for buttons, chips, and active indicators",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    AccentColors.forEachIndexed { idx, color ->
+                        val name = AccentColorNames.getOrElse(idx) { "Color $idx" }
+                        val selected = uiState.selectedAccent == idx
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable { onSelectAccent(idx) }
+                                .padding(horizontal = 6.dp, vertical = 6.dp)
+                                .semantics { contentDescription = "Select $name accent color" }
+                                .testTag("accent_swatch_$idx")
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .clip(CircleShape)
+                                    .background(color)
+                                    .then(
+                                        if (selected) {
+                                            Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
+                                        } else {
+                                            Modifier
+                                        }
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (selected) {
+                                    Icon(
+                                        Icons.Default.Check,
+                                        contentDescription = "Selected",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = name,
+                                fontSize = 10.sp,
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
             }
         }
     }

@@ -47,7 +47,7 @@ object NoteTemplatesRepository {
 **Lecturer:** [Lecturer Name] · **Venue:** [Lecture Room]
 
 > [!NOTE] Core Objective
-What is the primary concept or theorem being studied today?
+> What is the primary concept or theorem being studied today?
 
 ## 📌 Key Cues & Definitions
 - **==Core Definition:==** Key definition explained in plain terms.
@@ -139,7 +139,7 @@ ${'$'}${'$'}f(x) = \sum_{k=1}^n a_k \cdot \sin(k \omega t)${'$'}${'$'}
 - [ ] Export final PDF and submit on Moodle
 
 ## 🔗 Reference Links & Papers
-- [University Portal](https://moodle.must.ac.ug)
+- [University Portal](https://portal.university.edu)
 - Source 1: Author, Title, Year
 """.trimIndent()
         ),
