@@ -45,7 +45,7 @@ class TaskActionReceiver : BroadcastReceiver() {
                         } catch (e: Exception) {
                             Log.e(TAG, "Error updating task completion: ${e.message}")
                         } finally {
-                            pendingResult.finish()
+                            pendingResult?.finish()
                         }
                     }
                 }

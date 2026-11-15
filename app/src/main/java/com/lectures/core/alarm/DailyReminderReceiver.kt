@@ -83,7 +83,7 @@ class DailyReminderReceiver : BroadcastReceiver() {
             } catch (e: Exception) {
                 Log.e(TAG, "Error generating daily schedule digest: ${e.message}", e)
             } finally {
-                pendingResult.finish()
+                pendingResult?.finish()
             }
         }
     }

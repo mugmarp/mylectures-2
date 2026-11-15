@@ -536,6 +536,7 @@ fun NotesScreen(
                         }
                     }
                 }
+                }
             } else {
                 LazyColumn(
                     state = listState,

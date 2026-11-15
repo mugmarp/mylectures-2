@@ -6,7 +6,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.animation.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -606,111 +608,118 @@ fun MainScaffold(
                                         .width(Chrome.NavigationRailWidth)
                                         .fillMaxHeight()
                                 ) {
-                                    Column(
+                                    BoxWithConstraints(
                                         modifier = Modifier
-                                            .fillMaxHeight()
+                                            .fillMaxSize()
                                             .statusBarsPadding()
                                             .navigationBarsPadding()
-                                            .padding(vertical = 12.dp),
-                                        horizontalAlignment = Alignment.CenterHorizontally
                                     ) {
-                                        // Header Brand Emblem
-                                        Box(
+                                        Column(
                                             modifier = Modifier
-                                                .size(42.dp)
-                                                .clip(RoundedCornerShape(12.dp))
-                                                .background(primaryBlue),
-                                            contentAlignment = Alignment.Center
+                                                .fillMaxWidth()
+                                                .heightIn(min = maxHeight)
+                                                .verticalScroll(rememberScrollState())
+                                                .padding(vertical = 8.dp),
+                                            horizontalAlignment = Alignment.CenterHorizontally
                                         ) {
-                                            Icon(
-                                                imageVector = Icons.Default.School,
-                                                contentDescription = "Lectures",
-                                                tint = Color.White,
-                                                modifier = Modifier.size(22.dp)
-                                            )
-                                        }
-
-                                        Spacer(modifier = Modifier.height(24.dp))
-
-                                        // Nav Rail Items
-                                        tabs.forEachIndexed { index, tab ->
-                                            val isSelected = selectedTab == index
-                                            val icon = if (isSelected) filledIcons[index] else outlinedIcons[index]
-
+                                            // Header Brand Emblem
                                             Box(
                                                 modifier = Modifier
-                                                    .padding(vertical = 4.dp, horizontal = 6.dp)
-                                                    .fillMaxWidth()
-                                                    .clip(RoundedCornerShape(16.dp))
-                                                    .clickable {
-                                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                                        selectedTab = index
-                                                    }
-                                                    .testTag("nav_${tab.lowercase()}"),
+                                                    .size(40.dp)
+                                                    .clip(RoundedCornerShape(12.dp))
+                                                    .background(primaryBlue),
                                                 contentAlignment = Alignment.Center
                                             ) {
-                                                Column(
-                                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                                    modifier = Modifier.padding(vertical = 8.dp)
+                                                Icon(
+                                                    imageVector = Icons.Default.School,
+                                                    contentDescription = "Lectures",
+                                                    tint = Color.White,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
+
+                                            Spacer(modifier = Modifier.height(14.dp))
+
+                                            // Nav Rail Items
+                                            tabs.forEachIndexed { index, tab ->
+                                                val isSelected = selectedTab == index
+                                                val icon = if (isSelected) filledIcons[index] else outlinedIcons[index]
+
+                                                Box(
+                                                    modifier = Modifier
+                                                        .padding(vertical = 2.dp, horizontal = 6.dp)
+                                                        .fillMaxWidth()
+                                                        .clip(RoundedCornerShape(16.dp))
+                                                        .clickable {
+                                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                            selectedTab = index
+                                                        }
+                                                        .testTag("nav_${tab.lowercase()}"),
+                                                    contentAlignment = Alignment.Center
                                                 ) {
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .size(46.dp, 32.dp)
-                                                            .clip(RoundedCornerShape(16.dp))
-                                                            .background(if (isSelected) primaryBlue.copy(alpha = 0.16f) else Color.Transparent),
-                                                        contentAlignment = Alignment.Center
+                                                    Column(
+                                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                                        modifier = Modifier.padding(vertical = 6.dp)
                                                     ) {
-                                                        Icon(
-                                                            imageVector = icon,
-                                                            contentDescription = tab,
-                                                            tint = if (isSelected) primaryBlue else textMuted,
-                                                            modifier = Modifier.size(22.dp)
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .size(46.dp, 30.dp)
+                                                                .clip(RoundedCornerShape(16.dp))
+                                                                .background(if (isSelected) primaryBlue.copy(alpha = 0.16f) else Color.Transparent),
+                                                            contentAlignment = Alignment.Center
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = icon,
+                                                                contentDescription = tab,
+                                                                tint = if (isSelected) primaryBlue else textMuted,
+                                                                modifier = Modifier.size(21.dp)
+                                                            )
+                                                        }
+                                                        Spacer(modifier = Modifier.height(3.dp))
+                                                        Text(
+                                                            text = tab,
+                                                            fontSize = 11.sp,
+                                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                            color = if (isSelected) primaryBlue else textMuted,
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis
                                                         )
                                                     }
-                                                    Spacer(modifier = Modifier.height(4.dp))
-                                                    Text(
-                                                        text = tab,
-                                                        fontSize = 11.sp,
-                                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                                        color = if (isSelected) primaryBlue else textMuted,
-                                                        maxLines = 1,
-                                                        overflow = TextOverflow.Ellipsis
-                                                    )
                                                 }
                                             }
-                                        }
 
-                                        Spacer(modifier = Modifier.weight(1f))
+                                            Spacer(modifier = Modifier.weight(1f))
 
-                                        // Quick Navigation Shortcuts on Tablet
-                                        IconButton(
-                                            onClick = { currentDestination = MainScreenDestination.VACANT_ROOMS },
-                                            modifier = Modifier
-                                                .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
-                                                .testTag("nav_rail_vacant_rooms")
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.MeetingRoom,
-                                                contentDescription = "Vacant Rooms",
-                                                tint = textMuted,
-                                                modifier = Modifier.size(22.dp)
-                                            )
-                                        }
+                                            // Quick Navigation Shortcuts on Tablet
+                                            IconButton(
+                                                onClick = { currentDestination = MainScreenDestination.VACANT_ROOMS },
+                                                modifier = Modifier
+                                                    .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                                                    .testTag("nav_rail_vacant_rooms")
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.MeetingRoom,
+                                                    contentDescription = "Vacant Rooms",
+                                                    tint = textMuted,
+                                                    modifier = Modifier.size(22.dp)
+                                                )
+                                            }
 
-                                        Spacer(modifier = Modifier.height(8.dp))
+                                            Spacer(modifier = Modifier.height(4.dp))
 
-                                        IconButton(
-                                            onClick = { currentDestination = MainScreenDestination.SETTINGS },
-                                            modifier = Modifier
-                                                .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
-                                                .testTag("nav_rail_settings")
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Settings,
-                                                contentDescription = "Settings",
-                                                tint = textMuted,
-                                                modifier = Modifier.size(22.dp)
-                                            )
+                                            IconButton(
+                                                onClick = { currentDestination = MainScreenDestination.SETTINGS },
+                                                modifier = Modifier
+                                                    .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                                                    .testTag("nav_rail_settings")
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Settings,
+                                                    contentDescription = "Settings",
+                                                    tint = textMuted,
+                                                    modifier = Modifier.size(22.dp)
+                                                )
+                                            }
                                         }
                                     }
                                 }

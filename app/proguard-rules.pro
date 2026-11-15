@@ -61,11 +61,20 @@
 -keep class com.lectures.features.tasks.TaskPriority { *; }
 -keep class com.lectures.features.tasks.TaskCategory { *; }
 
-# --- Alarms, Receivers, and System Services ---
+# --- Alarms, Receivers, Workers, and System Services ---
+-keep class * extends androidx.work.ListenableWorker {
+    public <init>(android.content.Context, androidx.work.WorkerParameters);
+}
 -keep class com.lectures.core.alarm.** { *; }
 -keep class com.lectures.core.notification.** { *; }
 -keep class com.lectures.core.auth.** { *; }
 -keep class com.lectures.core.sync.** { *; }
+-keep class com.lectures.core.update.** { *; }
+-keep class com.lectures.core.network.** { *; }
+-keep class com.lectures.core.analytics.** { *; }
+-keep class com.lectures.core.database.** { *; }
+-keep class com.lectures.features.feedback.** { *; }
+-keep class com.lectures.features.onboarding.** { *; }
 -keep class com.lectures.features.timetable.receiver.** { *; }
 
 # --- Firebase & Google Play Services ---
@@ -74,4 +83,5 @@
 -dontwarn androidx.credentials.**
 -keep class androidx.credentials.** { *; }
 -keep class com.google.android.libraries.identity.googleid.** { *; }
+
 
