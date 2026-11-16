@@ -8,16 +8,20 @@ import android.content.Intent
 import androidx.test.core.app.ApplicationProvider
 import com.lectures.core.alarm.AlarmScheduler
 import com.lectures.core.alarm.BootReceiver
+import com.lectures.core.alarm.ClassAlarmReceiver
 import com.lectures.core.alarm.DailyReminderReceiver
 import com.lectures.core.alarm.ReminderScheduler
 import com.lectures.core.alarm.TaskActionReceiver
 import com.lectures.core.alarm.TaskAlarmScheduler
+import com.lectures.core.alarm.TaskDateTimeParser
 import com.lectures.core.alarm.TaskReminderReceiver
 import com.lectures.core.notification.NotificationHelper
 import com.lectures.features.timetable.domain.Assignment
+import com.lectures.features.timetable.domain.CustomEvent
 import com.lectures.features.timetable.domain.LectureNote
 import com.lectures.features.timetable.domain.TimetableEntry
 import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertNull
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -422,5 +426,306 @@ class Phase3AlarmAndNotificationTest {
             app.etagStore.setAlarmVibration(true)
             shadowOf(app).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
         }
+    }
+
+    @Test
+    fun customEventAlarmSchedulingCancellationAndReceiverValidation() = runBlocking {
+        val eventId = app.database.customEventDao().upsert(
+            CustomEvent(
+                title = "AI Study Group",
+                category = "Study",
+                dayOfWeek = "Wednesday",
+                startTime = "15:00",
+                endTime = "16:30",
+                location = "Library 204",
+                alarmMinutes = 15,
+                repeatWeekly = true
+            )
+        )
+        val event = app.database.customEventDao().getById(eventId)!!
+        val scheduler = AlarmScheduler(app)
+
+        assertTrue(scheduler.scheduleCustomEventAlarm(event))
+        assertEquals(1, shadowAlarmManager.scheduledAlarms.size)
+        val armedIntent = shadowOf(shadowAlarmManager.scheduledAlarms.single().operation).savedIntent
+        assertEquals(AlarmScheduler.ACTION_TRIGGER_CUSTOM_EVENT_ALARM, armedIntent.action)
+        assertEquals(eventId, armedIntent.getLongExtra("CUSTOM_EVENT_ID", -1L))
+
+        // Simulate receiver firing for active repeatWeekly event -> posts notification and re-arms next week
+        shadowAlarmManager.scheduledAlarms.clear()
+        ClassAlarmReceiver().onReceive(app, armedIntent)
+        Thread.sleep(350)
+        assertEquals(1, shadowNotificationManager.allNotifications.size)
+        assertEquals(1, shadowAlarmManager.scheduledAlarms.size)
+
+        // Mark event deleted in Room -> stale broadcast must suppress notification and cancel alarm
+        notificationManager.cancelAll()
+        app.database.customEventDao().softDelete(eventId)
+        ClassAlarmReceiver().onReceive(app, armedIntent)
+        Thread.sleep(350)
+        assertTrue(
+            "Deleted custom event alarm must not notify",
+            shadowNotificationManager.allNotifications.isEmpty()
+        )
+        assertTrue(
+            "Deleted custom event alarm must cancel itself",
+            shadowAlarmManager.scheduledAlarms.isEmpty()
+        )
+    }
+
+    @Test
+    fun cancelClassAlarmAndCustomEventAlarmAlsoCancelPendingSnoozes() {
+        val scheduler = AlarmScheduler(app)
+        val entry = TimetableEntry(
+            natural_key = "BCS I|CSC3301|Thursday|10:00|LT 1",
+            program_group = "BCS I",
+            day = "Thursday",
+            time_slot = "10:00 - 12:00",
+            start_time = "10:00",
+            end_time = "12:00",
+            course_code = "CSC3301",
+            course_title = "Algorithms",
+            session_type = "Lecture",
+            lecturer = "Dr. Lin",
+            room = "LT 1"
+        )
+        assertTrue(scheduler.scheduleClassAlarm(entry, 30))
+        scheduler.scheduleSnoozeAlarm(
+            courseCode = entry.courseCode,
+            courseTitle = entry.courseTitle,
+            room = entry.room ?: "LT 1",
+            startTime = entry.startTime,
+            snoozeMinutes = 10,
+            naturalKey = entry.naturalKey,
+            dayOfWeek = entry.dayOfWeek
+        )
+        assertEquals(2, shadowAlarmManager.scheduledAlarms.size)
+        scheduler.cancelClassAlarm(entry.naturalKey)
+        assertTrue(
+            "Cancelling class alarm must also cancel any pending snooze",
+            shadowAlarmManager.scheduledAlarms.isEmpty()
+        )
+
+        val event = CustomEvent(
+            id = 42L,
+            title = "Team Sync",
+            category = "Club",
+            dayOfWeek = "Friday",
+            startTime = "16:00",
+            endTime = "17:00",
+            location = "Room 5",
+            alarmMinutes = 10
+        )
+        assertTrue(scheduler.scheduleCustomEventAlarm(event))
+        scheduler.scheduleSnoozeAlarm(
+            courseCode = event.category,
+            courseTitle = event.title,
+            room = event.location,
+            startTime = event.startTime,
+            snoozeMinutes = 10,
+            naturalKey = "custom_event_${event.id}",
+            dayOfWeek = event.dayOfWeek,
+            isCustomEvent = true,
+            customEventId = event.id
+        )
+        assertEquals(2, shadowAlarmManager.scheduledAlarms.size)
+        scheduler.cancelCustomEventAlarm(event.id)
+        assertTrue(
+            "Cancelling custom event alarm must also cancel any pending snooze",
+            shadowAlarmManager.scheduledAlarms.isEmpty()
+        )
+    }
+
+    @Test
+    fun taskDateTimeParserDoesNotTriggerImmediateCatchupOnDefaultResync() {
+        val twoHoursFromNow = Calendar.getInstance().apply {
+            add(Calendar.HOUR_OF_DAY, 2)
+        }
+        val formattedDue = java.text.SimpleDateFormat("EEE, MMM d, yyyy HH:mm", java.util.Locale.US)
+            .format(twoHoursFromNow.time)
+
+        // Lead time 180m means trigger window was 1 hour ago, though due date is still in the future
+        val defaultResyncTrigger = TaskDateTimeParser.calculateTriggerTimeMillis(
+            dueDateStr = formattedDue,
+            reminderMinutes = 180,
+            allowImmediateCatchup = false
+        )
+        assertNull(
+            "Bulk resync/boot must return null instead of firing 5s catch-up spam for passed reminder windows",
+            defaultResyncTrigger
+        )
+
+        val now = System.currentTimeMillis()
+        val interactiveSaveTrigger = TaskDateTimeParser.calculateTriggerTimeMillis(
+            dueDateStr = formattedDue,
+            reminderMinutes = 180,
+            allowImmediateCatchup = true
+        )
+        assertNotNull(interactiveSaveTrigger)
+        assertTrue(interactiveSaveTrigger!! in (now + 1_000L)..(now + 10_000L))
+    }
+
+    @Test
+    fun taskReminderReceiverSuppressesStaleCompletedOrDeletedTasksInRoom() = runBlocking {
+        val activeTask = Assignment(
+            id = 941L,
+            title = "Active Paper",
+            courseCode = "CSC4102",
+            dueDate = "Tomorrow • 18:00",
+            reminderMinutes = 30,
+            priority = "High",
+            completed = false
+        )
+        val completedTask = Assignment(
+            id = 942L,
+            title = "Already Finished",
+            courseCode = "CSC4102",
+            dueDate = "Tomorrow • 18:00",
+            reminderMinutes = 30,
+            priority = "Low",
+            completed = true
+        )
+        app.database.assignmentDao().upsert(activeTask)
+        app.database.assignmentDao().upsert(completedTask)
+
+        TaskAlarmScheduler(app).scheduleTaskReminder(activeTask)
+        // Schedule manually for completed id using an active copy first so an alarm sits in AlarmManager
+        TaskAlarmScheduler(app).scheduleTaskReminder(completedTask.copy(completed = false))
+        assertEquals(2, shadowAlarmManager.scheduledAlarms.size)
+
+        val receiver = TaskReminderReceiver()
+
+        // Completed task broadcast must NOT notify and must cancel its leftover alarm
+        receiver.onReceive(app, Intent(app, TaskReminderReceiver::class.java).apply {
+            action = TaskReminderReceiver.ACTION_TRIGGER_TASK_REMINDER
+            putExtra(TaskReminderReceiver.EXTRA_TASK_ID, completedTask.id)
+            putExtra(TaskReminderReceiver.EXTRA_TASK_TITLE, completedTask.title)
+            putExtra("IS_TEST", false)
+        })
+        Thread.sleep(350)
+        assertTrue(shadowNotificationManager.allNotifications.isEmpty())
+        assertEquals(1, shadowAlarmManager.scheduledAlarms.size)
+
+        // Active task broadcast must notify normally
+        receiver.onReceive(app, Intent(app, TaskReminderReceiver::class.java).apply {
+            action = TaskReminderReceiver.ACTION_TRIGGER_TASK_REMINDER
+            putExtra(TaskReminderReceiver.EXTRA_TASK_ID, activeTask.id)
+            putExtra(TaskReminderReceiver.EXTRA_TASK_TITLE, activeTask.title)
+            putExtra("IS_TEST", false)
+        })
+        Thread.sleep(350)
+        assertEquals(1, shadowNotificationManager.allNotifications.size)
+    }
+
+    @Test
+    fun bootReceiverHandlesTimezoneAndExactAlarmPermissionChanges() = runBlocking {
+        app.etagStore.setProgrammePref("BCS I")
+        app.etagStore.setNotificationsEnabled(true)
+        app.database.customEventDao().upsert(
+            CustomEvent(
+                title = "Robotics Lab",
+                category = "Lab",
+                dayOfWeek = "Monday",
+                startTime = "10:00",
+                endTime = "12:00",
+                location = "Eng 101",
+                alarmMinutes = 15,
+                repeatWeekly = true
+            )
+        )
+
+        shadowAlarmManager.scheduledAlarms.clear()
+        BootReceiver().onReceive(app, Intent(Intent.ACTION_TIMEZONE_CHANGED))
+        Thread.sleep(350)
+        assertTrue(
+            "Timezone change must reschedule Daily Digest + active CustomEvent alarms",
+            shadowAlarmManager.scheduledAlarms.size >= 2
+        )
+
+        shadowAlarmManager.scheduledAlarms.clear()
+        BootReceiver().onReceive(app, Intent(AlarmManager.ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED))
+        Thread.sleep(350)
+        assertTrue(
+            "Exact alarm permission grant change must trigger force resync",
+            shadowAlarmManager.scheduledAlarms.size >= 2
+        )
+    }
+
+    @Test
+    fun dailyReminderReceiverIncludesSortedClassesCustomEventsAndDueTasks() = runBlocking {
+        val todayDayName = java.text.SimpleDateFormat("EEEE", java.util.Locale.US)
+            .format(java.util.Date())
+        app.etagStore.setProgrammePref("BCS III")
+        app.etagStore.setNotificationsEnabled(true)
+
+        // Seed afternoon class BEFORE morning class to verify chronological sorting
+        app.database.timetableDao().upsertEntries(
+            listOf(
+                TimetableEntry(
+                    natural_key = "BCS III|CSC301|${todayDayName}|14:00|LT2",
+                    program_group = "BCS III",
+                    day = todayDayName,
+                    time_slot = "14:00 - 16:00",
+                    start_time = "14:00",
+                    end_time = "16:00",
+                    course_code = "CSC301",
+                    course_title = "Afternoon Graphics",
+                    session_type = "Lecture",
+                    lecturer = "Dr. Y",
+                    room = "LT2"
+                ),
+                TimetableEntry(
+                    natural_key = "BCS III|CSC302|${todayDayName}|08:00|LT1",
+                    program_group = "BCS III",
+                    day = todayDayName,
+                    time_slot = "08:00 - 10:00",
+                    start_time = "08:00",
+                    end_time = "10:00",
+                    course_code = "CSC302",
+                    course_title = "Morning AI",
+                    session_type = "Lecture",
+                    lecturer = "Dr. X",
+                    room = "LT1"
+                )
+            )
+        )
+        app.database.customEventDao().upsert(
+            CustomEvent(
+                title = "Mentor Meeting",
+                category = "Activity",
+                dayOfWeek = todayDayName,
+                startTime = "11:00",
+                endTime = "11:30",
+                location = "Office 3"
+            )
+        )
+        app.database.assignmentDao().upsert(
+            Assignment(
+                id = 990L,
+                title = "Capstone Proposal",
+                courseCode = "CSC399",
+                dueDate = "Today • 17:00",
+                priority = "High",
+                completed = false
+            )
+        )
+
+        DailyReminderReceiver().onReceive(
+            app,
+            Intent(app, DailyReminderReceiver::class.java).apply {
+                action = DailyReminderReceiver.ACTION_TRIGGER_DAILY_DIGEST
+                putExtra("IS_TEST", true)
+            }
+        )
+        Thread.sleep(400)
+
+        val notif = shadowNotificationManager.allNotifications.single()
+        val bigText = notif.extras.getCharSequence(android.app.Notification.EXTRA_BIG_TEXT)?.toString()
+            ?: notif.extras.getCharSequence(android.app.Notification.EXTRA_TEXT)?.toString().orEmpty()
+        assertTrue("Digest should contain morning CSC302", bigText.contains("CSC302"))
+        assertTrue("Digest should contain afternoon CSC301", bigText.contains("CSC301"))
+        assertTrue("Morning 08:00 must sort before afternoon 14:00", bigText.indexOf("CSC302") < bigText.indexOf("CSC301"))
+        assertTrue("Digest should include today's custom event", bigText.contains("Mentor Meeting"))
+        assertTrue("Digest should include task due today", bigText.contains("Capstone Proposal"))
     }
 }

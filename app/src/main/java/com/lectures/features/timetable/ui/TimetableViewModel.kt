@@ -11,11 +11,13 @@ import com.lectures.features.timetable.domain.Assignment
 import com.lectures.features.timetable.domain.CustomEvent
 import com.lectures.features.timetable.domain.LectureNote
 import com.lectures.features.timetable.domain.TimetableEntry
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class TimetableUiState(
     val isLoading: Boolean = true,
@@ -68,6 +70,9 @@ class TimetableViewModel(
     }
 
     private var scheduleJob: Job? = null
+
+    @Volatile
+    private var lastArmedScheduleSignature: String? = null
 
     init {
         viewModelScope.launch {
@@ -135,19 +140,34 @@ class TimetableViewModel(
                     entries = entries,
                     isLoading = false
                 )
-                // When loading the official enrolled timetable, ensure recurring class reminders are active
-                // without overwriting custom per-note alarm lead times.
-                if (!_uiState.value.isPeeking && entries.isNotEmpty() && repository.etagStore.isNotificationsEnabled()) {
-                    val leadMinutes = repository.etagStore.getClassAlarmLeadMinutes()
-                    val customNoteMap = repository.getNotesWithAlarms()
-                        .mapNotNull { note -> note.alarmMinutes?.let { note.naturalKey to it } }
-                        .toMap()
-                    classAlarmScheduler?.scheduleAllEnrolledClassAlarms(
-                        classes = entries,
-                        leadMinutes = leadMinutes,
-                        isAlarm = false,
-                        customAlarmNotes = customNoteMap
-                    )
+                // Reconcile enrolled class reminders off the main thread only when the active schedule,
+                // lead preference, or note overrides actually change (avoids main-thread AlarmManager IPC churn).
+                if (!_uiState.value.isPeeking && entries.isNotEmpty() && classAlarmScheduler != null) {
+                    withContext(Dispatchers.IO) {
+                        if (!repository.etagStore.isNotificationsEnabled()) return@withContext
+                        val leadMinutes = repository.etagStore.getClassAlarmLeadMinutes()
+                        val customNoteMap = repository.getNotesWithAlarms()
+                            .mapNotNull { note -> note.alarmMinutes?.let { note.naturalKey to it } }
+                            .toMap()
+                        val signature = buildString {
+                            append(progToLoad).append('|').append(leadMinutes).append('|')
+                            entries.forEach {
+                                append(it.naturalKey).append('@').append(it.dayOfWeek).append('@').append(it.startTime).append(';')
+                            }
+                            customNoteMap.entries.sortedBy { it.key }.forEach {
+                                append(it.key).append('=').append(it.value).append(';')
+                            }
+                        }
+                        if (signature != lastArmedScheduleSignature) {
+                            classAlarmScheduler.scheduleAllEnrolledClassAlarms(
+                                classes = entries,
+                                leadMinutes = leadMinutes,
+                                isAlarm = false,
+                                customAlarmNotes = customNoteMap
+                            )
+                            lastArmedScheduleSignature = signature
+                        }
+                    }
                 }
             }
         }
@@ -203,10 +223,13 @@ class TimetableViewModel(
         val clean = newProgramme.trim()
         if (clean.isEmpty()) return
         viewModelScope.launch {
-            // Cancel previous programme alarms cleanly
+            // Cancel previous programme alarms cleanly on IO thread
             val previousEntries = _uiState.value.entries
-            if (previousEntries.isNotEmpty()) {
-                classAlarmScheduler?.cancelAllEnrolledClassAlarms(previousEntries)
+            withContext(Dispatchers.IO) {
+                lastArmedScheduleSignature = null
+                if (previousEntries.isNotEmpty()) {
+                    classAlarmScheduler?.cancelAllEnrolledClassAlarms(previousEntries)
+                }
             }
             repository.setProgrammePref(clean)
             _uiState.value = _uiState.value.copy(
@@ -222,13 +245,34 @@ class TimetableViewModel(
 
     fun addCustomEvent(event: CustomEvent) {
         viewModelScope.launch {
-            repository.saveCustomEvent(event)
+            val savedId = repository.saveCustomEvent(event)
+            val resolvedId = if (event.id > 0L) event.id else savedId
+            val savedEvent = event.copy(id = resolvedId)
+            val alarmMins = savedEvent.alarmMinutes
+            if (alarmMins != null && resolvedId > 0L) {
+                if (repository.etagStore.isNotificationsEnabled()) {
+                    val ok = classAlarmScheduler?.scheduleCustomEventAlarm(savedEvent) ?: false
+                    _userMessage.value = if (ok) {
+                        "Activity saved • Alert set (${alarmMins}m before)"
+                    } else {
+                        "Activity saved"
+                    }
+                } else {
+                    classAlarmScheduler?.cancelCustomEventAlarm(resolvedId)
+                    _userMessage.value = "Activity saved (Quiet Mode active — alert paused)"
+                }
+            } else if (resolvedId > 0L) {
+                classAlarmScheduler?.cancelCustomEventAlarm(resolvedId)
+                _userMessage.value = if (event.id > 0L) "Activity updated" else "Activity added to schedule"
+            }
         }
     }
 
     fun deleteCustomEvent(id: Long) {
         viewModelScope.launch {
+            classAlarmScheduler?.cancelCustomEventAlarm(id)
             repository.deleteCustomEvent(id)
+            _userMessage.value = "Activity removed"
         }
     }
 

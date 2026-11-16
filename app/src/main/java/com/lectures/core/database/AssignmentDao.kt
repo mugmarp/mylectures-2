@@ -11,6 +11,12 @@ interface AssignmentDao {
     @Query("SELECT * FROM assignments WHERE isDeleted = 0 ORDER BY completed ASC, id DESC")
     fun getAll(): Flow<List<Assignment>>
 
+    @Query("SELECT * FROM assignments WHERE isDeleted = 0 ORDER BY completed ASC, id DESC")
+    suspend fun getAllActiveSync(): List<Assignment>
+
+    @Query("SELECT * FROM assignments WHERE id = :id LIMIT 1")
+    suspend fun getById(id: Long): Assignment?
+
     @Query("SELECT * FROM assignments WHERE completed = :completed AND isDeleted = 0 ORDER BY id DESC")
     fun getByCompletion(completed: Boolean): Flow<List<Assignment>>
 

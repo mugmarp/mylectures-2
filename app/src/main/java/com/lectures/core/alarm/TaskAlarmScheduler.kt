@@ -17,28 +17,34 @@ class TaskAlarmScheduler(private val context: Context) {
     private fun taskAlarmUri(taskId: Long, isTest: Boolean): Uri =
         Uri.parse(if (isTest) "lectures://alarm/task_test/$taskId" else "lectures://alarm/task/$taskId")
 
-    private fun taskRequestCode(taskId: Long, isTest: Boolean): Int =
-        if (isTest) ((taskId + 500_000_000L) % Int.MAX_VALUE).toInt()
-        else (taskId % Int.MAX_VALUE).toInt()
+    private fun taskRequestCode(taskId: Long, isTest: Boolean): Int {
+        val positiveId = kotlin.math.abs(if (taskId == Long.MIN_VALUE) 1L else taskId)
+        val base = if (isTest) 400_000_000 else 100_000_000
+        return base + (positiveId % 200_000_000L).toInt()
+    }
 
     /**
      * Schedules an AlarmManager alarm for an upcoming academic task reminder.
      * Returns true if scheduled, false if skipped (e.g. completed, in past, or invalid time).
      */
-    fun scheduleTaskReminder(task: Assignment): Boolean {
+    fun scheduleTaskReminder(task: Assignment, allowImmediateCatchup: Boolean = false): Boolean {
         if (alarmManager == null) {
             Log.e(TAG, "AlarmManager service not available")
             return false
         }
 
-        if (task.completed) {
+        if (task.completed || task.isDeleted || task.reminderMinutes == null) {
             cancelTaskReminder(task.id)
             return false
         }
 
-        val triggerAtMillis = TaskDateTimeParser.calculateTriggerTimeMillis(task.dueDate, task.reminderMinutes)
+        val triggerAtMillis = TaskDateTimeParser.calculateTriggerTimeMillis(
+            dueDateStr = task.dueDate,
+            reminderMinutes = task.reminderMinutes,
+            allowImmediateCatchup = allowImmediateCatchup
+        )
         if (triggerAtMillis == null || triggerAtMillis <= System.currentTimeMillis()) {
-            Log.d(TAG, "Task ${task.id} due date has already passed or cannot be resolved: ${task.dueDate}")
+            Log.d(TAG, "Task ${task.id} due/reminder window has already passed or cannot be resolved: ${task.dueDate}")
             return false
         }
 

@@ -215,18 +215,12 @@ fun MainScaffold(
                     scope.launch {
                         repository.setProgrammePref(chosenGroup)
                         repository.setOnboardingCompleted(true)
-                        if (repository.etagStore.isNotificationsEnabled()) {
-                            com.lectures.core.alarm.ReminderScheduler(context).scheduleDailyReminder()
-                            val enrolledClasses = repository.getLocalSchedule(chosenGroup).firstOrNull() ?: emptyList()
-                            if (enrolledClasses.isNotEmpty()) {
-                                val leadMinutes = repository.etagStore.getClassAlarmLeadMinutes()
-                                com.lectures.core.alarm.AlarmScheduler(context).scheduleAllEnrolledClassAlarms(
-                                    classes = enrolledClasses,
-                                    leadMinutes = leadMinutes,
-                                    isAlarm = false
-                                )
-                            }
-                        }
+                        com.lectures.core.alarm.AlarmSyncCoordinator.resyncAll(
+                            context = context,
+                            repository = repository,
+                            force = true,
+                            reason = "onboarding_group_selected"
+                        )
                         navState = AppNavState.MainApp
                     }
                 },
@@ -236,7 +230,7 @@ fun MainScaffold(
         is AppNavState.MainApp -> {
             var currentDestination by rememberSaveable { mutableStateOf(MainScreenDestination.TABS) }
 
-            val inAppStore = remember(context) { InAppNotificationStore(context) }
+            val inAppStore = remember(context) { InAppNotificationStore.getInstance(context) }
             var activeForegroundAlert by remember { mutableStateOf<InAppNotificationItem?>(null) }
 
             LaunchedEffect(Unit) {
@@ -372,28 +366,33 @@ fun MainScaffold(
                                     label = "MainTabsTransition"
                                 ) { tabIndex ->
                                     when (tabIndex) {
-                                        0 -> TimetableRoute(
-                                            onSettingsClick = { currentDestination = MainScreenDestination.SETTINGS },
-                                            onNavigateToNotes = { selectedTab = 2 },
-                                            onNavigateToCalendar = { selectedTab = 1 },
-                                            onNavigateToTasks = { selectedTab = 3 },
-                                            onReconfigureAcademicProfile = {
-                                                currentDestination = MainScreenDestination.SETTINGS
-                                                navState = AppNavState.FacultySelection
-                                            },
-                                            onOpenVacantRooms = { currentDestination = MainScreenDestination.VACANT_ROOMS }
-                                        )
-                                        1 -> CalendarScreen(
-                                            onBack = null,
-                                            onSettingsClick = { currentDestination = MainScreenDestination.SETTINGS },
-                                            onReconfigureAcademicProfile = {
-                                                currentDestination = MainScreenDestination.SETTINGS
-                                                navState = AppNavState.FacultySelection
-                                            },
-                                            onNavigateToTimetable = { selectedTab = 0 },
-                                            onPeekProgramme = onPeekProgrammeAndGoToTimetable,
-                                            onSetOfficialProgramme = onSetOfficialProgrammeAndGoToTimetable
-                                        )
+                                        0 -> com.lectures.core.util.ProvideLiveClockPulse {
+                                            TimetableRoute(
+                                                onSettingsClick = { currentDestination = MainScreenDestination.SETTINGS },
+                                                onNavigateToNotes = { selectedTab = 2 },
+                                                onNavigateToCalendar = { selectedTab = 1 },
+                                                onNavigateToTasks = { selectedTab = 3 },
+                                                onReconfigureAcademicProfile = {
+                                                    currentDestination = MainScreenDestination.SETTINGS
+                                                    navState = AppNavState.FacultySelection
+                                                },
+                                                onOpenVacantRooms = { currentDestination = MainScreenDestination.VACANT_ROOMS },
+                                                sharedViewModel = timetableViewModel
+                                            )
+                                        }
+                                        1 -> com.lectures.core.util.ProvideLiveClockPulse {
+                                            CalendarScreen(
+                                                onBack = null,
+                                                onSettingsClick = { currentDestination = MainScreenDestination.SETTINGS },
+                                                onReconfigureAcademicProfile = {
+                                                    currentDestination = MainScreenDestination.SETTINGS
+                                                    navState = AppNavState.FacultySelection
+                                                },
+                                                onNavigateToTimetable = { selectedTab = 0 },
+                                                onPeekProgramme = onPeekProgrammeAndGoToTimetable,
+                                                onSetOfficialProgramme = onSetOfficialProgrammeAndGoToTimetable
+                                            )
+                                        }
                                         2 -> NotesScreen(
                                             onBack = null,
                                             onSettingsClick = { currentDestination = MainScreenDestination.SETTINGS },

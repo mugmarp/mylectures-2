@@ -54,10 +54,33 @@ object NotificationHelper {
         }
     }
 
+    fun taskNotificationId(taskId: Long): Int {
+        val positive = kotlin.math.abs(if (taskId == Long.MIN_VALUE) 1L else taskId)
+        return 200_000_000 + (positive % 200_000_000L).toInt()
+    }
+
     private fun stablePositiveId(key: String): Int {
         val h = key.hashCode()
         val positive = if (h == Int.MIN_VALUE) 1 else kotlin.math.abs(h)
-        return (positive % 100_000_000).coerceAtLeast(1000)
+        return 1_000_000 + (positive % 199_000_000)
+    }
+
+    private fun isVibrationEnabled(context: Context): Boolean {
+        return context.applicationContext
+            .getSharedPreferences("mustime_settings", Context.MODE_PRIVATE)
+            .getBoolean("alarm_vibration", true)
+    }
+
+    private fun ensureNotificationChannels(context: Context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+            if (nm.getNotificationChannel(CHANNEL_CLASS_ALARMS) != null &&
+                nm.getNotificationChannel(CHANNEL_TIMETABLE_UPDATES) != null
+            ) {
+                return
+            }
+        }
+        createNotificationChannels(context)
     }
 
     /**
@@ -68,7 +91,7 @@ object NotificationHelper {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
                 ?: return
-            val vibrateEnabled = com.lectures.features.timetable.data.ETagStore(context).isAlarmVibrationEnabled()
+            val vibrateEnabled = isVibrationEnabled(context)
 
             // Channel 1: Academic Tasks & Coursework Deadlines
             val taskChannel = NotificationChannel(
@@ -170,10 +193,10 @@ object NotificationHelper {
         dueDate: String,
         priority: String
     ): Boolean {
-        createNotificationChannels(context)
+        ensureNotificationChannels(context)
 
-        val notificationId = (taskId % Int.MAX_VALUE).toInt()
-        val vibrateEnabled = com.lectures.features.timetable.data.ETagStore(context).isAlarmVibrationEnabled()
+        val notificationId = taskNotificationId(taskId)
+        val vibrateEnabled = isVibrationEnabled(context)
 
         // 1. Content Intent: Launch app into Tasks tab
         val openAppIntent = Intent(context, MainActivity::class.java).apply {
@@ -281,11 +304,11 @@ object NotificationHelper {
         naturalKey: String? = null,
         dayOfWeek: String? = null
     ): Boolean {
-        createNotificationChannels(context)
+        ensureNotificationChannels(context)
 
         val idSeed = "reminder_${naturalKey ?: "$courseCode|$room|$startTime|${dayOfWeek.orEmpty()}"}"
         val notificationId = stablePositiveId(idSeed)
-        val vibrateEnabled = com.lectures.features.timetable.data.ETagStore(context).isAlarmVibrationEnabled()
+        val vibrateEnabled = isVibrationEnabled(context)
 
         val openAppIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -373,13 +396,15 @@ object NotificationHelper {
         lecturer: String = "",
         naturalKey: String? = null,
         dayOfWeek: String? = null,
-        isSnoozed: Boolean = false
+        isSnoozed: Boolean = false,
+        isCustomEvent: Boolean = false,
+        customEventId: Long = -1L
     ): Boolean {
-        createNotificationChannels(context)
+        ensureNotificationChannels(context)
 
         val idSeed = "alarm_${naturalKey ?: "$courseCode|$room|$startTime|${dayOfWeek.orEmpty()}"}"
         val notificationId = stablePositiveId(idSeed)
-        val vibrateEnabled = com.lectures.features.timetable.data.ETagStore(context).isAlarmVibrationEnabled()
+        val vibrateEnabled = isVibrationEnabled(context)
 
         val openAppIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -415,6 +440,8 @@ object NotificationHelper {
             putExtra("START_TIME", startTime)
             putExtra("MINUTES_BEFORE", minutesBefore)
             putExtra("LECTURER", lecturer)
+            putExtra("IS_CUSTOM_EVENT", isCustomEvent)
+            if (customEventId > 0L) putExtra("CUSTOM_EVENT_ID", customEventId)
             naturalKey?.let { putExtra("NATURAL_KEY", it) }
             dayOfWeek?.let { putExtra("DAY_OF_WEEK", it) }
         }
@@ -425,7 +452,12 @@ object NotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val title = if (isSnoozed) "Snoozed Class Alert" else "Class Alert"
+        val title = when {
+            isCustomEvent && isSnoozed -> "Snoozed Activity Alert"
+            isCustomEvent -> "Activity Alert"
+            isSnoozed -> "Snoozed Class Alert"
+            else -> "Class Alert"
+        }
         val headerSubject = if (courseTitle.isNotBlank() && courseTitle != courseCode) {
             "$courseTitle - $courseCode"
         } else {
@@ -475,14 +507,17 @@ object NotificationHelper {
     }
 
     /**
-     * Builds and displays a daily morning digest summarizing the student's scheduled lectures for today.
+     * Builds and displays a daily morning digest summarizing the student's scheduled lectures,
+     * personal activities, and deadlines due today.
      */
     fun showDailyDigestNotification(
         context: Context,
         dayOfWeek: String,
-        classes: List<com.lectures.features.timetable.domain.TimetableEntry>
+        classes: List<com.lectures.features.timetable.domain.TimetableEntry>,
+        customEvents: List<com.lectures.features.timetable.domain.CustomEvent> = emptyList(),
+        dueTodayTasks: List<com.lectures.features.timetable.domain.Assignment> = emptyList()
     ): Boolean {
-        createNotificationChannels(context)
+        ensureNotificationChannels(context)
 
         val notificationId = 88002
 
@@ -502,25 +537,59 @@ object NotificationHelper {
         val snippet: String
         val bigText: String
 
-        if (classes.isEmpty()) {
+        if (classes.isEmpty() && customEvents.isEmpty() && dueTodayTasks.isEmpty()) {
             snippet = "No lectures scheduled for today. Great day for coursework!"
             bigText = buildString {
                 append("Good morning!\n\n")
-                append("You have no scheduled lectures or practical labs today ($dayOfWeek).\n\n")
+                append("You have no scheduled lectures, practical labs, or personal activities today ($dayOfWeek).\n\n")
                 append("Use this time to review lecture notes, work on assignments, or prepare ahead.")
             }
         } else {
-            val first = classes.first()
-            val venue = if (!first.room.isNullOrBlank()) " in ${first.room}" else ""
-            snippet = "${classes.size} class${if (classes.size > 1) "es" else ""} today. First: ${first.courseCode} at ${first.startTime}$venue"
+            val summaryParts = buildList {
+                if (classes.isNotEmpty()) add("${classes.size} class${if (classes.size > 1) "es" else ""}")
+                if (customEvents.isNotEmpty()) add("${customEvents.size} activit${if (customEvents.size > 1) "ies" else "y"}")
+                if (dueTodayTasks.isNotEmpty()) add("${dueTodayTasks.size} due")
+            }.joinToString(" • ")
+
+            val firstClass = classes.firstOrNull()
+            val firstEvent = customEvents.firstOrNull()
+            val firstLead = when {
+                firstClass != null -> {
+                    val venue = if (!firstClass.room.isNullOrBlank()) " in ${firstClass.room}" else ""
+                    "First: ${firstClass.courseCode} at ${firstClass.startTime}$venue"
+                }
+                firstEvent != null -> "First: ${firstEvent.title} at ${firstEvent.startTime}"
+                else -> "Top deadline: ${dueTodayTasks.first().title}"
+            }
+            snippet = "$summaryParts today. $firstLead"
+
             bigText = buildString {
-                append("Good morning! You have ${classes.size} class${if (classes.size > 1) "es" else ""} scheduled for today:\n\n")
-                classes.forEachIndexed { index, entry ->
-                    val roomText = if (!entry.room.isNullOrBlank()) " @ ${entry.room}" else ""
-                    val timeRange = if (entry.endTime.isNotBlank()) "${entry.startTime} – ${entry.endTime}" else entry.startTime
-                    append("${index + 1}. ${entry.courseCode} ($timeRange)$roomText\n")
-                    if (entry.courseTitle.isNotBlank() && entry.courseTitle != entry.courseCode) {
-                        append("   ${entry.courseTitle}\n")
+                append("Good morning! Overview for $dayOfWeek ($summaryParts):\n\n")
+                if (classes.isNotEmpty()) {
+                    append("Lectures & Labs:\n")
+                    classes.forEachIndexed { index, entry ->
+                        val roomText = if (!entry.room.isNullOrBlank()) " @ ${entry.room}" else ""
+                        val timeRange = if (entry.endTime.isNotBlank()) "${entry.startTime} – ${entry.endTime}" else entry.startTime
+                        append("${index + 1}. ${entry.courseCode} ($timeRange)$roomText\n")
+                        if (entry.courseTitle.isNotBlank() && entry.courseTitle != entry.courseCode) {
+                            append("   ${entry.courseTitle}\n")
+                        }
+                    }
+                }
+                if (customEvents.isNotEmpty()) {
+                    if (classes.isNotEmpty()) append("\n")
+                    append("Personal Activities:\n")
+                    customEvents.forEachIndexed { index, event ->
+                        val venue = if (event.location.isNotBlank()) " @ ${event.location}" else ""
+                        append("${index + 1}. ${event.title} (${event.startTime} – ${event.endTime})$venue\n")
+                    }
+                }
+                if (dueTodayTasks.isNotEmpty()) {
+                    if (classes.isNotEmpty() || customEvents.isNotEmpty()) append("\n")
+                    append("Deadlines Due Today:\n")
+                    dueTodayTasks.forEachIndexed { index, task ->
+                        val coursePrefix = if (task.courseCode.isNotBlank()) "[${task.courseCode}] " else ""
+                        append("${index + 1}. $coursePrefix${task.title}\n")
                     }
                 }
                 append("\nHave a productive academic day!")
@@ -541,7 +610,7 @@ object NotificationHelper {
         return try {
             val posted = postNotificationIfPermitted(context, notificationId, builder.build())
             if (posted) {
-                Log.d(TAG, "Daily digest notification posted for $dayOfWeek with ${classes.size} classes")
+                Log.d(TAG, "Daily digest notification posted for $dayOfWeek with ${classes.size} classes, ${customEvents.size} events, ${dueTodayTasks.size} tasks")
                 InAppNotificationStore.getInstance(context).recordNotification(
                     type = NotificationItemType.DAILY_DIGEST,
                     title = title,
@@ -564,7 +633,7 @@ object NotificationHelper {
         versionLabel: String,
         releaseNotes: String? = null
     ): Boolean {
-        createNotificationChannels(context)
+        ensureNotificationChannels(context)
 
         val notificationId = 998877
 
@@ -627,7 +696,7 @@ object NotificationHelper {
         context: Context,
         updateInfo: com.lectures.core.update.AppUpdateInfo
     ): Boolean {
-        createNotificationChannels(context)
+        ensureNotificationChannels(context)
 
         val notificationId = 998899
 

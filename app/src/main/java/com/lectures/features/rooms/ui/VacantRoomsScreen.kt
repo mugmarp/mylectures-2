@@ -50,6 +50,8 @@ import com.lectures.ui.components.FloorIndicatorBadge
 import com.lectures.ui.components.DedicatedDayPickerDialog
 import com.lectures.ui.components.DedicatedTimePickerDialog
 import com.lectures.ui.components.FloatingIslandTopBar
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import java.util.Calendar
 
 /**
@@ -94,32 +96,17 @@ fun VacantRoomsScreen(
     var queryTime by rememberSaveable { mutableStateOf(initialTimeStr) }
     var isLiveNow by rememberSaveable { mutableStateOf(true) }
 
-    // Immediate re-sync when returning to foreground from Home screen
+    // Lifecycle-gated minute ticker when isLiveNow is active: stops in background (ON_STOP) and immediately syncs on foreground return
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
-        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
-            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME || event == androidx.lifecycle.Lifecycle.Event.ON_START) {
-                if (isLiveNow) {
+    LaunchedEffect(lifecycleOwner, isLiveNow) {
+        if (isLiveNow) {
+            lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                while (true) {
                     val nowCal = Calendar.getInstance()
                     queryDay = TimeUtil.todayName()
                     queryTime = "%02d:%02d".format(nowCal.get(Calendar.HOUR_OF_DAY), nowCal.get(Calendar.MINUTE))
+                    kotlinx.coroutines.delay(60_000L)
                 }
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
-    }
-
-    // Live continuous minute ticker when isLiveNow is active
-    LaunchedEffect(isLiveNow) {
-        if (isLiveNow) {
-            while (true) {
-                kotlinx.coroutines.delay(60_000L)
-                val nowCal = Calendar.getInstance()
-                queryDay = TimeUtil.todayName()
-                queryTime = "%02d:%02d".format(nowCal.get(Calendar.HOUR_OF_DAY), nowCal.get(Calendar.MINUTE))
             }
         }
     }

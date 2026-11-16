@@ -6,8 +6,11 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import com.lectures.TimetableApplication
+import com.lectures.core.notification.NotificationHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 
@@ -25,9 +28,9 @@ class TaskActionReceiver : BroadcastReceiver() {
             Log.d(TAG, "Marking Task #$taskId as completed from notification action")
 
             if (taskId != -1L) {
-                // Dismiss notification
+                // Dismiss notification using partitioned task notification ID
                 val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
-                val notificationId = (taskId % Int.MAX_VALUE).toInt()
+                val notificationId = NotificationHelper.taskNotificationId(taskId)
                 notificationManager?.cancel(notificationId)
 
                 // Update database
@@ -35,7 +38,8 @@ class TaskActionReceiver : BroadcastReceiver() {
                 val repository = app?.repository
                 if (repository != null) {
                     val pendingResult = goAsync()
-                    CoroutineScope(Dispatchers.IO).launch {
+                    val receiverScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+                    receiverScope.launch {
                         try {
                             withTimeout(8_500L) {
                                 repository.updateAssignmentCompletion(taskId, true)
@@ -45,6 +49,7 @@ class TaskActionReceiver : BroadcastReceiver() {
                         } catch (e: Exception) {
                             Log.e(TAG, "Error updating task completion: ${e.message}")
                         } finally {
+                            receiverScope.cancel()
                             pendingResult?.finish()
                         }
                     }

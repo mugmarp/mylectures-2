@@ -113,7 +113,13 @@ class TimetableApplication : Application() {
 
         syncRepository.onRemoteSettingsPulled = {
             if (repository.checkIsOnboardingCompleted()) {
-                resyncLocalAlarmsFromSettings()
+                resyncLocalAlarmsFromSettings(force = true, reason = "remote_settings")
+            }
+        }
+
+        syncRepository.onUserScheduleDataSynced = {
+            if (repository.checkIsOnboardingCompleted()) {
+                resyncLocalAlarmsFromSettings(force = true, reason = "remote_user_data")
             }
         }
 
@@ -129,64 +135,16 @@ class TimetableApplication : Application() {
         }
     }
 
-    suspend fun resyncLocalAlarmsFromSettings() {
-        val enabled = etagStore.isNotificationsEnabled()
-        val prog = etagStore.getSavedProgramme()?.trim()
-            ?: repository.getInitialProgramme()?.trim()
-            ?: ""
-        val reminderScheduler = com.lectures.core.alarm.ReminderScheduler(this)
-        val classScheduler = com.lectures.core.alarm.AlarmScheduler(this)
-        val taskScheduler = com.lectures.core.alarm.TaskAlarmScheduler(this)
-
-        val enrolledClasses = if (prog.isNotEmpty()) {
-            repository.getLocalSchedule(prog).firstOrNull() ?: emptyList()
-        } else emptyList()
-        val notesWithAlarms = repository.getNotesWithAlarms()
-        val assignments = repository.getAssignments().firstOrNull() ?: emptyList()
-
-        if (!enabled) {
-            reminderScheduler.cancelDailyReminder()
-            if (enrolledClasses.isNotEmpty()) {
-                classScheduler.cancelAllEnrolledClassAlarms(enrolledClasses)
-            }
-            notesWithAlarms.forEach { classScheduler.cancelClassAlarm(it.naturalKey) }
-            assignments.forEach { taskScheduler.cancelTaskReminder(it.id) }
-            return
-        }
-
-        reminderScheduler.scheduleDailyReminder()
-        val customNoteMap = notesWithAlarms
-            .mapNotNull { note -> note.alarmMinutes?.let { note.naturalKey to it } }
-            .toMap()
-
-        if (enrolledClasses.isNotEmpty()) {
-            val leadMinutes = etagStore.getClassAlarmLeadMinutes()
-            classScheduler.scheduleAllEnrolledClassAlarms(
-                classes = enrolledClasses,
-                leadMinutes = leadMinutes,
-                isAlarm = false,
-                customAlarmNotes = customNoteMap
-            )
-        }
-
-        val enrolledKeys = enrolledClasses.map { it.naturalKey }.toSet()
-        notesWithAlarms.forEach { note ->
-            if (note.naturalKey !in enrolledKeys) {
-                val mins = note.alarmMinutes ?: return@forEach
-                val entry = repository.getTimetableEntryByNaturalKey(note.naturalKey)
-                if (entry != null) {
-                    classScheduler.scheduleClassAlarm(entry, mins, isAlarm = true)
-                } else {
-                    classScheduler.scheduleClassAlarmFromNote(note, mins)
-                }
-            }
-        }
-
-        assignments.forEach { task ->
-            if (!task.completed && task.reminderMinutes != null) {
-                taskScheduler.scheduleTaskReminder(task)
-            }
-        }
+    suspend fun resyncLocalAlarmsFromSettings(
+        force: Boolean = false,
+        reason: String = "app_launch"
+    ) {
+        com.lectures.core.alarm.AlarmSyncCoordinator.resyncAll(
+            context = this,
+            repository = repository,
+            force = force,
+            reason = reason
+        )
     }
 
     private fun schedulePeriodicTimetableSync() {

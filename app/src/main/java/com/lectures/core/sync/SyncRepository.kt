@@ -1,6 +1,7 @@
 package com.lectures.core.sync
 
 import android.util.Log
+import androidx.room.withTransaction
 import com.google.firebase.firestore.DocumentChange
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
@@ -38,6 +39,7 @@ class SyncRepository(
     val lastSyncError: StateFlow<String?> = _lastSyncError.asStateFlow()
 
     var onRemoteSettingsPulled: (suspend () -> Unit)? = null
+    var onUserScheduleDataSynced: (suspend () -> Unit)? = null
 
     /**
      * Starts observation of the central university timetable and version metadata.
@@ -95,6 +97,10 @@ class SyncRepository(
                     val semester = doc.getString("semester") ?: "Semester 1"
                     val releaseNotes = doc.getString("release_notes")
                     val totalSessions = doc.getLong("total_sessions")?.toInt() ?: 1304
+                    val remoteUpdated = doc.getLong("last_updated")
+                        ?: doc.getLong("updated_at")
+                        ?: doc.getTimestamp("updated_at")?.toDate()?.time
+                        ?: System.currentTimeMillis()
 
                     val meta = com.lectures.features.timetable.domain.TimetableVersionResolver.resolve(
                         rawVersion = versionLabel,
@@ -102,7 +108,8 @@ class SyncRepository(
                         academicYear = acadYear,
                         semester = semester,
                         releaseNotes = releaseNotes,
-                        totalEntries = totalSessions
+                        totalEntries = totalSessions,
+                        lastUpdatedMillis = remoteUpdated
                     )
                     scope.launch(Dispatchers.IO) {
                         db.timetableDao().upsertTimetableMetadata(meta)
@@ -130,6 +137,10 @@ class SyncRepository(
                 val semester = doc.getString("semester") ?: "Semester 1"
                 val releaseNotes = doc.getString("release_notes")
                 val totalSessions = doc.getLong("total_sessions")?.toInt() ?: 1304
+                val remoteUpdated = doc.getLong("last_updated")
+                    ?: doc.getLong("updated_at")
+                    ?: doc.getTimestamp("updated_at")?.toDate()?.time
+                    ?: 0L
 
                 com.lectures.features.timetable.domain.TimetableVersionResolver.resolve(
                     rawVersion = versionLabel,
@@ -137,12 +148,40 @@ class SyncRepository(
                     academicYear = acadYear,
                     semester = semester,
                     releaseNotes = releaseNotes,
-                    totalEntries = totalSessions
+                    totalEntries = totalSessions,
+                    lastUpdatedMillis = remoteUpdated
                 )
             } else null
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             null
+        }
+    }
+
+    /**
+     * Actively fetches all published timetable entries from Firestore and atomically replaces
+     * the local Room cache when non-empty. Returns the synced entry count (0 if unavailable).
+     */
+    suspend fun syncRemoteTimetableEntries(): Int = withContext(Dispatchers.IO) {
+        val store = firestore ?: return@withContext 0
+        try {
+            val snap = store.collection("timetable").get().await()
+            val entries = snap.documents
+                .asSequence()
+                .filter { it.id != "metadata" }
+                .mapNotNull { it.toTimetableEntry() }
+                .toList()
+            if (entries.isNotEmpty()) {
+                db.withTransaction {
+                    db.timetableDao().deleteAllEntries()
+                    db.timetableDao().insertAll(entries)
+                }
+            }
+            entries.size
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            Log.w(TAG, "syncRemoteTimetableEntries failed: ${e.message}")
+            0
         }
     }
 
@@ -256,6 +295,9 @@ class SyncRepository(
                     if (firstPushError == null) firstPushError = result.exceptionOrNull()?.localizedMessage
                 }
             }
+            if (remoteNotes.isNotEmpty() || remoteEvents.isNotEmpty() || remoteAssignments.isNotEmpty()) {
+                onUserScheduleDataSynced?.invoke()
+            }
 
             // 11. Vacuum old tombstones (> 30 days old) only when all pushes succeeded
             if (pushFailures == 0) {
@@ -324,11 +366,13 @@ class SyncRepository(
                     return@addSnapshotListener
                 }
                 val changes = snap?.documentChanges ?: return@addSnapshotListener
+                if (changes.isEmpty()) return@addSnapshotListener
                 scope.launch(Dispatchers.IO) {
+                    val existingByKey = db.timetableDao().getAllNotesRawSync().associateBy { it.naturalKey }
                     val toUpsert = mutableListOf<LectureNote>()
                     changes.forEach { change ->
                         val remoteNote = change.document.toLectureNote(userId) ?: return@forEach
-                        val existing = db.timetableDao().getNoteRawDirect(remoteNote.naturalKey)
+                        val existing = existingByKey[remoteNote.naturalKey]
                         if (change.type == DocumentChange.Type.REMOVED) {
                             if (existing != null && !existing.isDeleted) {
                                 toUpsert.add(existing.copy(isDeleted = true, updatedAt = maxOf(existing.updatedAt, remoteNote.updatedAt), ownerId = userId))
@@ -339,11 +383,12 @@ class SyncRepository(
                     }
                     if (toUpsert.isNotEmpty()) {
                         db.timetableDao().upsertNotes(toUpsert)
+                        onUserScheduleDataSynced?.invoke()
                     }
                 }
             }
 
-        // Events Listener (resolves local primary key id by clientUuid to avoid UNIQUE constraint violations)
+        // Events Listener (resolves local primary key id in O(1) via batch map to avoid N+1 SQLite queries)
         val eventsListener = userDoc.collection("events")
             .addSnapshotListener { snap, error ->
                 if (error != null) {
@@ -352,11 +397,13 @@ class SyncRepository(
                     return@addSnapshotListener
                 }
                 val changes = snap?.documentChanges ?: return@addSnapshotListener
+                if (changes.isEmpty()) return@addSnapshotListener
                 scope.launch(Dispatchers.IO) {
+                    val existingByUuid = db.customEventDao().getAllRawSync().associateBy { it.clientUuid }
                     val toUpsert = mutableListOf<CustomEvent>()
                     changes.forEach { change ->
                         val remoteEvent = change.document.toCustomEvent(userId) ?: return@forEach
-                        val existing = db.customEventDao().getByUuid(remoteEvent.clientUuid)
+                        val existing = existingByUuid[remoteEvent.clientUuid]
                         if (change.type == DocumentChange.Type.REMOVED) {
                             if (existing != null && !existing.isDeleted) {
                                 toUpsert.add(existing.copy(isDeleted = true, updatedAt = maxOf(existing.updatedAt, remoteEvent.updatedAt), ownerId = userId))
@@ -372,11 +419,12 @@ class SyncRepository(
                     }
                     if (toUpsert.isNotEmpty()) {
                         db.customEventDao().upsertAll(toUpsert)
+                        onUserScheduleDataSynced?.invoke()
                     }
                 }
             }
 
-        // Assignments Listener (resolves local primary key id by clientUuid)
+        // Assignments Listener (resolves local primary key id in O(1) via batch map to avoid N+1 SQLite queries)
         val assignmentsListener = userDoc.collection("assignments")
             .addSnapshotListener { snap, error ->
                 if (error != null) {
@@ -385,11 +433,13 @@ class SyncRepository(
                     return@addSnapshotListener
                 }
                 val changes = snap?.documentChanges ?: return@addSnapshotListener
+                if (changes.isEmpty()) return@addSnapshotListener
                 scope.launch(Dispatchers.IO) {
+                    val existingByUuid = db.assignmentDao().getAllRawSync().associateBy { it.clientUuid }
                     val toUpsert = mutableListOf<Assignment>()
                     changes.forEach { change ->
                         val remoteAssignment = change.document.toAssignment(userId) ?: return@forEach
-                        val existing = db.assignmentDao().getByUuid(remoteAssignment.clientUuid)
+                        val existing = existingByUuid[remoteAssignment.clientUuid]
                         if (change.type == DocumentChange.Type.REMOVED) {
                             if (existing != null && !existing.isDeleted) {
                                 toUpsert.add(existing.copy(isDeleted = true, updatedAt = maxOf(existing.updatedAt, remoteAssignment.updatedAt), ownerId = userId))
@@ -405,6 +455,7 @@ class SyncRepository(
                     }
                     if (toUpsert.isNotEmpty()) {
                         db.assignmentDao().upsertAll(toUpsert)
+                        onUserScheduleDataSynced?.invoke()
                     }
                 }
             }

@@ -7,6 +7,12 @@ import android.util.Log
 import com.lectures.TimetableApplication
 import com.lectures.core.notification.NotificationHelper
 import com.lectures.features.timetable.data.ETagStore
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 
 class TaskReminderReceiver : BroadcastReceiver() {
 
@@ -29,16 +35,17 @@ class TaskReminderReceiver : BroadcastReceiver() {
         val priority = intent.getStringExtra(EXTRA_TASK_PRIORITY) ?: "Medium"
         val isTest = intent.getBooleanExtra("IS_TEST", false)
 
-        val etagStore = (context.applicationContext as? TimetableApplication)?.etagStore
-            ?: ETagStore(context)
+        val app = context.applicationContext as? TimetableApplication
+        val etagStore = app?.etagStore ?: ETagStore(context)
         if (!etagStore.isNotificationsEnabled() && !isTest) {
             Log.d(TAG, "Notifications disabled in Quiet Mode; suppressing task reminder for Task #$taskId")
             return
         }
 
-        Log.d(TAG, "AlarmManager triggered reminder for Task #$taskId: $title ($course)")
+        if (taskId == -1L) return
 
-        if (taskId != -1L) {
+        // Test alerts display immediately without requiring a persisted Room row
+        if (isTest || app == null) {
             NotificationHelper.showTaskReminderNotification(
                 context = context,
                 taskId = taskId,
@@ -47,6 +54,36 @@ class TaskReminderReceiver : BroadcastReceiver() {
                 dueDate = due,
                 priority = priority
             )
+            return
+        }
+
+        val pendingResult = goAsync()
+        val receiverScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        receiverScope.launch {
+            try {
+                withTimeout(5_000L) {
+                    val latestTask = app.repository.getAssignmentByIdSync(taskId)
+                    if (latestTask == null || latestTask.isDeleted || latestTask.completed || latestTask.reminderMinutes == null) {
+                        Log.d(TAG, "Suppressing stale/completed/deleted reminder for Task #$taskId")
+                        TaskAlarmScheduler(context).cancelTaskReminder(taskId)
+                        return@withTimeout
+                    }
+                    Log.d(TAG, "AlarmManager triggered reminder for Task #$taskId: ${latestTask.title} (${latestTask.courseCode})")
+                    NotificationHelper.showTaskReminderNotification(
+                        context = context,
+                        taskId = taskId,
+                        title = latestTask.title,
+                        courseCode = latestTask.courseCode.ifBlank { course },
+                        dueDate = latestTask.dueDate.ifBlank { due },
+                        priority = latestTask.priority.ifBlank { priority }
+                    )
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed validating task reminder #$taskId: ${e.message}", e)
+            } finally {
+                receiverScope.cancel()
+                pendingResult?.finish()
+            }
         }
     }
 }

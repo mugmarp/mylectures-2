@@ -139,13 +139,34 @@ class CalendarViewModel(
 
     fun addCustomEvent(event: CustomEvent) {
         viewModelScope.launch {
-            repository.saveCustomEvent(event)
+            val savedId = repository.saveCustomEvent(event)
+            val resolvedId = if (event.id > 0L) event.id else savedId
+            val savedEvent = event.copy(id = resolvedId)
+            val alarmMins = savedEvent.alarmMinutes
+            if (alarmMins != null && resolvedId > 0L) {
+                if (repository.etagStore.isNotificationsEnabled()) {
+                    val ok = classAlarmScheduler?.scheduleCustomEventAlarm(savedEvent) ?: false
+                    _userMessage.value = if (ok) {
+                        "Activity saved • Alert set (${alarmMins}m before)"
+                    } else {
+                        "Activity saved"
+                    }
+                } else {
+                    classAlarmScheduler?.cancelCustomEventAlarm(resolvedId)
+                    _userMessage.value = "Activity saved (Quiet Mode active — alert paused)"
+                }
+            } else if (resolvedId > 0L) {
+                classAlarmScheduler?.cancelCustomEventAlarm(resolvedId)
+                _userMessage.value = if (event.id > 0L) "Activity updated" else "Activity added"
+            }
         }
     }
 
     fun deleteCustomEvent(id: Long) {
         viewModelScope.launch {
+            classAlarmScheduler?.cancelCustomEventAlarm(id)
             repository.deleteCustomEvent(id)
+            _userMessage.value = "Activity removed"
         }
     }
 

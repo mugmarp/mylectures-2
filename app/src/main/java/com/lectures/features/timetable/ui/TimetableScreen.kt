@@ -58,6 +58,8 @@ import androidx.compose.foundation.layout.WindowInsets
 import com.lectures.ui.components.RoomFloorBadge
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -1357,24 +1359,15 @@ private fun NextUpTicker(
 ) {
     var timeTick by remember { mutableLongStateOf(System.currentTimeMillis()) }
 
-    // Immediate pulse on returning to foreground / resuming app
+    // Pause timer automatically when backgrounded (ON_STOP) and immediately refresh on resume/start
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
-        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
-            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            timeTick = System.currentTimeMillis()
+            while (true) {
+                delay(15_000L)
                 timeTick = System.currentTimeMillis()
             }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        while (true) {
-            delay(15_000L)
-            timeTick = System.currentTimeMillis()
         }
     }
 

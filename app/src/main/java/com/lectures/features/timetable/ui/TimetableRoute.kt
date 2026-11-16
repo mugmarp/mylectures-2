@@ -25,7 +25,8 @@ fun TimetableRoute(
     onNavigateToCalendar: () -> Unit = {},
     onNavigateToTasks: () -> Unit = {},
     onReconfigureAcademicProfile: () -> Unit = {},
-    onOpenVacantRooms: () -> Unit = {}
+    onOpenVacantRooms: () -> Unit = {},
+    sharedViewModel: TimetableViewModel? = null
 ) {
     val context = LocalContext.current
     val app = context.applicationContext as? TimetableApplication
@@ -38,11 +39,13 @@ fun TimetableRoute(
         return
     }
 
-    val alarmScheduler = remember(context) { TaskAlarmScheduler(context) }
-    val classAlarmScheduler = remember(context) { AlarmScheduler(context) }
-    val viewModel: TimetableViewModel = viewModel(
-        factory = TimetableViewModel.provideFactory(repository, alarmScheduler, classAlarmScheduler)
-    )
+    val viewModel: TimetableViewModel = sharedViewModel ?: run {
+        val alarmScheduler = remember(context) { TaskAlarmScheduler(context) }
+        val classAlarmScheduler = remember(context) { AlarmScheduler(context) }
+        viewModel(
+            factory = TimetableViewModel.provideFactory(repository, alarmScheduler, classAlarmScheduler)
+        )
+    }
 
     val uiState by viewModel.uiState.collectAsState()
     val userMessage by viewModel.userMessage.collectAsState()

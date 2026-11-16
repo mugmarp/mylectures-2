@@ -45,8 +45,27 @@ interface TimetableDao {
         specialization: String? = null
     ): Flow<List<TimetableEntry>>
 
+    @Query("""
+        SELECT * FROM timetable 
+        WHERE program_group = :programme 
+           OR program_group LIKE '%' || :code || '%' 
+           OR shared_with LIKE '%' || :code || '%' 
+           OR (:alias IS NOT NULL AND (program_group LIKE '%' || :alias || '%' OR shared_with LIKE '%' || :alias || '%'))
+           OR (:specialization IS NOT NULL AND (program_group LIKE '%' || :specialization || '%' OR shared_with LIKE '%' || :specialization || '%'))
+        ORDER BY start_time ASC
+    """)
+    suspend fun getScheduleCandidatesSync(
+        programme: String,
+        code: String,
+        alias: String?,
+        specialization: String? = null
+    ): List<TimetableEntry>
+
     @Query("SELECT * FROM timetable WHERE day = :day ORDER BY start_time ASC")
     fun getScheduleForDay(day: String): Flow<List<TimetableEntry>>
+
+    @Query("SELECT * FROM timetable WHERE day = :day ORDER BY start_time ASC")
+    suspend fun getScheduleForDaySync(day: String): List<TimetableEntry>
 
     @Query("SELECT DISTINCT program_group FROM timetable")
     fun getAllProgrammeGroups(): Flow<List<String>>

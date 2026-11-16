@@ -94,13 +94,37 @@ class DataLoader(
         loadInitialDataIfNeeded()
     }
 
+    suspend fun replaceTimetableEntries(entries: List<TimetableEntry>): Int {
+        if (entries.isEmpty()) return 0
+        return withContext(Dispatchers.IO) {
+            val dao = db.timetableDao()
+            db.withTransaction {
+                if (dao.getEntryCount() > 0) {
+                    dao.deleteAllEntries()
+                }
+                dao.insertAll(entries)
+            }
+            entries.size
+        }
+    }
+
     fun loadFromAssets(): List<TimetableEntry> {
+        return try {
+            context.assets.open("timetable_export.json").use { inputStream ->
+                parseEntriesFromStream(inputStream)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
+        }
+    }
+
+    fun parseEntriesFromStream(inputStream: java.io.InputStream): List<TimetableEntry> {
         val list = ArrayList<TimetableEntry>(1350)
         try {
-            context.assets.open("timetable_export.json").use { inputStream ->
-                BufferedReader(InputStreamReader(inputStream, Charsets.UTF_8), 32768).use { br ->
-                    val reader = JsonReader(br)
-                    reader.beginArray()
+            BufferedReader(InputStreamReader(inputStream, Charsets.UTF_8), 32768).use { br ->
+                val reader = JsonReader(br)
+                reader.beginArray()
                     while (reader.hasNext()) {
                         reader.beginObject()
                         var naturalKey = ""
@@ -189,8 +213,7 @@ class DataLoader(
                             )
                         }
                     }
-                    reader.endArray()
-                }
+                reader.endArray()
             }
         } catch (e: Exception) {
             e.printStackTrace()

@@ -13,7 +13,8 @@ object TimetableVersionResolver {
         academicYear: String = "2026/2027",
         semester: String = "Semester 1",
         releaseNotes: String? = null,
-        totalEntries: Int = 1304
+        totalEntries: Int = 1304,
+        lastUpdatedMillis: Long = System.currentTimeMillis()
     ): TimetableMetadata {
         val clean = rawVersion?.trim() ?: ""
 
@@ -36,7 +37,7 @@ object TimetableVersionResolver {
                 academicYear = academicYear,
                 semester = semester,
                 releaseNotes = releaseNotes ?: "Authoritative MUST Teaching Timetable approved by Academic Registrar",
-                lastUpdated = System.currentTimeMillis(),
+                lastUpdated = lastUpdatedMillis,
                 source = "MUST Academic Registrar",
                 totalSessions = if (totalEntries > 0) totalEntries else 1304
             )
@@ -70,7 +71,7 @@ object TimetableVersionResolver {
             academicYear = academicYear,
             semester = semester,
             releaseNotes = releaseNotes ?: "MUST Semester 1 Timetable Draft $draftNumber (Pending Final Ratification)",
-            lastUpdated = System.currentTimeMillis(),
+            lastUpdated = lastUpdatedMillis,
             source = "MUST Academic Registrar",
             totalSessions = if (totalEntries > 0) totalEntries else 1304
         )

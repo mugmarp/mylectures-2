@@ -145,8 +145,16 @@ object TaskDateTimeParser {
     /**
      * Calculates the exact trigger timestamp in epoch millis for AlarmManager,
      * taking into account the task due time and lead reminder minutes.
+     *
+     * When [allowImmediateCatchup] is false (default), reminder windows that have already passed
+     * return null instead of synthesizing a `now + 5s` alert, preventing alarm spam on boot,
+     * app launch, or background resyncs.
      */
-    fun calculateTriggerTimeMillis(dueDateStr: String, reminderMinutes: Int?): Long? {
+    fun calculateTriggerTimeMillis(
+        dueDateStr: String,
+        reminderMinutes: Int?,
+        allowImmediateCatchup: Boolean = false
+    ): Long? {
         val dueMillis = calculateDueMillis(dueDateStr) ?: return null
         val now = System.currentTimeMillis()
         if (dueMillis <= now) return null // Task is completely in the past
@@ -188,10 +196,10 @@ object TaskDateTimeParser {
         }
 
         return if (triggerMillis <= now) {
-            if (dueMillis > now) {
+            if (allowImmediateCatchup && dueMillis > now) {
                 now + 5_000L
             } else {
-                null // Task is completely in the past
+                null
             }
         } else {
             triggerMillis

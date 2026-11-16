@@ -31,9 +31,16 @@ class TimetableRepository(
         return syncRepository?.performFullUserSync(userId, userSettingsSyncManager)
     }
 
-    fun getLocalSchedule(programme: String): Flow<List<TimetableEntry>> {
+    private data class ScheduleQueryParams(
+        val cleanProgramme: String,
+        val officialCode: String,
+        val alias: String?,
+        val specialization: String?
+    )
+
+    private fun resolveScheduleQueryParams(programme: String): ScheduleQueryParams? {
         val clean = programme.trim()
-        if (clean.isEmpty()) return flowOf(emptyList())
+        if (clean.isEmpty()) return null
         val parts = clean.split(Regex("[\\s-]+")).filter { it.isNotEmpty() }
         val rawCode = parts.firstOrNull()?.uppercase()?.replace(Regex("[^A-Z]"), "") ?: ""
         val officialCode = TimetableMatcher.CODE_ALIASES[rawCode] ?: rawCode
@@ -52,11 +59,32 @@ class TimetableRepository(
             }
             else -> null
         }
+        return ScheduleQueryParams(clean, officialCode, alias, specialization)
+    }
 
-        return dao.getScheduleCandidates(clean, officialCode, alias, specialization).map { candidates ->
-            val matched = candidates.filter { TimetableMatcher.entryMatchesGroup(it, clean) }
-            TimetableMatcher.deduplicateEntries(matched, clean)
+    fun getLocalSchedule(programme: String): Flow<List<TimetableEntry>> {
+        val params = resolveScheduleQueryParams(programme) ?: return flowOf(emptyList())
+        return dao.getScheduleCandidates(
+            params.cleanProgramme,
+            params.officialCode,
+            params.alias,
+            params.specialization
+        ).map { candidates ->
+            val matched = candidates.filter { TimetableMatcher.entryMatchesGroup(it, params.cleanProgramme) }
+            TimetableMatcher.deduplicateEntries(matched, params.cleanProgramme)
         }.distinctUntilChanged()
+    }
+
+    suspend fun getLocalScheduleSync(programme: String): List<TimetableEntry> {
+        val params = resolveScheduleQueryParams(programme) ?: return emptyList()
+        val candidates = dao.getScheduleCandidatesSync(
+            params.cleanProgramme,
+            params.officialCode,
+            params.alias,
+            params.specialization
+        )
+        val matched = candidates.filter { TimetableMatcher.entryMatchesGroup(it, params.cleanProgramme) }
+        return TimetableMatcher.deduplicateEntries(matched, params.cleanProgramme)
     }
 
     fun getInitialProgramme(): String? {
@@ -70,6 +98,8 @@ class TimetableRepository(
     fun getAllEntries(): Flow<List<TimetableEntry>> = dao.getAllEntries()
 
     fun getScheduleForDay(day: String): Flow<List<TimetableEntry>> = dao.getScheduleForDay(day)
+
+    suspend fun getScheduleForDaySync(day: String): List<TimetableEntry> = dao.getScheduleForDaySync(day)
 
     fun getAllProgrammeGroups(): Flow<List<String>> = dao.getAllProgrammeGroups()
 
@@ -91,6 +121,10 @@ class TimetableRepository(
 
     fun getCustomEvents(): Flow<List<CustomEvent>> = eventDao.getAll()
 
+    suspend fun getCustomEventsSync(): List<CustomEvent> = eventDao.getAllActiveSync()
+
+    suspend fun getCustomEventByIdSync(id: Long): CustomEvent? = eventDao.getById(id)
+
     suspend fun saveCustomEvent(event: CustomEvent): Long =
         eventDao.upsert(
             event.copy(
@@ -102,6 +136,10 @@ class TimetableRepository(
     suspend fun deleteCustomEvent(id: Long) = eventDao.softDelete(id)
 
     fun getAssignments(): Flow<List<Assignment>> = assignmentDao.getAll()
+
+    suspend fun getAssignmentsSync(): List<Assignment> = assignmentDao.getAllActiveSync()
+
+    suspend fun getAssignmentByIdSync(id: Long): Assignment? = assignmentDao.getById(id)
 
     suspend fun saveAssignment(assignment: Assignment): Long =
         assignmentDao.upsert(

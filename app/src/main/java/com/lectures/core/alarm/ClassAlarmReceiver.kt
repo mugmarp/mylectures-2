@@ -4,8 +4,15 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import com.lectures.TimetableApplication
 import com.lectures.core.notification.NotificationHelper
 import com.lectures.features.timetable.domain.TimetableEntry
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 
 class ClassAlarmReceiver : BroadcastReceiver() {
 
@@ -39,6 +46,9 @@ class ClassAlarmReceiver : BroadcastReceiver() {
             val lecturer = intent.getStringExtra("LECTURER") ?: ""
             val naturalKey = intent.getStringExtra("NATURAL_KEY")
             val dayOfWeek = intent.getStringExtra("DAY_OF_WEEK")
+            val isCustomEvent = intent.getBooleanExtra("IS_CUSTOM_EVENT", false)
+            val customEventId = intent.getLongExtra("CUSTOM_EVENT_ID", -1L)
+
             AlarmScheduler(context).scheduleSnoozeAlarm(
                 courseCode = courseCode,
                 courseTitle = courseTitle,
@@ -48,9 +58,11 @@ class ClassAlarmReceiver : BroadcastReceiver() {
                 minutesBefore = minutesBefore,
                 lecturer = lecturer,
                 naturalKey = naturalKey,
-                dayOfWeek = dayOfWeek
+                dayOfWeek = dayOfWeek,
+                isCustomEvent = isCustomEvent,
+                customEventId = customEventId
             )
-            Log.d("ClassAlarmReceiver", "Snoozed alarm for $courseCode for 10 minutes (lead=$minutesBefore min, lecturer=$lecturer)")
+            Log.d("ClassAlarmReceiver", "Snoozed alert for $courseCode for 10 minutes (custom=$isCustomEvent)")
             return
         }
 
@@ -64,13 +76,58 @@ class ClassAlarmReceiver : BroadcastReceiver() {
         val isRecurring = intent.getBooleanExtra("IS_RECURRING", true)
         val isTest = intent.getBooleanExtra("IS_TEST", false)
         val isSnoozed = intent.getBooleanExtra("IS_SNOOZED", false)
+        val isCustomEvent = intent.getBooleanExtra("IS_CUSTOM_EVENT", false) ||
+            action == AlarmScheduler.ACTION_TRIGGER_CUSTOM_EVENT_ALARM
+        val customEventId = intent.getLongExtra("CUSTOM_EVENT_ID", -1L)
         val naturalKey = intent.getStringExtra("NATURAL_KEY")
         val dayOfWeek = intent.getStringExtra("DAY_OF_WEEK")
 
-        val etagStore = (context.applicationContext as? com.lectures.TimetableApplication)?.etagStore
-            ?: com.lectures.features.timetable.data.ETagStore(context)
+        val app = context.applicationContext as? TimetableApplication
+        val etagStore = app?.etagStore ?: com.lectures.features.timetable.data.ETagStore(context)
         if (!etagStore.isNotificationsEnabled() && !isTest) {
             Log.d("ClassAlarmReceiver", "Notifications disabled in settings; suppressing alert for $courseCode")
+            return
+        }
+
+        // Custom Events (Personal Activities): validate current Room state & reschedule weekly if repeatWeekly
+        if (isCustomEvent && !isTest && customEventId > 0L && app != null) {
+            val pendingResult = goAsync()
+            val receiverScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+            receiverScope.launch {
+                try {
+                    withTimeout(5_000L) {
+                        val event = app.repository.getCustomEventByIdSync(customEventId)
+                        if (event == null || event.isDeleted || (!isSnoozed && event.alarmMinutes == null)) {
+                            Log.d("ClassAlarmReceiver", "Suppressing stale/deleted custom event alert #$customEventId")
+                            AlarmScheduler(context).cancelCustomEventAlarm(customEventId)
+                            return@withTimeout
+                        }
+                        val lead = event.alarmMinutes ?: minutesBefore
+                        NotificationHelper.showClassAlarmNotification(
+                            context = context,
+                            courseCode = event.category.ifBlank { courseCode },
+                            courseTitle = event.title,
+                            room = event.location.ifBlank { "Personal Activity" },
+                            startTime = event.startTime,
+                            minutesBefore = lead,
+                            lecturer = "",
+                            naturalKey = "custom_event_${event.id}",
+                            dayOfWeek = event.dayOfWeek,
+                            isSnoozed = isSnoozed,
+                            isCustomEvent = true,
+                            customEventId = event.id
+                        )
+                        if (isRecurring && !isSnoozed && event.repeatWeekly) {
+                            AlarmScheduler(context).scheduleCustomEventAlarm(event)
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("ClassAlarmReceiver", "Error handling custom event alarm #$customEventId: ${e.message}", e)
+                } finally {
+                    receiverScope.cancel()
+                    pendingResult?.finish()
+                }
+            }
             return
         }
 
@@ -87,7 +144,9 @@ class ClassAlarmReceiver : BroadcastReceiver() {
                 lecturer = lecturer,
                 naturalKey = naturalKey,
                 dayOfWeek = dayOfWeek,
-                isSnoozed = isSnoozed
+                isSnoozed = isSnoozed,
+                isCustomEvent = isCustomEvent,
+                customEventId = customEventId
             )
         } else {
             NotificationHelper.showClassReminderNotification(
@@ -104,7 +163,7 @@ class ClassAlarmReceiver : BroadcastReceiver() {
         }
 
         // Reschedule recurring alarm/reminder for next week (+7 days)
-        if (isRecurring && !isTest && !naturalKey.isNullOrBlank() && !dayOfWeek.isNullOrBlank()) {
+        if (isRecurring && !isTest && !isSnoozed && !naturalKey.isNullOrBlank() && !dayOfWeek.isNullOrBlank()) {
             try {
                 val syntheticEntry = TimetableEntry(
                     natural_key = naturalKey,

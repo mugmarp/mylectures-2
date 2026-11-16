@@ -319,65 +319,21 @@ class SettingsViewModel(
                 repository.setNotificationsEnabled(enabled)
                 _uiState.value = _uiState.value.copy(notificationsEnabled = enabled)
 
-                val tasks = repository.getAssignments().firstOrNull() ?: emptyList()
-                val notesWithAlarms = repository.getNotesWithAlarms()
-                val prog = _uiState.value.currentProgramme.ifBlank { repository.getInitialProgramme() ?: "" }
+                val summary = com.lectures.core.alarm.AlarmSyncCoordinator.resyncAll(
+                    context = application,
+                    repository = repository,
+                    force = true,
+                    reason = "settings_toggle_$enabled"
+                )
 
-                if (enabled) {
-                    var count = 0
-                    tasks.forEach { task ->
-                        if (!task.completed && task.reminderMinutes != null) {
-                            val ok = alarmScheduler?.scheduleTaskReminder(task) == true
-                            if (ok) count++
-                        }
+                _uiState.value = _uiState.value.copy(
+                    successMessage = if (summary.notificationsEnabled) {
+                        val eventPart = if (summary.customEventCount > 0) ", ${summary.customEventCount} activity alarms" else ""
+                        "Reminders active. ${summary.enrolledClassCount} class reminders, ${summary.taskCount} task alerts, ${summary.customNoteCount} custom alarms$eventPart, and daily digest enabled."
+                    } else {
+                        "All alarms and reminders paused (quiet mode)."
                     }
-                    var classCount = 0
-                    notesWithAlarms.forEach { note ->
-                        val mins = note.alarmMinutes ?: return@forEach
-                        val entry = repository.getTimetableEntryByNaturalKey(note.naturalKey)
-                        val ok = if (entry != null) {
-                            classAlarmScheduler?.scheduleClassAlarm(entry, mins) == true
-                        } else {
-                            classAlarmScheduler?.scheduleClassAlarmFromNote(note, mins) == true
-                        }
-                        if (ok) classCount++
-                    }
-
-                    var enrolledCount = 0
-                    if (prog.isNotEmpty()) {
-                        val enrolledClasses = repository.getLocalSchedule(prog).firstOrNull() ?: emptyList()
-                        val leadMinutes = _uiState.value.classAlarmLeadMinutes
-                        val customNoteMap = notesWithAlarms
-                            .mapNotNull { note -> note.alarmMinutes?.let { note.naturalKey to it } }
-                            .toMap()
-                        enrolledCount = classAlarmScheduler?.scheduleAllEnrolledClassAlarms(
-                            classes = enrolledClasses,
-                            leadMinutes = leadMinutes,
-                            isAlarm = false,
-                            customAlarmNotes = customNoteMap
-                        ) ?: 0
-                    }
-
-                    reminderScheduler?.scheduleDailyReminder()
-
-                    _uiState.value = _uiState.value.copy(
-                        successMessage = "Reminders active. $enrolledCount class reminders, $count task alerts, $classCount custom alarms, and daily digest enabled."
-                    )
-                } else {
-                    alarmScheduler?.cancelAllTaskReminders(tasks)
-                    notesWithAlarms.forEach { note ->
-                        classAlarmScheduler?.cancelClassAlarm(note.naturalKey)
-                    }
-                    if (prog.isNotEmpty()) {
-                        val enrolledClasses = repository.getLocalSchedule(prog).firstOrNull() ?: emptyList()
-                        classAlarmScheduler?.cancelAllEnrolledClassAlarms(enrolledClasses)
-                    }
-                    reminderScheduler?.cancelDailyReminder()
-
-                    _uiState.value = _uiState.value.copy(
-                        successMessage = "All alarms and reminders paused (quiet mode)."
-                    )
-                }
+                )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(errorMessage = "Failed to update notification settings: ${e.message}")
             }
@@ -391,16 +347,18 @@ class SettingsViewModel(
                 val prog = _uiState.value.currentProgramme.ifBlank { repository.getInitialProgramme() ?: "" }
                 var reArmedCount = 0
                 if (prog.isNotEmpty() && _uiState.value.notificationsEnabled) {
-                    val enrolledClasses = repository.getLocalSchedule(prog).firstOrNull() ?: emptyList()
-                    val customNoteMap = repository.getNotesWithAlarms()
-                        .mapNotNull { note -> note.alarmMinutes?.let { note.naturalKey to it } }
-                        .toMap()
-                    reArmedCount = classAlarmScheduler?.scheduleAllEnrolledClassAlarms(
-                        classes = enrolledClasses,
-                        leadMinutes = minutes,
-                        isAlarm = false,
-                        customAlarmNotes = customNoteMap
-                    ) ?: 0
+                    reArmedCount = withContext(ioDispatcher) {
+                        val enrolledClasses = repository.getLocalScheduleSync(prog)
+                        val customNoteMap = repository.getNotesWithAlarms()
+                            .mapNotNull { note -> note.alarmMinutes?.let { note.naturalKey to it } }
+                            .toMap()
+                        classAlarmScheduler?.scheduleAllEnrolledClassAlarms(
+                            classes = enrolledClasses,
+                            leadMinutes = minutes,
+                            isAlarm = false,
+                            customAlarmNotes = customNoteMap
+                        ) ?: 0
+                    }
                 }
                 _uiState.value = _uiState.value.copy(
                     classAlarmLeadMinutes = minutes,
@@ -496,65 +454,20 @@ class SettingsViewModel(
     fun rescheduleAllAlarms() {
         viewModelScope.launch {
             try {
-                val tasks = repository.getAssignments().firstOrNull() ?: emptyList()
-                val notesWithAlarms = repository.getNotesWithAlarms()
-                val prog = _uiState.value.currentProgramme.ifBlank { repository.getInitialProgramme() ?: "" }
-
-                if (!_uiState.value.notificationsEnabled) {
-                    alarmScheduler?.cancelAllTaskReminders(tasks)
-                    notesWithAlarms.forEach { note ->
-                        classAlarmScheduler?.cancelClassAlarm(note.naturalKey)
-                    }
-                    if (prog.isNotEmpty()) {
-                        val enrolledClasses = repository.getLocalSchedule(prog).firstOrNull() ?: emptyList()
-                        classAlarmScheduler?.cancelAllEnrolledClassAlarms(enrolledClasses)
-                    }
-                    reminderScheduler?.cancelDailyReminder()
-                    _uiState.value = _uiState.value.copy(
-                        successMessage = "Quiet Mode is active — enable 'Class & Task Reminders' first to arm alarms."
-                    )
-                    return@launch
-                }
-
-                var scheduledCount = 0
-                tasks.forEach { task ->
-                    if (!task.completed && task.reminderMinutes != null) {
-                        val ok = alarmScheduler?.scheduleTaskReminder(task) == true
-                        if (ok) scheduledCount++
-                    }
-                }
-
-                var classCount = 0
-                notesWithAlarms.forEach { note ->
-                    val mins = note.alarmMinutes ?: return@forEach
-                    val entry = repository.getTimetableEntryByNaturalKey(note.naturalKey)
-                    val ok = if (entry != null) {
-                        classAlarmScheduler?.scheduleClassAlarm(entry, mins, isAlarm = true) == true
-                    } else {
-                        classAlarmScheduler?.scheduleClassAlarmFromNote(note, mins) == true
-                    }
-                    if (ok) classCount++
-                }
-
-                var enrolledCount = 0
-                if (prog.isNotEmpty()) {
-                    val enrolledClasses = repository.getLocalSchedule(prog).firstOrNull() ?: emptyList()
-                    val leadMinutes = _uiState.value.classAlarmLeadMinutes
-                    val customNoteMap = notesWithAlarms
-                        .mapNotNull { note -> note.alarmMinutes?.let { note.naturalKey to it } }
-                        .toMap()
-                    enrolledCount = classAlarmScheduler?.scheduleAllEnrolledClassAlarms(
-                        classes = enrolledClasses,
-                        leadMinutes = leadMinutes,
-                        isAlarm = false,
-                        customAlarmNotes = customNoteMap
-                    ) ?: 0
-                }
-
-                reminderScheduler?.scheduleDailyReminder()
+                val summary = com.lectures.core.alarm.AlarmSyncCoordinator.resyncAll(
+                    context = application,
+                    repository = repository,
+                    force = true,
+                    reason = "settings_rearm_all"
+                )
 
                 _uiState.value = _uiState.value.copy(
-                    successMessage = "Rescheduled $enrolledCount class reminders, $scheduledCount task alerts, $classCount custom alarms, and morning digest."
+                    successMessage = if (!summary.notificationsEnabled) {
+                        "Quiet Mode is active — enable 'Class & Task Reminders' first to arm alarms."
+                    } else {
+                        val eventPart = if (summary.customEventCount > 0) ", ${summary.customEventCount} activity alarms" else ""
+                        "Rescheduled ${summary.enrolledClassCount} class reminders, ${summary.taskCount} task alerts, ${summary.customNoteCount} custom alarms$eventPart, and morning digest."
+                    }
                 )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(errorMessage = "Failed to reschedule alarms: ${e.message}")
@@ -691,13 +604,26 @@ class SettingsViewModel(
                     val existingCount = repository.dao.getEntryCount()
                     val remoteMeta = repository.syncRepository?.fetchRemoteTimetableMetadata()
                     if (remoteMeta != null) {
-                        repository.updateTimetableMetadata(remoteMeta)
+                        val syncedEntries = repository.syncRepository.syncRemoteTimetableEntries()
+                        val resolvedMeta = if (syncedEntries > 0) {
+                            remoteMeta.copy(lastUpdated = System.currentTimeMillis(), totalSessions = syncedEntries)
+                        } else {
+                            remoteMeta.copy(lastUpdated = System.currentTimeMillis())
+                        }
+                        repository.updateTimetableMetadata(resolvedMeta)
+                        if (syncedEntries > 0) {
+                            com.lectures.core.alarm.AlarmSyncCoordinator.resyncAll(
+                                context = getApplication(),
+                                repository = repository,
+                                force = true,
+                                reason = "manual_settings_sync"
+                            )
+                        }
                         remoteSynced = true
                     } else if (dataLoader != null && (repository.syncRepository == null || existingCount == 0)) {
                         val entries = dataLoader.loadFromAssets()
                         if (entries.isNotEmpty()) {
-                            repository.dao.deleteAllEntries()
-                            repository.dao.upsertEntries(entries)
+                            dataLoader.replaceTimetableEntries(entries)
                         }
                         val meta = dataLoader.loadMetadataFromAssets()
                         if (meta != null) {

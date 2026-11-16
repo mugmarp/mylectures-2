@@ -11,6 +11,12 @@ interface CustomEventDao {
     @Query("SELECT * FROM custom_events WHERE isDeleted = 0 ORDER BY dayOfWeek, startTime")
     fun getAll(): Flow<List<CustomEvent>>
 
+    @Query("SELECT * FROM custom_events WHERE isDeleted = 0 ORDER BY dayOfWeek, startTime")
+    suspend fun getAllActiveSync(): List<CustomEvent>
+
+    @Query("SELECT * FROM custom_events WHERE id = :id LIMIT 1")
+    suspend fun getById(id: Long): CustomEvent?
+
     @Upsert
     suspend fun upsert(event: CustomEvent): Long
 

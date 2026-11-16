@@ -7,6 +7,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.util.Log
+import com.lectures.features.timetable.domain.CustomEvent
 import com.lectures.features.timetable.domain.TimetableEntry
 import java.util.Calendar
 
@@ -16,17 +17,27 @@ class AlarmScheduler(private val context: Context) {
 
     companion object {
         const val ACTION_TRIGGER_CLASS_ALARM = "com.lectures.ACTION_TRIGGER_CLASS_ALARM"
+        const val ACTION_TRIGGER_CUSTOM_EVENT_ALARM = "com.lectures.ACTION_TRIGGER_CUSTOM_EVENT_ALARM"
         const val ACTION_TRIGGER_TEST_CLASS_ALARM = "com.lectures.ACTION_TRIGGER_TEST_CLASS_ALARM"
         const val ACTION_TRIGGER_SNOOZE_CLASS_ALARM = "com.lectures.ACTION_TRIGGER_SNOOZE_CLASS_ALARM"
 
         fun classAlarmUri(naturalKey: String): Uri =
             Uri.parse("lectures://alarm/class/${Uri.encode(naturalKey)}")
 
+        fun customEventAlarmUri(eventId: Long): Uri =
+            Uri.parse("lectures://alarm/event/$eventId")
+
         fun testClassAlarmUri(naturalKey: String): Uri =
             Uri.parse("lectures://alarm/class_test/${Uri.encode(naturalKey)}")
 
         fun snoozeClassAlarmUri(key: String): Uri =
             Uri.parse("lectures://alarm/class_snooze/${Uri.encode(key)}")
+
+        internal fun stableRequestCode(key: String): Int {
+            val h = key.hashCode()
+            val positive = if (h == Int.MIN_VALUE) 1 else kotlin.math.abs(h)
+            return 100_000 + (positive % 1_000_000_000)
+        }
 
         /**
          * Computes the next future trigger timestamp in epoch millis for a weekly class occurrence.
@@ -129,7 +140,7 @@ class AlarmScheduler(private val context: Context) {
 
         val pendingIntent = PendingIntent.getBroadcast(
             context,
-            entry.naturalKey.hashCode(),
+            stableRequestCode("class_${entry.naturalKey}"),
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -289,7 +300,7 @@ class AlarmScheduler(private val context: Context) {
         }
         val pendingIntent = PendingIntent.getBroadcast(
             context,
-            entry.naturalKey.hashCode() + 1000,
+            stableRequestCode("test_${entry.naturalKey}"),
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -301,6 +312,112 @@ class AlarmScheduler(private val context: Context) {
         )
     }
 
+    fun scheduleCustomEventAlarm(event: CustomEvent): Boolean {
+        if (alarmManager == null) {
+            Log.e(TAG, "AlarmManager service not available")
+            return false
+        }
+        val minutesBefore = event.alarmMinutes
+        if (event.id <= 0L || event.isDeleted || minutesBefore == null) {
+            if (event.id > 0L) cancelCustomEventAlarm(event.id)
+            return false
+        }
+
+        val targetDow = parseDayPrefix(event.dayOfWeek) ?: run {
+            Log.e(TAG, "Cannot schedule custom event alarm: invalid dayOfWeek '${event.dayOfWeek}' for ${event.title}")
+            return false
+        }
+        val (hour, minute) = parseStartTime(event.startTime) ?: run {
+            Log.e(TAG, "Cannot schedule custom event alarm: invalid startTime '${event.startTime}' for ${event.title}")
+            return false
+        }
+
+        val triggerMillis = calculateNextTriggerMillis(
+            targetDow = targetDow,
+            hour = hour,
+            minute = minute,
+            minutesBefore = minutesBefore
+        )
+
+        val naturalKey = "custom_event_${event.id}"
+        val intent = Intent(context, ClassAlarmReceiver::class.java).apply {
+            action = ACTION_TRIGGER_CUSTOM_EVENT_ALARM
+            data = customEventAlarmUri(event.id)
+            putExtra("NATURAL_KEY", naturalKey)
+            putExtra("CUSTOM_EVENT_ID", event.id)
+            putExtra("DAY_OF_WEEK", event.dayOfWeek)
+            putExtra("COURSE_CODE", event.category.ifBlank { "Activity" })
+            putExtra("COURSE_TITLE", event.title)
+            putExtra("ROOM", event.location.ifBlank { "Personal Activity" })
+            putExtra("START_TIME", event.startTime)
+            putExtra("LECTURER", "")
+            putExtra("MINUTES_BEFORE", minutesBefore)
+            putExtra("IS_ALARM", true)
+            putExtra("IS_RECURRING", event.repeatWeekly)
+            putExtra("IS_CUSTOM_EVENT", true)
+            putExtra("IS_TEST", false)
+        }
+
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            stableRequestCode(naturalKey),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        return scheduleRtcWakeupWithFallback(
+            triggerMillis = triggerMillis,
+            pendingIntent = pendingIntent,
+            label = "custom activity alarm for ${event.title}"
+        )
+    }
+
+    fun cancelCustomEventAlarm(eventId: Long) {
+        if (eventId <= 0L) return
+        val manager = alarmManager ?: return
+        val naturalKey = "custom_event_$eventId"
+        val intent = Intent(context, ClassAlarmReceiver::class.java).apply {
+            action = ACTION_TRIGGER_CUSTOM_EVENT_ALARM
+            data = customEventAlarmUri(eventId)
+        }
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            stableRequestCode(naturalKey),
+            intent,
+            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+        )
+        if (pendingIntent != null) {
+            manager.cancel(pendingIntent)
+            pendingIntent.cancel()
+            Log.d(TAG, "Cancelled custom event alarm for $eventId")
+        }
+        cancelSnoozeAlarm(naturalKey)
+    }
+
+    fun cancelAllCustomEventAlarms(events: List<CustomEvent>) {
+        if (alarmManager == null || events.isEmpty()) return
+        events.forEach { cancelCustomEventAlarm(it.id) }
+    }
+
+    fun cancelSnoozeAlarm(snoozeKey: String) {
+        val manager = alarmManager ?: return
+        val intent = Intent(context, ClassAlarmReceiver::class.java).apply {
+            action = ACTION_TRIGGER_SNOOZE_CLASS_ALARM
+            data = snoozeClassAlarmUri(snoozeKey)
+        }
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            stableRequestCode("snooze_$snoozeKey"),
+            intent,
+            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+        )
+        if (pendingIntent != null) {
+            manager.cancel(pendingIntent)
+            pendingIntent.cancel()
+            Log.d(TAG, "Cancelled snooze alarm for $snoozeKey")
+        }
+    }
+
     fun cancelClassAlarm(naturalKey: String) {
         val manager = alarmManager ?: return
         val intent = Intent(context, ClassAlarmReceiver::class.java).apply {
@@ -309,7 +426,7 @@ class AlarmScheduler(private val context: Context) {
         }
         val pendingIntent = PendingIntent.getBroadcast(
             context,
-            naturalKey.hashCode(),
+            stableRequestCode("class_$naturalKey"),
             intent,
             PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
         )
@@ -318,6 +435,7 @@ class AlarmScheduler(private val context: Context) {
             pendingIntent.cancel()
             Log.d(TAG, "Cancelled class alarm for $naturalKey")
         }
+        cancelSnoozeAlarm(naturalKey)
     }
 
     /**
@@ -369,7 +487,9 @@ class AlarmScheduler(private val context: Context) {
         minutesBefore: Int = 30,
         lecturer: String = "",
         naturalKey: String? = null,
-        dayOfWeek: String? = null
+        dayOfWeek: String? = null,
+        isCustomEvent: Boolean = false,
+        customEventId: Long = -1L
     ) {
         if (alarmManager == null) return
         val triggerMillis = System.currentTimeMillis() + (snoozeMinutes * 60 * 1000L)
@@ -383,6 +503,8 @@ class AlarmScheduler(private val context: Context) {
             putExtra("START_TIME", startTime)
             putExtra("MINUTES_BEFORE", minutesBefore)
             putExtra("LECTURER", lecturer)
+            putExtra("IS_CUSTOM_EVENT", isCustomEvent)
+            if (customEventId > 0L) putExtra("CUSTOM_EVENT_ID", customEventId)
             naturalKey?.let { putExtra("NATURAL_KEY", it) }
             dayOfWeek?.let { putExtra("DAY_OF_WEEK", it) }
             putExtra("IS_ALARM", true)
@@ -390,7 +512,7 @@ class AlarmScheduler(private val context: Context) {
             putExtra("IS_TEST", false)
             putExtra("IS_SNOOZED", true)
         }
-        val requestCode = ("snooze_$snoozeKey").hashCode()
+        val requestCode = stableRequestCode("snooze_$snoozeKey")
         val pendingIntent = PendingIntent.getBroadcast(
             context,
             requestCode,
