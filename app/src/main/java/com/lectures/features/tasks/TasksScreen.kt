@@ -47,11 +47,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lectures.TimetableApplication
 import com.lectures.core.alarm.TaskAlarmScheduler
 import com.lectures.core.alarm.TaskDateTimeParser
+import com.lectures.core.notification.NotificationHelper
 import com.lectures.core.util.NotificationPermissionHelper
+import java.text.SimpleDateFormat
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.text.style.TextDecoration
@@ -191,24 +195,36 @@ fun TasksScreen(
         mutableStateOf(NotificationPermissionHelper.isTaskBannerDismissed(context))
     }
 
-    var hasNotificationPermission by remember {
-        mutableStateOf(
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                ContextCompat.checkSelfPermission(
-                    context,
-                    Manifest.permission.POST_NOTIFICATIONS
-                ) == PackageManager.PERMISSION_GRANTED
-            } else {
-                true
-            }
-        )
+    var areNotificationsAllowed by remember {
+        mutableStateOf(NotificationPermissionHelper.areNotificationsEnabled(context))
     }
+    var isTaskChannelBlocked by remember {
+        mutableStateOf(NotificationPermissionHelper.isChannelBlocked(context, NotificationHelper.CHANNEL_ACADEMIC_TASKS))
+    }
+
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        areNotificationsAllowed = NotificationPermissionHelper.areNotificationsEnabled(context)
+        isTaskChannelBlocked = NotificationPermissionHelper.isChannelBlocked(context, NotificationHelper.CHANNEL_ACADEMIC_TASKS)
+        if (areNotificationsAllowed && !isTaskChannelBlocked) {
+            isNotificationBannerDismissed = false
+            NotificationPermissionHelper.setTaskBannerDismissed(context, false)
+        }
+    }
+
+    val defaultTaskLeadHours by repository.taskReminderLeadPref.collectAsState(
+        initial = repository.getTaskReminderLeadHours()
+    )
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        hasNotificationPermission = isGranted
+    ) { _ ->
         NotificationPermissionHelper.setPromptedNotificationPermission(context, true)
+        areNotificationsAllowed = NotificationPermissionHelper.areNotificationsEnabled(context)
+        isTaskChannelBlocked = NotificationPermissionHelper.isChannelBlocked(context, NotificationHelper.CHANNEL_ACADEMIC_TASKS)
+        if (areNotificationsAllowed && !isTaskChannelBlocked) {
+            isNotificationBannerDismissed = false
+            NotificationPermissionHelper.setTaskBannerDismissed(context, false)
+        }
     }
 
     val filteredTasks = remember(assignments, uiState.searchQuery, uiState.selectedFilter) {
@@ -348,8 +364,9 @@ fun TasksScreen(
                                 color = textPrimary
                             )
                             Spacer(modifier = Modifier.height(2.dp))
+                            val pendingCount = assignments.count { !it.completed }
                             Text(
-                                "${assignments.count { !it.completed }} pending tasks",
+                                "$pendingCount pending task${if (pendingCount == 1) "" else "s"}",
                                 fontSize = 12.sp,
                                 color = textSecondary
                             )
@@ -378,8 +395,8 @@ fun TasksScreen(
                 .padding(top = innerPadding.calculateTopPadding())
         ) {
 
-        // Notification Permission Prompt (if revoked on Android 13+)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !hasNotificationPermission && !isNotificationBannerDismissed) {
+        // Notification Permission / Channel Blocked Prompt
+        if ((!areNotificationsAllowed || isTaskChannelBlocked) && !isNotificationBannerDismissed) {
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -403,7 +420,11 @@ fun TasksScreen(
                         )
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
-                            "Enable notifications to receive deadline alarms.",
+                            text = if (!areNotificationsAllowed) {
+                                "Enable notifications to receive deadline alarms."
+                            } else {
+                                "Deadline alert channel is muted in system settings."
+                            },
                             fontSize = 12.sp,
                             color = if (isDark) Color(0xFFFDE68A) else Color(0xFF92400E),
                             lineHeight = 16.sp
@@ -412,20 +433,28 @@ fun TasksScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         TextButton(
                             onClick = {
-                                val activity = context as? Activity
-                                val shouldShowRationale = if (activity != null) {
-                                    ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.POST_NOTIFICATIONS)
-                                } else false
-                                if (!shouldShowRationale && NotificationPermissionHelper.hasPromptedNotificationPermission(context)) {
-                                    NotificationPermissionHelper.openAppNotificationSettings(context)
+                                if (!areNotificationsAllowed) {
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                        val activity = context as? Activity
+                                        val shouldShowRationale = activity != null &&
+                                            ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.POST_NOTIFICATIONS)
+                                        val canLaunchRuntime = !NotificationPermissionHelper.hasPromptedNotificationPermission(context) || shouldShowRationale
+                                        if (canLaunchRuntime) {
+                                            NotificationPermissionHelper.setPromptedNotificationPermission(context, true)
+                                            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                        } else {
+                                            NotificationPermissionHelper.openAppNotificationSettings(context)
+                                        }
+                                    } else {
+                                        NotificationPermissionHelper.openAppNotificationSettings(context)
+                                    }
                                 } else {
-                                    NotificationPermissionHelper.setPromptedNotificationPermission(context, true)
-                                    permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                    NotificationPermissionHelper.openChannelSettings(context, NotificationHelper.CHANNEL_ACADEMIC_TASKS)
                                 }
                             }
                         ) {
                             Text(
-                                "Allow",
+                                if (!areNotificationsAllowed) "Allow" else "Settings",
                                 fontWeight = FontWeight.Bold,
                                 color = if (isDark) Color(0xFFFBBF24) else Color(0xFFB45309)
                             )
@@ -885,6 +914,7 @@ fun TasksScreen(
             isDark = isDark,
             initialTask = taskToEdit,
             availableCourses = availableCoursePairs,
+            defaultReminderMinutes = defaultTaskLeadHours * 60,
             onDismiss = {
                 showAddDialog = false
                 editingTaskId = null
@@ -1389,6 +1419,7 @@ fun AddTaskDialog(
     isDark: Boolean,
     initialTask: Assignment? = null,
     availableCourses: List<Pair<String, String>> = emptyList(),
+    defaultReminderMinutes: Int = 120,
     onDismiss: () -> Unit,
     onConfirm: (title: String, course: String, dueDate: String, priority: String, reminder: Int?, notes: String, category: TaskCategory) -> Unit
 ) {
@@ -1412,14 +1443,16 @@ fun AddTaskDialog(
         } else {
             raw ?: ""
         }
-        mutableStateOf(if (cleanDate.isBlank() || cleanDate == "Soon") "Next Week" else cleanDate)
+        val fallbackTomorrow = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, 1) }
+        val defaultFormattedDate = SimpleDateFormat("EEE, MMM d, yyyy", Locale.getDefault()).format(fallbackTomorrow.time)
+        mutableStateOf(if (cleanDate.isBlank() || cleanDate == "Soon") defaultFormattedDate else cleanDate)
     }
     val fullDueDateTime = remember(dueDateOnly, dueTime) {
         if (dueTime.isNotBlank()) "$dueDateOnly $dueTime".trim() else dueDateOnly
     }
     val taskSaveKey = initialTask?.id ?: -1L
     var priority by rememberSaveable(taskSaveKey) { mutableStateOf(initialTask?.priority ?: "Medium") }
-    var reminderMinutes by rememberSaveable(taskSaveKey) { mutableStateOf<Int?>(initialTask?.reminderMinutes ?: 1440) }
+    var reminderMinutes by rememberSaveable(taskSaveKey) { mutableStateOf<Int?>(initialTask?.reminderMinutes ?: defaultReminderMinutes) }
     var notes by rememberSaveable(taskSaveKey) { mutableStateOf(initialTask?.notes ?: "") }
 
     var courseDropdownExpanded by rememberSaveable(taskSaveKey) { mutableStateOf(false) }
@@ -1745,10 +1778,13 @@ fun AddTaskDialog(
                 ) {
                     Text("Alert: ", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = textSecondary)
                     val reminderOptions = listOf(
-                        0 to "On due date",
+                        0 to "On due time",
+                        60 to "1h before",
+                        120 to "2h before",
+                        360 to "6h before",
+                        720 to "12h before",
                         1440 to "1d before",
                         2880 to "2d before",
-                        60 to "1h before",
                         null to "None"
                     )
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {

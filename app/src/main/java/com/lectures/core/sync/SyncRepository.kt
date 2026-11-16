@@ -37,6 +37,8 @@ class SyncRepository(
     private val _lastSyncError = MutableStateFlow<String?>(null)
     val lastSyncError: StateFlow<String?> = _lastSyncError.asStateFlow()
 
+    var onRemoteSettingsPulled: (suspend () -> Unit)? = null
+
     /**
      * Starts observation of the central university timetable and version metadata.
      * Idempotent: clears prior timetable listeners before attaching new ones.
@@ -245,7 +247,9 @@ class SyncRepository(
             // 10. Merge Settings
             val (resolvedSettings, shouldPushSettings) = SyncConflictResolver.mergeSettings(localSettings, remoteSettings)
             settingsManager.applySettings(resolvedSettings)
-            if (shouldPushSettings) {
+            if (!shouldPushSettings) {
+                onRemoteSettingsPulled?.invoke()
+            } else {
                 val result = pushSettingsToCloud(resolvedSettings, userId)
                 if (result.isSuccess) pushedSuccess++ else {
                     pushFailures++

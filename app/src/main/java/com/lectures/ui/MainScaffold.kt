@@ -215,11 +215,17 @@ fun MainScaffold(
                     scope.launch {
                         repository.setProgrammePref(chosenGroup)
                         repository.setOnboardingCompleted(true)
-                        com.lectures.core.alarm.ReminderScheduler(context).scheduleDailyReminder()
-                        val enrolledClasses = repository.getLocalSchedule(chosenGroup).firstOrNull() ?: emptyList()
-                        if (enrolledClasses.isNotEmpty() && repository.etagStore.isNotificationsEnabled()) {
-                            val leadMinutes = repository.etagStore.getClassAlarmLeadMinutes()
-                            com.lectures.core.alarm.AlarmScheduler(context).scheduleAllEnrolledClassAlarms(enrolledClasses, leadMinutes)
+                        if (repository.etagStore.isNotificationsEnabled()) {
+                            com.lectures.core.alarm.ReminderScheduler(context).scheduleDailyReminder()
+                            val enrolledClasses = repository.getLocalSchedule(chosenGroup).firstOrNull() ?: emptyList()
+                            if (enrolledClasses.isNotEmpty()) {
+                                val leadMinutes = repository.etagStore.getClassAlarmLeadMinutes()
+                                com.lectures.core.alarm.AlarmScheduler(context).scheduleAllEnrolledClassAlarms(
+                                    classes = enrolledClasses,
+                                    leadMinutes = leadMinutes,
+                                    isAlarm = false
+                                )
+                            }
                         }
                         navState = AppNavState.MainApp
                     }

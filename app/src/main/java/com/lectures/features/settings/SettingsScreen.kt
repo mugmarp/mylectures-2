@@ -25,7 +25,6 @@ import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.ErrorOutline
-import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material.icons.outlined.NotificationsOff
 import androidx.compose.material.icons.outlined.Vibration
@@ -44,7 +43,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -53,6 +51,7 @@ import com.lectures.core.alarm.AlarmScheduler
 import com.lectures.core.alarm.ReminderScheduler
 import com.lectures.core.alarm.TaskAlarmScheduler
 import com.lectures.core.notification.NotificationHelper
+import com.lectures.core.util.NotificationPermissionHelper
 import com.lectures.features.onboarding.FacultyCatalog
 import com.lectures.features.rooms.UniversityDirectory
 import com.lectures.ui.AccentColorNames
@@ -829,14 +828,22 @@ fun SettingsScreen(
             SectionHeader("NOTIFICATIONS & ALARMS")
 
             var areNotificationsAllowed by remember {
-                mutableStateOf(NotificationManagerCompat.from(context).areNotificationsEnabled())
+                mutableStateOf(NotificationPermissionHelper.areNotificationsEnabled(context))
+            }
+            var canScheduleExactAlarms by remember {
+                mutableStateOf(NotificationPermissionHelper.canScheduleExactAlarms(context))
+            }
+            var blockedChannels by remember {
+                mutableStateOf(NotificationPermissionHelper.getBlockedReminderChannels(context))
             }
             LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
-                areNotificationsAllowed = NotificationManagerCompat.from(context).areNotificationsEnabled()
+                areNotificationsAllowed = NotificationPermissionHelper.areNotificationsEnabled(context)
+                canScheduleExactAlarms = NotificationPermissionHelper.canScheduleExactAlarms(context)
+                blockedChannels = NotificationPermissionHelper.getBlockedReminderChannels(context)
             }
             var isPermissionBannerDismissed by rememberSaveable { mutableStateOf(false) }
 
-            // Dismissible banner when notifications are disabled in system settings
+            // Dismissible banner when notifications are disabled, muted at channel level, or exact alarms restricted
             if (!areNotificationsAllowed && !isPermissionBannerDismissed) {
                 Card(
                     modifier = Modifier
@@ -885,19 +892,7 @@ fun SettingsScreen(
                             Spacer(modifier = Modifier.height(8.dp))
                             Button(
                                 onClick = {
-                                    val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
-                                        putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-                                    }
-                                    try {
-                                        context.startActivity(intent)
-                                    } catch (e: Exception) {
-                                        val fallback = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                            data = android.net.Uri.fromParts("package", context.packageName, null)
-                                        }
-                                        try {
-                                            context.startActivity(fallback)
-                                        } catch (_: Exception) {}
-                                    }
+                                    NotificationPermissionHelper.openAppNotificationSettings(context)
                                 },
                                 shape = RoundedCornerShape(8.dp),
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
@@ -920,6 +915,51 @@ fun SettingsScreen(
                                 tint = if (isDark) Color(0xFFFDE68A) else Color(0xFF92400E),
                                 modifier = Modifier.size(18.dp)
                             )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+            } else if (areNotificationsAllowed && blockedChannels.isNotEmpty()) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 6.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isDark) Color(0xFF78350F).copy(alpha = 0.35f) else Color(0xFFFEF3C7)
+                    ),
+                    border = BorderStroke(1.dp, if (isDark) Color(0xFFB45309).copy(alpha = 0.5f) else Color(0xFFFDE68A))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.NotificationsOff,
+                            contentDescription = null,
+                            tint = if (isDark) Color(0xFFFBBF24) else Color(0xFFD97706),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Some Alert Channels Muted",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = if (isDark) Color(0xFFFDE68A) else Color(0xFF92400E)
+                            )
+                            Text(
+                                text = "${blockedChannels.size} reminder channel(s) are turned off in Android system settings.",
+                                fontSize = 12.sp,
+                                color = if (isDark) Color(0xFFFDE68A).copy(alpha = 0.9f) else Color(0xFF78350F)
+                            )
+                        }
+                        TextButton(
+                            onClick = { NotificationPermissionHelper.openChannelSettings(context, blockedChannels.first()) }
+                        ) {
+                            Text("Unmute", fontWeight = FontWeight.Bold, color = if (isDark) Color(0xFFFBBF24) else Color(0xFFB45309))
                         }
                     }
                 }
@@ -1164,7 +1204,7 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Card 4: Audio, Vibration & OS Channels
+            // Card 4: Delivery, Vibration & OS Channels
             Card(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
                 shape = RoundedCornerShape(16.dp),
@@ -1182,36 +1222,25 @@ fun SettingsScreen(
                                 .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.12f), CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Outlined.MusicNote, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(20.dp))
+                            Icon(Icons.Outlined.NotificationsActive, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(20.dp))
                         }
                         Spacer(modifier = Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                "Sound Profile & Channels",
+                                "Delivery & OS Channels",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 14.sp,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                "Tap a sound to preview and apply to alert channels",
+                                "System sounds, vibration & exact alarm delivery",
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         TextButton(
                             onClick = {
-                                val intent = Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS).apply {
-                                    putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-                                    putExtra(Settings.EXTRA_CHANNEL_ID, NotificationHelper.CHANNEL_CLASS_ALARMS)
-                                }
-                                try {
-                                    context.startActivity(intent)
-                                } catch (_: Exception) {
-                                    val fallback = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
-                                        putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-                                    }
-                                    try { context.startActivity(fallback) } catch (_: Exception) {}
-                                }
+                                NotificationPermissionHelper.openChannelSettings(context, NotificationHelper.CHANNEL_CLASS_ALARMS)
                             },
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                         ) {
@@ -1221,37 +1250,50 @@ fun SettingsScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    val soundOptions = listOf("Chime", "Gentle Bell", "Standard", "System Default")
+                    // Exact Alarm Permission Status Row
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(
+                                if (canScheduleExactAlarms) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+                                else Color(0xFFFEF3C7).copy(alpha = if (isDark) 0.15f else 0.7f)
+                            )
+                            .clickable { NotificationPermissionHelper.openExactAlarmSettings(context) }
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        soundOptions.forEach { soundName ->
-                            val isSelected = uiState.alarmSound.equals(soundName, ignoreCase = true)
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .defaultMinSize(minHeight = 48.dp)
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(
-                                        if (isSelected) MaterialTheme.colorScheme.primary
-                                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                                    )
-                                    .clickable {
-                                        viewModel.setAlarmSound(soundName)
-                                        NotificationHelper.previewSound(context, soundName)
-                                    }
-                                    .padding(horizontal = 4.dp, vertical = 8.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = if (soundName == "System Default") "System" else soundName,
-                                    fontSize = 11.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1
-                                )
-                            }
+                        Icon(
+                            imageVector = if (canScheduleExactAlarms) Icons.Outlined.CheckCircle else Icons.Outlined.ErrorOutline,
+                            contentDescription = null,
+                            tint = if (canScheduleExactAlarms) Color(0xFF10B981) else Color(0xFFD97706),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = if (canScheduleExactAlarms) "Exact Alarm Timing Granted" else "Exact Alarm Timing Restricted",
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = if (canScheduleExactAlarms) {
+                                    "Lectures & deadlines fire at the exact minute"
+                                } else {
+                                    "Tap to allow 'Alarms & reminders' so alerts aren't delayed"
+                                },
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        if (!canScheduleExactAlarms) {
+                            Text(
+                                text = "Fix",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFD97706)
+                            )
                         }
                     }
 

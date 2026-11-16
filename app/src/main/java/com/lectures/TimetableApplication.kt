@@ -52,10 +52,6 @@ class TimetableApplication : Application() {
 
         // Initialize Android NotificationChannels for academic task reminders and class alarms
         com.lectures.core.notification.NotificationHelper.createNotificationChannels(this)
-        // Apply saved sound profile so notification channels reflect the user's choice
-        com.lectures.core.notification.NotificationHelper.applySoundProfile(
-            this, com.lectures.features.timetable.data.ETagStore(this).getAlarmSound()
-        )
         
         database = Room.databaseBuilder(
             this,
@@ -111,16 +107,13 @@ class TimetableApplication : Application() {
             val prog = etagStore.getSavedProgramme() ?: ""
             analyticsManager.recordAppLaunch(prog, this)
             if (repository.checkIsOnboardingCompleted()) {
-                if (etagStore.isNotificationsEnabled()) {
-                    com.lectures.core.alarm.ReminderScheduler(this@TimetableApplication).scheduleDailyReminder()
-                    if (prog.isNotEmpty()) {
-                        val enrolledClasses = repository.getLocalSchedule(prog).firstOrNull() ?: emptyList()
-                        if (enrolledClasses.isNotEmpty()) {
-                            val leadMinutes = etagStore.getClassAlarmLeadMinutes()
-                            com.lectures.core.alarm.AlarmScheduler(this@TimetableApplication).scheduleAllEnrolledClassAlarms(enrolledClasses, leadMinutes)
-                        }
-                    }
-                }
+                resyncLocalAlarmsFromSettings()
+            }
+        }
+
+        syncRepository.onRemoteSettingsPulled = {
+            if (repository.checkIsOnboardingCompleted()) {
+                resyncLocalAlarmsFromSettings()
             }
         }
 
@@ -132,6 +125,66 @@ class TimetableApplication : Application() {
                 } else {
                     syncRepository.stopUserSync()
                 }
+            }
+        }
+    }
+
+    suspend fun resyncLocalAlarmsFromSettings() {
+        val enabled = etagStore.isNotificationsEnabled()
+        val prog = etagStore.getSavedProgramme()?.trim()
+            ?: repository.getInitialProgramme()?.trim()
+            ?: ""
+        val reminderScheduler = com.lectures.core.alarm.ReminderScheduler(this)
+        val classScheduler = com.lectures.core.alarm.AlarmScheduler(this)
+        val taskScheduler = com.lectures.core.alarm.TaskAlarmScheduler(this)
+
+        val enrolledClasses = if (prog.isNotEmpty()) {
+            repository.getLocalSchedule(prog).firstOrNull() ?: emptyList()
+        } else emptyList()
+        val notesWithAlarms = repository.getNotesWithAlarms()
+        val assignments = repository.getAssignments().firstOrNull() ?: emptyList()
+
+        if (!enabled) {
+            reminderScheduler.cancelDailyReminder()
+            if (enrolledClasses.isNotEmpty()) {
+                classScheduler.cancelAllEnrolledClassAlarms(enrolledClasses)
+            }
+            notesWithAlarms.forEach { classScheduler.cancelClassAlarm(it.naturalKey) }
+            assignments.forEach { taskScheduler.cancelTaskReminder(it.id) }
+            return
+        }
+
+        reminderScheduler.scheduleDailyReminder()
+        val customNoteMap = notesWithAlarms
+            .mapNotNull { note -> note.alarmMinutes?.let { note.naturalKey to it } }
+            .toMap()
+
+        if (enrolledClasses.isNotEmpty()) {
+            val leadMinutes = etagStore.getClassAlarmLeadMinutes()
+            classScheduler.scheduleAllEnrolledClassAlarms(
+                classes = enrolledClasses,
+                leadMinutes = leadMinutes,
+                isAlarm = false,
+                customAlarmNotes = customNoteMap
+            )
+        }
+
+        val enrolledKeys = enrolledClasses.map { it.naturalKey }.toSet()
+        notesWithAlarms.forEach { note ->
+            if (note.naturalKey !in enrolledKeys) {
+                val mins = note.alarmMinutes ?: return@forEach
+                val entry = repository.getTimetableEntryByNaturalKey(note.naturalKey)
+                if (entry != null) {
+                    classScheduler.scheduleClassAlarm(entry, mins, isAlarm = true)
+                } else {
+                    classScheduler.scheduleClassAlarmFromNote(note, mins)
+                }
+            }
+        }
+
+        assignments.forEach { task ->
+            if (!task.completed && task.reminderMinutes != null) {
+                taskScheduler.scheduleTaskReminder(task)
             }
         }
     }

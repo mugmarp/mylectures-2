@@ -97,7 +97,9 @@ class ClassAlarmReceiver : BroadcastReceiver() {
                 room = room,
                 startTime = startTime,
                 minutesBefore = minutesBefore,
-                lecturer = lecturer
+                lecturer = lecturer,
+                naturalKey = naturalKey,
+                dayOfWeek = dayOfWeek
             )
         }
 

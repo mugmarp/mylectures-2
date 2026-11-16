@@ -41,7 +41,6 @@ data class SettingsUiState(
     val classAlarmLeadMinutes: Int = 30,
     val taskReminderLeadHours: Int = 2,
     val alarmVibration: Boolean = true,
-    val alarmSound: String = "Chime",
     val selectedAccent: Int = 0,
     val lastSyncTime: String = "Up to date",
     val timetableVersion: String = "Final Timetable",
@@ -148,13 +147,6 @@ class SettingsViewModel(
         viewModelScope.launch {
             repository.alarmVibrationPref.collect { vib ->
                 _uiState.value = _uiState.value.copy(alarmVibration = vib)
-            }
-        }
-
-        // Collect alarm sound
-        viewModelScope.launch {
-            repository.alarmSoundPref.collect { sound ->
-                _uiState.value = _uiState.value.copy(alarmSound = sound)
             }
         }
 
@@ -355,7 +347,15 @@ class SettingsViewModel(
                     if (prog.isNotEmpty()) {
                         val enrolledClasses = repository.getLocalSchedule(prog).firstOrNull() ?: emptyList()
                         val leadMinutes = _uiState.value.classAlarmLeadMinutes
-                        enrolledCount = classAlarmScheduler?.scheduleAllEnrolledClassAlarms(enrolledClasses, leadMinutes) ?: 0
+                        val customNoteMap = notesWithAlarms
+                            .mapNotNull { note -> note.alarmMinutes?.let { note.naturalKey to it } }
+                            .toMap()
+                        enrolledCount = classAlarmScheduler?.scheduleAllEnrolledClassAlarms(
+                            classes = enrolledClasses,
+                            leadMinutes = leadMinutes,
+                            isAlarm = false,
+                            customAlarmNotes = customNoteMap
+                        ) ?: 0
                     }
 
                     reminderScheduler?.scheduleDailyReminder()
@@ -392,11 +392,23 @@ class SettingsViewModel(
                 var reArmedCount = 0
                 if (prog.isNotEmpty() && _uiState.value.notificationsEnabled) {
                     val enrolledClasses = repository.getLocalSchedule(prog).firstOrNull() ?: emptyList()
-                    reArmedCount = classAlarmScheduler?.scheduleAllEnrolledClassAlarms(enrolledClasses, minutes) ?: 0
+                    val customNoteMap = repository.getNotesWithAlarms()
+                        .mapNotNull { note -> note.alarmMinutes?.let { note.naturalKey to it } }
+                        .toMap()
+                    reArmedCount = classAlarmScheduler?.scheduleAllEnrolledClassAlarms(
+                        classes = enrolledClasses,
+                        leadMinutes = minutes,
+                        isAlarm = false,
+                        customAlarmNotes = customNoteMap
+                    ) ?: 0
                 }
                 _uiState.value = _uiState.value.copy(
                     classAlarmLeadMinutes = minutes,
-                    successMessage = if (reArmedCount > 0) "Lecture reminders updated to $minutes minutes before ($reArmedCount classes armed)." else "Lecture reminder updated to $minutes minutes before."
+                    successMessage = when {
+                        !_uiState.value.notificationsEnabled -> "Default class reminder set to ${minutes}m before (Quiet Mode active — alerts paused)."
+                        reArmedCount > 0 -> "Lecture reminders updated to $minutes minutes before ($reArmedCount classes armed)."
+                        else -> "Lecture reminder updated to $minutes minutes before."
+                    }
                 )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(errorMessage = "Failed to update class reminder: ${e.message}")
@@ -408,10 +420,10 @@ class SettingsViewModel(
         viewModelScope.launch {
             try {
                 repository.setTaskReminderLeadHours(hours)
-                val label = if (hours >= 24) "${hours / 24} day before" else "$hours hours before"
+                val label = if (hours >= 24) "${hours / 24} day before" else "${hours}h before"
                 _uiState.value = _uiState.value.copy(
                     taskReminderLeadHours = hours,
-                    successMessage = "Task reminder updated to $label."
+                    successMessage = "Default task reminder set to $label for new tasks."
                 )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(errorMessage = "Failed to update task reminder: ${e.message}")
@@ -425,7 +437,11 @@ class SettingsViewModel(
                 repository.setAlarmVibration(vibrate)
                 _uiState.value = _uiState.value.copy(
                     alarmVibration = vibrate,
-                    successMessage = if (vibrate) "Alarm vibration enabled." else "Alarm vibration turned off."
+                    successMessage = if (vibrate) {
+                        "Alarm vibration enabled for app alerts."
+                    } else {
+                        "Alarm vibration turned off for app alerts."
+                    }
                 )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(errorMessage = "Failed to update vibration setting: ${e.message}")
@@ -433,34 +449,43 @@ class SettingsViewModel(
         }
     }
 
-    fun setAlarmSound(sound: String) {
-        viewModelScope.launch {
-            try {
-                repository.setAlarmSound(sound)
-                NotificationHelper.applySoundProfile(getApplication(), sound)
-                _uiState.value = _uiState.value.copy(
-                    alarmSound = sound,
-                    successMessage = "Alarm sound profile set to $sound."
-                )
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(errorMessage = "Failed to update alarm sound: ${e.message}")
-            }
-        }
-    }
-
     fun sendTestNotification(context: Context) {
         try {
-            NotificationHelper.showClassReminderNotification(
+            if (!com.lectures.core.util.NotificationPermissionHelper.areNotificationsEnabled(context)) {
+                _uiState.value = _uiState.value.copy(
+                    errorMessage = "Notifications are disabled in Android Settings. Enable permissions first."
+                )
+                return
+            }
+            if (com.lectures.core.util.NotificationPermissionHelper.isChannelBlocked(context, NotificationHelper.CHANNEL_CLASSES)) {
+                _uiState.value = _uiState.value.copy(
+                    errorMessage = "The 'Upcoming Class Reminders' channel is muted in OS Channels."
+                )
+                return
+            }
+            val posted = NotificationHelper.showClassReminderNotification(
                 context = context,
                 courseCode = "BCS2101",
                 courseTitle = "Data Structures & Algorithms",
                 room = "Comp Lab 2 (Main Campus)",
                 startTime = "09:00 AM",
-                lecturer = "Dr. Mugisha"
+                minutesBefore = _uiState.value.classAlarmLeadMinutes,
+                lecturer = "Dr. Mugisha",
+                naturalKey = "test_class_reminder"
             )
-            _uiState.value = _uiState.value.copy(
-                successMessage = "Test class reminder notification posted! Check your status bar."
-            )
+            if (posted) {
+                _uiState.value = _uiState.value.copy(
+                    successMessage = if (_uiState.value.notificationsEnabled) {
+                        "Test class reminder posted! Check your status bar."
+                    } else {
+                        "Test reminder posted! (Quiet Mode active — scheduled alarms remain paused.)"
+                    }
+                )
+            } else {
+                _uiState.value = _uiState.value.copy(
+                    errorMessage = "Test notification was blocked by Android system settings."
+                )
+            }
         } catch (e: Exception) {
             _uiState.value = _uiState.value.copy(
                 errorMessage = "Failed to dispatch test notification: ${e.message}"
@@ -472,6 +497,25 @@ class SettingsViewModel(
         viewModelScope.launch {
             try {
                 val tasks = repository.getAssignments().firstOrNull() ?: emptyList()
+                val notesWithAlarms = repository.getNotesWithAlarms()
+                val prog = _uiState.value.currentProgramme.ifBlank { repository.getInitialProgramme() ?: "" }
+
+                if (!_uiState.value.notificationsEnabled) {
+                    alarmScheduler?.cancelAllTaskReminders(tasks)
+                    notesWithAlarms.forEach { note ->
+                        classAlarmScheduler?.cancelClassAlarm(note.naturalKey)
+                    }
+                    if (prog.isNotEmpty()) {
+                        val enrolledClasses = repository.getLocalSchedule(prog).firstOrNull() ?: emptyList()
+                        classAlarmScheduler?.cancelAllEnrolledClassAlarms(enrolledClasses)
+                    }
+                    reminderScheduler?.cancelDailyReminder()
+                    _uiState.value = _uiState.value.copy(
+                        successMessage = "Quiet Mode is active — enable 'Class & Task Reminders' first to arm alarms."
+                    )
+                    return@launch
+                }
+
                 var scheduledCount = 0
                 tasks.forEach { task ->
                     if (!task.completed && task.reminderMinutes != null) {
@@ -480,25 +524,31 @@ class SettingsViewModel(
                     }
                 }
 
-                val notesWithAlarms = repository.getNotesWithAlarms()
                 var classCount = 0
                 notesWithAlarms.forEach { note ->
                     val mins = note.alarmMinutes ?: return@forEach
                     val entry = repository.getTimetableEntryByNaturalKey(note.naturalKey)
                     val ok = if (entry != null) {
-                        classAlarmScheduler?.scheduleClassAlarm(entry, mins) == true
+                        classAlarmScheduler?.scheduleClassAlarm(entry, mins, isAlarm = true) == true
                     } else {
                         classAlarmScheduler?.scheduleClassAlarmFromNote(note, mins) == true
                     }
                     if (ok) classCount++
                 }
 
-                val prog = _uiState.value.currentProgramme.ifBlank { repository.getInitialProgramme() ?: "" }
                 var enrolledCount = 0
-                if (prog.isNotEmpty() && _uiState.value.notificationsEnabled) {
+                if (prog.isNotEmpty()) {
                     val enrolledClasses = repository.getLocalSchedule(prog).firstOrNull() ?: emptyList()
                     val leadMinutes = _uiState.value.classAlarmLeadMinutes
-                    enrolledCount = classAlarmScheduler?.scheduleAllEnrolledClassAlarms(enrolledClasses, leadMinutes) ?: 0
+                    val customNoteMap = notesWithAlarms
+                        .mapNotNull { note -> note.alarmMinutes?.let { note.naturalKey to it } }
+                        .toMap()
+                    enrolledCount = classAlarmScheduler?.scheduleAllEnrolledClassAlarms(
+                        classes = enrolledClasses,
+                        leadMinutes = leadMinutes,
+                        isAlarm = false,
+                        customAlarmNotes = customNoteMap
+                    ) ?: 0
                 }
 
                 reminderScheduler?.scheduleDailyReminder()

@@ -1623,7 +1623,7 @@ fun NoteEditorScreen(
                             Text(
                                 when {
                                     !canScheduleClassAlert -> "Needs Class"
-                                    selectedAlarmMinutes != null -> "${selectedAlarmMinutes}m Chime"
+                                    selectedAlarmMinutes != null -> "${selectedAlarmMinutes}m Alert"
                                     else -> "Disabled"
                                 },
                                 color = MaterialTheme.colorScheme.onSecondaryContainer,

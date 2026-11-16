@@ -1,8 +1,10 @@
 package com.lectures.core.util
 
 import android.Manifest
+import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
@@ -11,6 +13,11 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.lectures.core.notification.NotificationHelper
 
 object NotificationPermissionHelper {
 
@@ -18,8 +25,40 @@ object NotificationPermissionHelper {
     private const val KEY_HAS_PROMPTED = "has_prompted_post_notifications"
     private const val KEY_TASK_BANNER_DISMISSED = "tasks_notification_banner_dismissed"
 
+    fun hasPostNotificationsPermission(context: Context): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+        } else {
+            true
+        }
+    }
+
     fun areNotificationsEnabled(context: Context): Boolean {
-        return NotificationManagerCompat.from(context).areNotificationsEnabled()
+        return hasPostNotificationsPermission(context) &&
+            NotificationManagerCompat.from(context).areNotificationsEnabled()
+    }
+
+    fun isChannelBlocked(context: Context, channelId: String): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false
+        NotificationHelper.createNotificationChannels(context)
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+            ?: return false
+        val channel = manager.getNotificationChannel(channelId) ?: return false
+        return channel.importance == NotificationManager.IMPORTANCE_NONE
+    }
+
+    fun getBlockedReminderChannels(context: Context): List<String> {
+        if (!areNotificationsEnabled(context) || Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            return emptyList()
+        }
+        return listOf(
+            NotificationHelper.CHANNEL_CLASS_ALARMS,
+            NotificationHelper.CHANNEL_CLASSES,
+            NotificationHelper.CHANNEL_ACADEMIC_TASKS
+        ).filter { isChannelBlocked(context, it) }
     }
 
     fun hasPromptedNotificationPermission(context: Context): Boolean {
@@ -62,7 +101,43 @@ object NotificationPermissionHelper {
             }
         }
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        context.startActivity(intent)
+        runCatching { context.startActivity(intent) }.onFailure {
+            val fallback = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.fromParts("package", context.packageName, null)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            runCatching { context.startActivity(fallback) }
+        }
+    }
+
+    fun openChannelSettings(context: Context, channelId: String) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationHelper.createNotificationChannels(context)
+            val intent = Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS).apply {
+                putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                putExtra(Settings.EXTRA_CHANNEL_ID, channelId)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            val started = runCatching { context.startActivity(intent) }.isSuccess
+            if (started) return
+        }
+        openAppNotificationSettings(context)
+    }
+
+    fun openExactAlarmSettings(context: Context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                data = Uri.fromParts("package", context.packageName, null)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            val started = runCatching { context.startActivity(intent) }.isSuccess
+            if (started) return
+        }
+        val fallback = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.fromParts("package", context.packageName, null)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        runCatching { context.startActivity(fallback) }
     }
 }
 
@@ -71,15 +146,27 @@ fun rememberNotificationPermissionState(
     onPermissionResult: (Boolean) -> Unit = {}
 ): NotificationPermissionState {
     val context = LocalContext.current
-    var hasPermission by remember {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var hasPermission by remember(context) {
         mutableStateOf(NotificationPermissionHelper.areNotificationsEnabled(context))
+    }
+
+    DisposableEffect(lifecycleOwner, context) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_START || event == Lifecycle.Event.ON_RESUME) {
+                hasPermission = NotificationPermissionHelper.areNotificationsEnabled(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
-        hasPermission = isGranted
-        onPermissionResult(isGranted)
+        setPromptedSafely(context)
+        hasPermission = isGranted && NotificationPermissionHelper.areNotificationsEnabled(context)
+        onPermissionResult(hasPermission)
     }
 
     return remember(hasPermission) {
@@ -89,11 +176,16 @@ fun rememberNotificationPermissionState(
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
                 } else {
-                    onPermissionResult(true)
+                    hasPermission = NotificationPermissionHelper.areNotificationsEnabled(context)
+                    onPermissionResult(hasPermission)
                 }
             }
         )
     }
+}
+
+private fun setPromptedSafely(context: Context) {
+    NotificationPermissionHelper.setPromptedNotificationPermission(context, true)
 }
 
 class NotificationPermissionState(

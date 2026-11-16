@@ -29,7 +29,6 @@ class ETagStore(context: Context, prefsName: String = "mustime_settings") {
     private val CLASS_ALARM_LEAD_KEY = "class_alarm_lead_minutes"
     private val TASK_REMINDER_LEAD_KEY = "task_reminder_lead_hours"
     private val ALARM_VIBRATION_KEY = "alarm_vibration"
-    private val ALARM_SOUND_KEY = "alarm_sound"
 
     private val _timetableVersionPref = MutableStateFlow(prefs.getString(TIMETABLE_VERSION_KEY, "Final Timetable") ?: "Final Timetable")
     val timetableVersionPref: Flow<String> = _timetableVersionPref.asStateFlow()
@@ -63,11 +62,12 @@ class ETagStore(context: Context, prefsName: String = "mustime_settings") {
     private val _taskReminderLeadPref = MutableStateFlow(prefs.getInt(TASK_REMINDER_LEAD_KEY, 2))
     val taskReminderLeadPref: Flow<Int> = _taskReminderLeadPref.asStateFlow()
 
+    fun getTaskReminderLeadHours(): Int = prefs.getInt(TASK_REMINDER_LEAD_KEY, 2)
+
     private val _alarmVibrationPref = MutableStateFlow(prefs.getBoolean(ALARM_VIBRATION_KEY, true))
     val alarmVibrationPref: Flow<Boolean> = _alarmVibrationPref.asStateFlow()
 
-    private val _alarmSoundPref = MutableStateFlow(prefs.getString(ALARM_SOUND_KEY, "Chime") ?: "Chime")
-    val alarmSoundPref: Flow<String> = _alarmSoundPref.asStateFlow()
+    fun isAlarmVibrationEnabled(): Boolean = prefs.getBoolean(ALARM_VIBRATION_KEY, true)
 
     fun getAcademicYear(): String = prefs.getString(ACADEMIC_YEAR_KEY, "2026/2027") ?: "2026/2027"
     fun getSemester(): String = prefs.getString(SEMESTER_KEY, "Semester 1") ?: "Semester 1"
@@ -167,13 +167,6 @@ class ETagStore(context: Context, prefsName: String = "mustime_settings") {
     suspend fun setAlarmVibration(vibrate: Boolean) {
         prefs.edit().putBoolean(ALARM_VIBRATION_KEY, vibrate).apply()
         _alarmVibrationPref.value = vibrate
-    }
-
-    fun getAlarmSound(): String = prefs.getString(ALARM_SOUND_KEY, "Chime") ?: "Chime"
-
-    suspend fun setAlarmSound(sound: String) {
-        prefs.edit().putString(ALARM_SOUND_KEY, sound).apply()
-        _alarmSoundPref.value = sound
     }
 
     suspend fun setLastSyncTime(timeStr: String) {

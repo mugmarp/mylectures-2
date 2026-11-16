@@ -322,19 +322,28 @@ class AlarmScheduler(private val context: Context) {
 
     /**
      * Automatically arms recurring class reminders/alarms for all lectures
-     * in the student's enrolled academic programme.
+     * in the student's enrolled academic programme while preserving any
+     * custom per-note alarm lead times.
      */
-    fun scheduleAllEnrolledClassAlarms(classes: List<TimetableEntry>, leadMinutes: Int, isAlarm: Boolean = true): Int {
+    fun scheduleAllEnrolledClassAlarms(
+        classes: List<TimetableEntry>,
+        leadMinutes: Int,
+        isAlarm: Boolean = false,
+        customAlarmNotes: Map<String, Int> = emptyMap()
+    ): Int {
         if (alarmManager == null || classes.isEmpty()) return 0
         val uniqueClasses = classes.distinctBy {
             if (it.naturalKey.isNotBlank()) it.naturalKey else "${it.courseCode}|${it.dayOfWeek}|${it.startTime}"
         }
         var scheduledCount = 0
         for (entry in uniqueClasses) {
-            val ok = scheduleClassAlarm(entry, leadMinutes, isAlarm)
+            val customLead = customAlarmNotes[entry.naturalKey]
+            val effectiveLead = customLead ?: leadMinutes
+            val effectiveIsAlarm = if (customLead != null) true else isAlarm
+            val ok = scheduleClassAlarm(entry, effectiveLead, effectiveIsAlarm)
             if (ok) scheduledCount++
         }
-        Log.d(TAG, "Scheduled $scheduledCount enrolled class alarms (lead = ${leadMinutes}m) out of ${uniqueClasses.size} unique lectures")
+        Log.d(TAG, "Scheduled $scheduledCount enrolled class alerts (lead = ${leadMinutes}m, preservedNotes = ${customAlarmNotes.size}) out of ${uniqueClasses.size} unique lectures")
         return scheduledCount
     }
 

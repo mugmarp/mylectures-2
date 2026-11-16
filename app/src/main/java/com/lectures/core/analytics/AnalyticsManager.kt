@@ -43,6 +43,7 @@ class AnalyticsManager(private val context: Context) {
     }
 
     private val featureLock = Any()
+    private val featureCountsCache = mutableMapOf<String, Int>()
 
     private val _featureStats = MutableStateFlow<Map<String, Int>>(emptyMap())
     val featureStats: StateFlow<Map<String, Int>> = _featureStats.asStateFlow()
@@ -95,19 +96,14 @@ class AnalyticsManager(private val context: Context) {
     fun trackFeature(featureName: String) {
         synchronized(featureLock) {
             try {
-                val jsonStr = prefs.getString(KEY_FEATURE_COUNTS, "{}") ?: "{}"
-                val json = JSONObject(jsonStr)
-                val current = json.optInt(featureName, 0)
-                json.put(featureName, current + 1)
-                prefs.edit().putString(KEY_FEATURE_COUNTS, json.toString()).apply()
+                val updated = (featureCountsCache[featureName] ?: 0) + 1
+                featureCountsCache[featureName] = updated
+                val snapshot = featureCountsCache.toMap()
+                _featureStats.value = snapshot
 
-                val map = mutableMapOf<String, Int>()
-                val keys = json.keys()
-                while (keys.hasNext()) {
-                    val k = keys.next()
-                    map[k] = json.getInt(k)
-                }
-                _featureStats.value = map
+                val json = JSONObject()
+                snapshot.forEach { (k, v) -> json.put(k, v) }
+                prefs.edit().putString(KEY_FEATURE_COUNTS, json.toString()).apply()
             } catch (_: Exception) {}
         }
     }
@@ -121,13 +117,13 @@ class AnalyticsManager(private val context: Context) {
             try {
                 val jsonStr = prefs.getString(KEY_FEATURE_COUNTS, "{}") ?: "{}"
                 val json = JSONObject(jsonStr)
-                val map = mutableMapOf<String, Int>()
+                featureCountsCache.clear()
                 val keys = json.keys()
                 while (keys.hasNext()) {
                     val k = keys.next()
-                    map[k] = json.getInt(k)
+                    featureCountsCache[k] = json.getInt(k)
                 }
-                _featureStats.value = map
+                _featureStats.value = featureCountsCache.toMap()
             } catch (_: Exception) {}
         }
     }

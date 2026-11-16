@@ -135,10 +135,19 @@ class TimetableViewModel(
                     entries = entries,
                     isLoading = false
                 )
-                // When loading the official enrolled timetable, ensure recurring class alarms are active
+                // When loading the official enrolled timetable, ensure recurring class reminders are active
+                // without overwriting custom per-note alarm lead times.
                 if (!_uiState.value.isPeeking && entries.isNotEmpty() && repository.etagStore.isNotificationsEnabled()) {
                     val leadMinutes = repository.etagStore.getClassAlarmLeadMinutes()
-                    classAlarmScheduler?.scheduleAllEnrolledClassAlarms(entries, leadMinutes)
+                    val customNoteMap = repository.getNotesWithAlarms()
+                        .mapNotNull { note -> note.alarmMinutes?.let { note.naturalKey to it } }
+                        .toMap()
+                    classAlarmScheduler?.scheduleAllEnrolledClassAlarms(
+                        classes = entries,
+                        leadMinutes = leadMinutes,
+                        isAlarm = false,
+                        customAlarmNotes = customNoteMap
+                    )
                 }
             }
         }
@@ -242,7 +251,7 @@ class TimetableViewModel(
                 completed = false
             )
             val generatedId = repository.saveAssignment(task)
-            if (reminderMinutes != null && generatedId > 0 && alarmScheduler != null) {
+            if (reminderMinutes != null && generatedId > 0 && alarmScheduler != null && repository.etagStore.isNotificationsEnabled()) {
                 alarmScheduler.scheduleTaskReminder(task.copy(id = generatedId))
             }
         }
@@ -261,8 +270,12 @@ class TimetableViewModel(
                 alarmScheduler?.cancelTaskReminder(task.id)
                 _userMessage.value = "Task completed • Alarm cancelled"
             } else if (task.reminderMinutes != null) {
-                alarmScheduler?.scheduleTaskReminder(task.copy(completed = false))
-                _userMessage.value = "Task reactivated • Alarm restored"
+                if (repository.etagStore.isNotificationsEnabled()) {
+                    alarmScheduler?.scheduleTaskReminder(task.copy(completed = false))
+                    _userMessage.value = "Task reactivated • Alarm restored"
+                } else {
+                    _userMessage.value = "Task reactivated (Quiet Mode active — alert paused)"
+                }
             }
         }
     }
@@ -286,8 +299,13 @@ class TimetableViewModel(
         viewModelScope.launch {
             repository.saveNote(entry.naturalKey, noteText, reminderMinutes)
             if (reminderMinutes != null) {
-                val ok = classAlarmScheduler?.scheduleClassAlarm(entry, reminderMinutes) ?: true
-                _userMessage.value = if (ok) "Alarm scheduled for ${entry.courseCode} (${reminderMinutes}m before)" else "Class alarm set"
+                if (!repository.etagStore.isNotificationsEnabled()) {
+                    classAlarmScheduler?.cancelClassAlarm(entry.naturalKey)
+                    _userMessage.value = "Note saved (Quiet Mode active — alarm paused)"
+                } else {
+                    val ok = classAlarmScheduler?.scheduleClassAlarm(entry, reminderMinutes, isAlarm = true) ?: true
+                    _userMessage.value = if (ok) "Alarm scheduled for ${entry.courseCode} (${reminderMinutes}m before)" else "Class alarm set"
+                }
             } else {
                 classAlarmScheduler?.cancelClassAlarm(entry.naturalKey)
                 _userMessage.value = "Alarm turned off for ${entry.courseCode}"

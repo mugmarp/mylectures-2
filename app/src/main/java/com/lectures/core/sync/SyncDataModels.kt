@@ -48,7 +48,6 @@ data class UserSettingsSyncPayload(
     val classAlarmLeadMinutes: Int = 30,
     val taskReminderLeadHours: Int = 2,
     val alarmVibration: Boolean = true,
-    val alarmSound: String = "Chime",
     val academicYear: String = "2026/2027",
     val semester: String = "Semester 1",
     val updatedAt: Long = System.currentTimeMillis()
@@ -61,7 +60,6 @@ data class UserSettingsSyncPayload(
         "class_alarm_lead_minutes" to classAlarmLeadMinutes,
         "task_reminder_lead_hours" to taskReminderLeadHours,
         "alarm_vibration" to alarmVibration,
-        "alarm_sound" to alarmSound,
         "academic_year" to academicYear,
         "semester" to semester,
         "updated_at" to updatedAt
@@ -77,7 +75,6 @@ data class UserSettingsSyncPayload(
                 classAlarmLeadMinutes = (map["class_alarm_lead_minutes"] as? Number)?.toInt() ?: 30,
                 taskReminderLeadHours = (map["task_reminder_lead_hours"] as? Number)?.toInt() ?: 2,
                 alarmVibration = (map["alarm_vibration"] as? Boolean) ?: true,
-                alarmSound = (map["alarm_sound"] as? String) ?: "Chime",
                 academicYear = (map["academic_year"] as? String) ?: "2026/2027",
                 semester = (map["semester"] as? String) ?: "Semester 1",
                 updatedAt = (map["updated_at"] as? Number)?.toLong() ?: System.currentTimeMillis()

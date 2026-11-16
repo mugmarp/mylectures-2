@@ -29,7 +29,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -72,14 +71,23 @@ fun NotificationCenterSheet(
 
     var selectedSection by remember { mutableIntStateOf(0) } // 0 = Scheduled Alarms, 1 = Notification History
     var testFeedback by remember { mutableStateOf<String?>(null) }
+    var testFeedbackIsError by remember { mutableStateOf(false) }
 
     var areNotificationsEnabled by remember(context) {
-        mutableStateOf(NotificationManagerCompat.from(context).areNotificationsEnabled())
+        mutableStateOf(NotificationPermissionHelper.areNotificationsEnabled(context))
+    }
+    var canExactAlarms by remember(context) {
+        mutableStateOf(NotificationPermissionHelper.canScheduleExactAlarms(context))
+    }
+    var blockedChannels by remember(context) {
+        mutableStateOf(NotificationPermissionHelper.getBlockedReminderChannels(context))
     }
     DisposableEffect(lifecycleOwner, context) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                areNotificationsEnabled = NotificationManagerCompat.from(context).areNotificationsEnabled()
+                areNotificationsEnabled = NotificationPermissionHelper.areNotificationsEnabled(context)
+                canExactAlarms = NotificationPermissionHelper.canScheduleExactAlarms(context)
+                blockedChannels = NotificationPermissionHelper.getBlockedReminderChannels(context)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -146,23 +154,31 @@ fun NotificationCenterSheet(
 
             // Notification Status Card
             item {
+                val isFullyHealthy = areNotificationsEnabled && canExactAlarms && blockedChannels.isEmpty()
                 Surface(
                     shape = RoundedCornerShape(14.dp),
-                    color = if (areNotificationsEnabled) {
+                    color = if (isFullyHealthy) {
                         if (isDark) Color(0xFF064E3B).copy(alpha = 0.3f) else Color(0xFFF0FDF4)
                     } else {
                         if (isDark) Color(0xFF78350F).copy(alpha = 0.3f) else Color(0xFFFEF3C7)
                     },
                     border = BorderStroke(
                         1.dp,
-                        if (areNotificationsEnabled) Color(0xFF86EFAC) else Color(0xFFFDE68A)
+                        if (isFullyHealthy) Color(0xFF86EFAC) else Color(0xFFFDE68A)
                     ),
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(14.dp))
                         .clickable {
-                            NotificationPermissionHelper.openAppNotificationSettings(context)
-                            onOpenSettings()
+                            when {
+                                !areNotificationsEnabled -> NotificationPermissionHelper.openAppNotificationSettings(context)
+                                blockedChannels.isNotEmpty() -> NotificationPermissionHelper.openChannelSettings(context, blockedChannels.first())
+                                !canExactAlarms -> NotificationPermissionHelper.openExactAlarmSettings(context)
+                                else -> {
+                                    onDismiss()
+                                    onOpenSettings()
+                                }
+                            }
                         }
                         .testTag("notification_status_card")
                 ) {
@@ -171,25 +187,35 @@ fun NotificationCenterSheet(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            imageVector = if (areNotificationsEnabled) Icons.Filled.CheckCircle else Icons.Outlined.Warning,
+                            imageVector = if (isFullyHealthy) Icons.Filled.CheckCircle else Icons.Outlined.Warning,
                             contentDescription = null,
-                            tint = if (areNotificationsEnabled) Color(0xFF16A34A) else Color(0xFFD97706),
+                            tint = if (isFullyHealthy) Color(0xFF16A34A) else Color(0xFFD97706),
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(modifier = Modifier.width(10.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = if (areNotificationsEnabled) "System Notifications Active" else "Notifications May Be Paused",
+                                text = when {
+                                    !areNotificationsEnabled -> "Notifications Paused"
+                                    blockedChannels.isNotEmpty() -> "${blockedChannels.size} Alert Channel(s) Muted"
+                                    !canExactAlarms -> "Exact Alarm Timing Restricted"
+                                    else -> "Notifications & Exact Alarms Active"
+                                },
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp,
-                                color = if (areNotificationsEnabled) {
+                                color = if (isFullyHealthy) {
                                     if (isDark) Color(0xFF86EFAC) else Color(0xFF166534)
                                 } else {
                                     if (isDark) Color(0xFFFDE68A) else Color(0xFF92400E)
                                 }
                             )
                             Text(
-                                text = if (areNotificationsEnabled) "Exact lecture alarms & reminders will wake device" else "Tap here to check notification settings",
+                                text = when {
+                                    !areNotificationsEnabled -> "Tap to enable notification permissions in Android Settings"
+                                    blockedChannels.isNotEmpty() -> "Tap to unmute alert channels in Android Settings"
+                                    !canExactAlarms -> "Tap to allow exact alarms so reminders fire on time"
+                                    else -> "Tap to customize lead times & quiet mode"
+                                },
                                 fontSize = 11.sp,
                                 color = if (isDark) Color(0xFFCBD5E1) else Color(0xFF475569)
                             )
@@ -226,7 +252,7 @@ fun NotificationCenterSheet(
                         Spacer(modifier = Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Test Alarm & Chime",
+                                text = "Test Alarm & Alert",
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 13.sp,
                                 color = textColor
@@ -240,14 +266,24 @@ fun NotificationCenterSheet(
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Button(
                                 onClick = {
-                                    NotificationHelper.showClassAlarmNotification(
-                                        context = context,
-                                        courseCode = "SWE2101",
-                                        courseTitle = "Object Oriented Programming",
-                                        room = "SFL01 (Computer Lab)",
-                                        startTime = "10:00 AM"
-                                    )
-                                    testFeedback = "Triggered test Class Alert!"
+                                    if (!NotificationPermissionHelper.areNotificationsEnabled(context)) {
+                                        testFeedbackIsError = true
+                                        testFeedback = "Enable notification permissions in Android Settings first."
+                                    } else {
+                                        val posted = NotificationHelper.showClassAlarmNotification(
+                                            context = context,
+                                            courseCode = "SWE2101",
+                                            courseTitle = "Object Oriented Programming",
+                                            room = "SFL01 (Computer Lab)",
+                                            startTime = "10:00 AM"
+                                        )
+                                        testFeedbackIsError = !posted
+                                        testFeedback = if (posted) {
+                                            "Triggered test Class Alert!"
+                                        } else {
+                                            "Notification blocked — check Android channel settings."
+                                        }
+                                    }
                                 },
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = Color(0xFFEF4444),
@@ -261,8 +297,14 @@ fun NotificationCenterSheet(
 
                             Button(
                                 onClick = {
-                                    com.lectures.core.alarm.ReminderScheduler(context).triggerTestDailyDigest()
-                                    testFeedback = "Posted Daily Class Digest!"
+                                    if (!NotificationPermissionHelper.areNotificationsEnabled(context)) {
+                                        testFeedbackIsError = true
+                                        testFeedback = "Enable notification permissions in Android Settings first."
+                                    } else {
+                                        com.lectures.core.alarm.ReminderScheduler(context).triggerTestDailyDigest()
+                                        testFeedbackIsError = false
+                                        testFeedback = "Posted Daily Class Digest!"
+                                    }
                                 },
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = accentColor,
@@ -281,7 +323,7 @@ fun NotificationCenterSheet(
                     Text(
                         text = testFeedback!!,
                         fontSize = 12.sp,
-                        color = Color(0xFF10B981),
+                        color = if (testFeedbackIsError) Color(0xFFEF4444) else Color(0xFF10B981),
                         fontWeight = FontWeight.Medium
                     )
                 }

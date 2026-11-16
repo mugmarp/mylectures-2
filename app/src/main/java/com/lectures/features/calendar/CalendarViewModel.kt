@@ -267,8 +267,12 @@ class CalendarViewModel(
                 taskAlarmScheduler?.cancelTaskReminder(task.id)
                 _userMessage.value = "Task completed • Alarm cancelled"
             } else if (task.reminderMinutes != null) {
-                taskAlarmScheduler?.scheduleTaskReminder(updated)
-                _userMessage.value = "Task reactivated • Alarm restored"
+                if (repository.etagStore.isNotificationsEnabled()) {
+                    taskAlarmScheduler?.scheduleTaskReminder(updated)
+                    _userMessage.value = "Task reactivated • Alarm restored"
+                } else {
+                    _userMessage.value = "Task reactivated (Quiet Mode active — alert paused)"
+                }
             }
         }
     }
@@ -285,8 +289,12 @@ class CalendarViewModel(
         viewModelScope.launch {
             val generatedId = repository.saveAssignment(task)
             if (task.reminderMinutes != null && generatedId > 0) {
-                taskAlarmScheduler?.scheduleTaskReminder(task.copy(id = generatedId))
-                _userMessage.value = "Task saved • Alarm scheduled"
+                if (repository.etagStore.isNotificationsEnabled()) {
+                    taskAlarmScheduler?.scheduleTaskReminder(task.copy(id = generatedId))
+                    _userMessage.value = "Task saved • Alarm scheduled"
+                } else {
+                    _userMessage.value = "Task saved (Quiet Mode active — alerts paused)"
+                }
             } else {
                 _userMessage.value = "Task saved"
             }
@@ -385,8 +393,13 @@ class CalendarViewModel(
         viewModelScope.launch {
             repository.saveNote(entry.naturalKey, noteText, reminderMinutes)
             if (reminderMinutes != null) {
-                val ok = classAlarmScheduler?.scheduleClassAlarm(entry, reminderMinutes) ?: true
-                _userMessage.value = if (ok) "Alarm scheduled for ${entry.courseCode} (${reminderMinutes}m before)" else "Class alarm set"
+                if (!repository.etagStore.isNotificationsEnabled()) {
+                    classAlarmScheduler?.cancelClassAlarm(entry.naturalKey)
+                    _userMessage.value = "Note saved (Quiet Mode active — alarm paused)"
+                } else {
+                    val ok = classAlarmScheduler?.scheduleClassAlarm(entry, reminderMinutes, isAlarm = true) ?: true
+                    _userMessage.value = if (ok) "Alarm scheduled for ${entry.courseCode} (${reminderMinutes}m before)" else "Class alarm set"
+                }
             } else {
                 classAlarmScheduler?.cancelClassAlarm(entry.naturalKey)
                 _userMessage.value = "Alarm turned off for ${entry.courseCode}"

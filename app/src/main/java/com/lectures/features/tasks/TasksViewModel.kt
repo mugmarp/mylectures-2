@@ -64,9 +64,13 @@ class TasksViewModel(
                 alarmScheduler?.cancelTaskReminder(task.id)
                 _uiState.value = _uiState.value.copy(messageSnackbar = "Task completed • Alarm reminder removed")
             } else if (task.reminderMinutes != null) {
-                val scheduled = alarmScheduler?.scheduleTaskReminder(task.copy(completed = false)) == true
-                if (scheduled) {
-                    _uiState.value = _uiState.value.copy(messageSnackbar = "Task reactivated • Alarm reminder restored")
+                if (repository.etagStore.isNotificationsEnabled()) {
+                    val scheduled = alarmScheduler?.scheduleTaskReminder(task.copy(completed = false)) == true
+                    if (scheduled) {
+                        _uiState.value = _uiState.value.copy(messageSnackbar = "Task reactivated • Alarm reminder restored")
+                    }
+                } else {
+                    _uiState.value = _uiState.value.copy(messageSnackbar = "Task reactivated (Quiet Mode active — alert paused)")
                 }
             }
         }
@@ -100,12 +104,14 @@ class TasksViewModel(
             )
             val generatedId = repository.saveAssignment(task)
             if (reminderMinutes != null && generatedId > 0) {
-                val savedTask = task.copy(id = generatedId)
-                val scheduled = alarmScheduler?.scheduleTaskReminder(savedTask) == true
-                if (scheduled) {
-                    _uiState.value = _uiState.value.copy(messageSnackbar = "Task saved • Alarm reminder scheduled")
+                if (!repository.etagStore.isNotificationsEnabled()) {
+                    _uiState.value = _uiState.value.copy(messageSnackbar = "Task saved (Quiet Mode active — alerts paused)")
                 } else {
-                    _uiState.value = _uiState.value.copy(messageSnackbar = "Task saved")
+                    val savedTask = task.copy(id = generatedId)
+                    val scheduled = alarmScheduler?.scheduleTaskReminder(savedTask) == true
+                    _uiState.value = _uiState.value.copy(
+                        messageSnackbar = if (scheduled) "Task saved • Alarm reminder scheduled" else "Task saved"
+                    )
                 }
             } else {
                 _uiState.value = _uiState.value.copy(messageSnackbar = "Task saved")
@@ -118,11 +124,13 @@ class TasksViewModel(
             repository.saveAssignment(task)
             alarmScheduler?.cancelTaskReminder(task.id)
             if (task.reminderMinutes != null && !task.completed) {
-                val scheduled = alarmScheduler?.scheduleTaskReminder(task) == true
-                if (scheduled) {
-                    _uiState.value = _uiState.value.copy(messageSnackbar = "Task updated • Alarm rescheduled")
+                if (!repository.etagStore.isNotificationsEnabled()) {
+                    _uiState.value = _uiState.value.copy(messageSnackbar = "Task updated (Quiet Mode active — alerts paused)")
                 } else {
-                    _uiState.value = _uiState.value.copy(messageSnackbar = "Task updated")
+                    val scheduled = alarmScheduler?.scheduleTaskReminder(task) == true
+                    _uiState.value = _uiState.value.copy(
+                        messageSnackbar = if (scheduled) "Task updated • Alarm rescheduled" else "Task updated"
+                    )
                 }
             } else {
                 _uiState.value = _uiState.value.copy(messageSnackbar = "Task updated")

@@ -25,9 +25,6 @@ class BootReceiver : BroadcastReceiver() {
 
             val app = context.applicationContext as? TimetableApplication ?: return
             NotificationHelper.createNotificationChannels(context)
-            NotificationHelper.applySoundProfile(
-                context, app.etagStore.getAlarmSound()
-            )
 
             val repository = app.repository
             val etagStore = app.etagStore
@@ -72,7 +69,7 @@ class BootReceiver : BroadcastReceiver() {
                             if (ok) classCount++
                         }
 
-                        // 4. Re-arm Enrolled Programme Class Alarms
+                        // 4. Re-arm Enrolled Programme Class Reminders (preserving custom note alarms)
                         val savedProgramme = etagStore.getSavedProgramme()?.trim()
                             ?: repository.getInitialProgramme()?.trim()
                             ?: ""
@@ -80,7 +77,15 @@ class BootReceiver : BroadcastReceiver() {
                         if (savedProgramme.isNotEmpty()) {
                             val enrolledClasses = repository.getLocalSchedule(savedProgramme).firstOrNull() ?: emptyList()
                             val leadMinutes = etagStore.getClassAlarmLeadMinutes()
-                            enrolledClassCount = classScheduler.scheduleAllEnrolledClassAlarms(enrolledClasses, leadMinutes)
+                            val customNoteMap = notesWithAlarms
+                                .mapNotNull { note -> note.alarmMinutes?.let { note.naturalKey to it } }
+                                .toMap()
+                            enrolledClassCount = classScheduler.scheduleAllEnrolledClassAlarms(
+                                classes = enrolledClasses,
+                                leadMinutes = leadMinutes,
+                                isAlarm = false,
+                                customAlarmNotes = customNoteMap
+                            )
                         }
 
                         Log.d(

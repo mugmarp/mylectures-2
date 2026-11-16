@@ -40,8 +40,13 @@ object NotificationHelper {
             Log.w(TAG, "Skipping system notification $notificationId: POST_NOTIFICATIONS permission not granted")
             return false
         }
+        val manager = NotificationManagerCompat.from(context)
+        if (!manager.areNotificationsEnabled()) {
+            Log.w(TAG, "Skipping system notification $notificationId: notifications disabled in Android settings")
+            return false
+        }
         return try {
-            NotificationManagerCompat.from(context).notify(notificationId, notification)
+            manager.notify(notificationId, notification)
             true
         } catch (se: SecurityException) {
             Log.w(TAG, "SecurityException posting notification $notificationId: ${se.message}")
@@ -49,64 +54,21 @@ object NotificationHelper {
         }
     }
 
-    /**
-     * Applies the user's selected sound profile to all notification channels.
-     * "System Default" uses the device's default notification sound;
-     * named profiles map to bundled raw audio resources.
-     */
-    fun applySoundProfile(context: Context, soundName: String) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
-        val soundUri = when (soundName.lowercase()) {
-            "chime" -> android.net.Uri.parse("android.resource://${context.packageName}/raw/sound_chime")
-            "gentle bell" -> android.net.Uri.parse("android.resource://${context.packageName}/raw/sound_gentle_bell")
-            "standard" -> android.net.Uri.parse("android.resource://${context.packageName}/raw/sound_standard")
-            else -> android.media.RingtoneManager.getActualDefaultRingtoneUri(
-                context, android.media.RingtoneManager.TYPE_NOTIFICATION
-            )
-        }
-        if (soundUri == null) return
-        val notifAudioAttrs = android.media.AudioAttributes.Builder()
-            .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION)
-            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
-            .build()
-        val alarmAudioAttrs = android.media.AudioAttributes.Builder()
-            .setUsage(android.media.AudioAttributes.USAGE_ALARM)
-            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
-            .build()
-        notificationManager.getNotificationChannel(CHANNEL_ACADEMIC_TASKS)?.apply { setSound(soundUri, notifAudioAttrs) }
-        notificationManager.getNotificationChannel(CHANNEL_CLASSES)?.apply { setSound(soundUri, notifAudioAttrs) }
-        notificationManager.getNotificationChannel(CHANNEL_DAILY_DIGEST)?.apply { setSound(soundUri, notifAudioAttrs) }
-        notificationManager.getNotificationChannel(CHANNEL_CLASS_ALARMS)?.apply { setSound(soundUri, alarmAudioAttrs) }
-    }
-
-    /**
-     * Plays a preview of the requested sound profile.
-     */
-    fun previewSound(context: Context, soundName: String) {
-        try {
-            val soundUri = when (soundName.lowercase()) {
-                "chime" -> android.net.Uri.parse("android.resource://${context.packageName}/raw/sound_chime")
-                "gentle bell" -> android.net.Uri.parse("android.resource://${context.packageName}/raw/sound_gentle_bell")
-                "standard" -> android.net.Uri.parse("android.resource://${context.packageName}/raw/sound_standard")
-                else -> android.media.RingtoneManager.getActualDefaultRingtoneUri(
-                    context, android.media.RingtoneManager.TYPE_NOTIFICATION
-                )
-            } ?: return
-            val ringtone = android.media.RingtoneManager.getRingtone(context, soundUri)
-            ringtone?.play()
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to preview sound: $soundName", e)
-        }
+    private fun stablePositiveId(key: String): Int {
+        val h = key.hashCode()
+        val positive = if (h == Int.MIN_VALUE) 1 else kotlin.math.abs(h)
+        return (positive % 100_000_000).coerceAtLeast(1000)
     }
 
     /**
      * Creates and registers Notification Channels with Android OS (API 26+).
+     * Sounds and vibration per channel are managed natively by Android system channel settings.
      */
     fun createNotificationChannels(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
                 ?: return
+            val vibrateEnabled = com.lectures.features.timetable.data.ETagStore(context).isAlarmVibrationEnabled()
 
             // Channel 1: Academic Tasks & Coursework Deadlines
             val taskChannel = NotificationChannel(
@@ -117,8 +79,10 @@ object NotificationHelper {
                 description = "Notifies you of upcoming assignments, coursework deadlines, tests, and academic tasks."
                 enableLights(true)
                 lightColor = Color.parseColor("#2563EB")
-                enableVibration(true)
-                vibrationPattern = longArrayOf(0, 350, 200, 350)
+                enableVibration(vibrateEnabled)
+                if (vibrateEnabled) {
+                    vibrationPattern = longArrayOf(0, 350, 200, 350)
+                }
                 setShowBadge(true)
                 lockscreenVisibility = NotificationCompat.VISIBILITY_PUBLIC
             }
@@ -132,8 +96,10 @@ object NotificationHelper {
                 description = "Reminders before scheduled lectures, practical labs, and tutorials."
                 enableLights(true)
                 lightColor = Color.parseColor("#10B981")
-                enableVibration(true)
-                vibrationPattern = longArrayOf(0, 250, 150, 250)
+                enableVibration(vibrateEnabled)
+                if (vibrateEnabled) {
+                    vibrationPattern = longArrayOf(0, 250, 150, 250)
+                }
                 setShowBadge(true)
                 lockscreenVisibility = NotificationCompat.VISIBILITY_PUBLIC
             }
@@ -147,8 +113,10 @@ object NotificationHelper {
                 description = "Immediate alerts and sound alarms for upcoming lectures."
                 enableLights(true)
                 lightColor = Color.parseColor("#EF4444")
-                enableVibration(true)
-                vibrationPattern = longArrayOf(0, 500, 200, 500, 200, 500)
+                enableVibration(vibrateEnabled)
+                if (vibrateEnabled) {
+                    vibrationPattern = longArrayOf(0, 500, 200, 500, 200, 500)
+                }
                 val alarmAttrs = android.media.AudioAttributes.Builder()
                     .setUsage(android.media.AudioAttributes.USAGE_ALARM)
                     .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
@@ -201,10 +169,11 @@ object NotificationHelper {
         courseCode: String,
         dueDate: String,
         priority: String
-    ) {
+    ): Boolean {
         createNotificationChannels(context)
 
         val notificationId = (taskId % Int.MAX_VALUE).toInt()
+        val vibrateEnabled = com.lectures.features.timetable.data.ETagStore(context).isAlarmVibrationEnabled()
 
         // 1. Content Intent: Launch app into Tasks tab
         val openAppIntent = Intent(context, MainActivity::class.java).apply {
@@ -228,7 +197,7 @@ object NotificationHelper {
         }
         val markDonePendingIntent = PendingIntent.getBroadcast(
             context,
-            notificationId + 100_000,
+            stablePositiveId("task_done_$taskId"),
             markDoneIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -253,7 +222,7 @@ object NotificationHelper {
         }
         val dismissPendingIntent = PendingIntent.getBroadcast(
             context,
-            notificationId + 10,
+            stablePositiveId("task_dismiss_$taskId"),
             dismissIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -268,22 +237,29 @@ object NotificationHelper {
             .setAutoCancel(true)
             .setContentIntent(contentPendingIntent)
             .setColor(Color.parseColor("#2563EB"))
+            .apply {
+                if (!vibrateEnabled) setVibrate(longArrayOf(0L))
+            }
             .addAction(R.drawable.ic_stat_notification, "Mark Done", markDonePendingIntent)
             .addAction(R.drawable.ic_stat_notification, "Dismiss", dismissPendingIntent)
             .addAction(R.drawable.ic_stat_notification, "View Tasks", contentPendingIntent)
 
-        try {
-            postNotificationIfPermitted(context, notificationId, builder.build())
-            Log.d(TAG, "Notification posted for task $taskId: $title")
-            InAppNotificationStore.getInstance(context).recordNotification(
-                type = NotificationItemType.TASK_REMINDER,
-                title = "Due Soon: $title",
-                message = "$courseCode • Due: $dueDate ($priorityText Priority)",
-                relatedKey = taskId.toString(),
-                navTab = 3
-            )
+        return try {
+            val posted = postNotificationIfPermitted(context, notificationId, builder.build())
+            if (posted) {
+                Log.d(TAG, "Notification posted for task $taskId: $title")
+                InAppNotificationStore.getInstance(context).recordNotification(
+                    type = NotificationItemType.TASK_REMINDER,
+                    title = "Due Soon: $title",
+                    message = "$courseCode • Due: $dueDate ($priorityText Priority)",
+                    relatedKey = taskId.toString(),
+                    navTab = 3
+                )
+            }
+            posted
         } catch (e: Exception) {
             Log.e(TAG, "Failed to post task reminder notification: ${e.message}")
+            false
         }
     }
 
@@ -301,11 +277,15 @@ object NotificationHelper {
         room: String,
         startTime: String,
         minutesBefore: Int = 30,
-        lecturer: String = ""
-    ) {
+        lecturer: String = "",
+        naturalKey: String? = null,
+        dayOfWeek: String? = null
+    ): Boolean {
         createNotificationChannels(context)
 
-        val notificationId = ("reminder_$courseCode$room$startTime").hashCode()
+        val idSeed = "reminder_${naturalKey ?: "$courseCode|$room|$startTime|${dayOfWeek.orEmpty()}"}"
+        val notificationId = stablePositiveId(idSeed)
+        val vibrateEnabled = com.lectures.features.timetable.data.ETagStore(context).isAlarmVibrationEnabled()
 
         val openAppIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -326,7 +306,7 @@ object NotificationHelper {
         }
         val dismissPendingIntent = PendingIntent.getBroadcast(
             context,
-            notificationId + 10,
+            stablePositiveId("dismiss_$idSeed"),
             dismissIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -356,30 +336,32 @@ object NotificationHelper {
             .setAutoCancel(true)
             .setContentIntent(contentPendingIntent)
             .setColor(Color.parseColor("#10B981"))
+            .apply {
+                if (!vibrateEnabled) setVibrate(longArrayOf(0L))
+            }
             .addAction(R.drawable.ic_stat_notification, "Dismiss", dismissPendingIntent)
             .addAction(R.drawable.ic_stat_notification, "View Class", contentPendingIntent)
 
-        try {
-            postNotificationIfPermitted(context, notificationId, builder.build())
-            InAppNotificationStore.getInstance(context).recordNotification(
-                type = NotificationItemType.CLASS_REMINDER,
-                title = "Upcoming class: $headerSubject",
-                message = subtitle,
-                relatedKey = courseCode,
-                navTab = 0
-            )
+        return try {
+            val posted = postNotificationIfPermitted(context, notificationId, builder.build())
+            if (posted) {
+                InAppNotificationStore.getInstance(context).recordNotification(
+                    type = NotificationItemType.CLASS_REMINDER,
+                    title = "Upcoming class: $headerSubject",
+                    message = subtitle,
+                    relatedKey = courseCode,
+                    navTab = 0
+                )
+            }
+            posted
         } catch (e: Exception) {
             Log.e(TAG, "Failed to post class reminder notification: ${e.message}")
+            false
         }
     }
 
     /**
      * Builds and displays an alarm alert for a scheduled class alarm.
-     * Format requested:
-     * Title: Class Alert
-     * Content: Object Oriented Programming - SWE2101
-     *          Starts at 10:00 AM
-     *          In SFL01 (Computer Lab)
      */
     fun showClassAlarmNotification(
         context: Context,
@@ -392,10 +374,12 @@ object NotificationHelper {
         naturalKey: String? = null,
         dayOfWeek: String? = null,
         isSnoozed: Boolean = false
-    ) {
+    ): Boolean {
         createNotificationChannels(context)
 
-        val notificationId = ("alarm_$courseCode$room$startTime").hashCode()
+        val idSeed = "alarm_${naturalKey ?: "$courseCode|$room|$startTime|${dayOfWeek.orEmpty()}"}"
+        val notificationId = stablePositiveId(idSeed)
+        val vibrateEnabled = com.lectures.features.timetable.data.ETagStore(context).isAlarmVibrationEnabled()
 
         val openAppIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -416,7 +400,7 @@ object NotificationHelper {
         }
         val dismissPendingIntent = PendingIntent.getBroadcast(
             context,
-            notificationId + 10,
+            stablePositiveId("dismiss_$idSeed"),
             dismissIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -436,7 +420,7 @@ object NotificationHelper {
         }
         val snoozePendingIntent = PendingIntent.getBroadcast(
             context,
-            notificationId + 20,
+            stablePositiveId("snooze_$idSeed"),
             snoozeIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -465,21 +449,28 @@ object NotificationHelper {
             .setAutoCancel(true)
             .setContentIntent(contentPendingIntent)
             .setColor(Color.parseColor("#EF4444"))
+            .apply {
+                if (!vibrateEnabled) setVibrate(longArrayOf(0L))
+            }
             .addAction(R.drawable.ic_stat_notification, "Dismiss", dismissPendingIntent)
             .addAction(R.drawable.ic_stat_notification, "Snooze 10m", snoozePendingIntent)
 
-        try {
-            postNotificationIfPermitted(context, notificationId, builder.build())
-            val inAppTitle = if (isSnoozed) "Snoozed Class Alert: $headerSubject" else "Class Alert: $headerSubject"
-            InAppNotificationStore.getInstance(context).recordNotification(
-                type = NotificationItemType.CLASS_ALARM,
-                title = inAppTitle,
-                message = "$startsAtText $venueText".trim(),
-                relatedKey = courseCode,
-                navTab = 0
-            )
+        return try {
+            val posted = postNotificationIfPermitted(context, notificationId, builder.build())
+            if (posted) {
+                val inAppTitle = if (isSnoozed) "Snoozed Class Alert: $headerSubject" else "Class Alert: $headerSubject"
+                InAppNotificationStore.getInstance(context).recordNotification(
+                    type = NotificationItemType.CLASS_ALARM,
+                    title = inAppTitle,
+                    message = "$startsAtText $venueText".trim(),
+                    relatedKey = courseCode,
+                    navTab = 0
+                )
+            }
+            posted
         } catch (e: Exception) {
             Log.e(TAG, "Failed to post class alarm notification: ${e.message}")
+            false
         }
     }
 
@@ -490,7 +481,7 @@ object NotificationHelper {
         context: Context,
         dayOfWeek: String,
         classes: List<com.lectures.features.timetable.domain.TimetableEntry>
-    ) {
+    ): Boolean {
         createNotificationChannels(context)
 
         val notificationId = 88002
@@ -547,17 +538,21 @@ object NotificationHelper {
             .setContentIntent(contentPendingIntent)
             .setColor(Color.parseColor("#3B82F6"))
 
-        try {
-            postNotificationIfPermitted(context, notificationId, builder.build())
-            Log.d(TAG, "Daily digest notification posted for $dayOfWeek with ${classes.size} classes")
-            InAppNotificationStore.getInstance(context).recordNotification(
-                type = NotificationItemType.DAILY_DIGEST,
-                title = title,
-                message = snippet,
-                navTab = 0
-            )
+        return try {
+            val posted = postNotificationIfPermitted(context, notificationId, builder.build())
+            if (posted) {
+                Log.d(TAG, "Daily digest notification posted for $dayOfWeek with ${classes.size} classes")
+                InAppNotificationStore.getInstance(context).recordNotification(
+                    type = NotificationItemType.DAILY_DIGEST,
+                    title = title,
+                    message = snippet,
+                    navTab = 0
+                )
+            }
+            posted
         } catch (e: Exception) {
             Log.e(TAG, "Failed to post daily digest notification: ${e.message}")
+            false
         }
     }
 
@@ -568,7 +563,7 @@ object NotificationHelper {
         context: Context,
         versionLabel: String,
         releaseNotes: String? = null
-    ) {
+    ): Boolean {
         createNotificationChannels(context)
 
         val notificationId = 998877
@@ -605,18 +600,22 @@ object NotificationHelper {
             .setColor(Color.parseColor("#4F46E5"))
             .addAction(R.drawable.ic_stat_notification, "View Schedule", contentPendingIntent)
 
-        try {
-            postNotificationIfPermitted(context, notificationId, builder.build())
-            Log.d(TAG, "Timetable update notification posted: $versionLabel")
-            InAppNotificationStore.getInstance(context).recordNotification(
-                type = NotificationItemType.SYSTEM,
-                title = "Timetable Updated: $versionLabel",
-                message = releaseNotes ?: "New timetable version published. Class schedules synchronized.",
-                relatedKey = versionLabel,
-                navTab = 0
-            )
+        return try {
+            val posted = postNotificationIfPermitted(context, notificationId, builder.build())
+            if (posted) {
+                Log.d(TAG, "Timetable update notification posted: $versionLabel")
+                InAppNotificationStore.getInstance(context).recordNotification(
+                    type = NotificationItemType.SYSTEM,
+                    title = "Timetable Updated: $versionLabel",
+                    message = releaseNotes ?: "New timetable version published. Class schedules synchronized.",
+                    relatedKey = versionLabel,
+                    navTab = 0
+                )
+            }
+            posted
         } catch (e: Exception) {
             Log.e(TAG, "Failed to post timetable update notification: ${e.message}")
+            false
         }
     }
 
@@ -627,7 +626,7 @@ object NotificationHelper {
     fun showAppUpdateNotification(
         context: Context,
         updateInfo: com.lectures.core.update.AppUpdateInfo
-    ) {
+    ): Boolean {
         createNotificationChannels(context)
 
         val notificationId = 998899
@@ -677,18 +676,22 @@ object NotificationHelper {
             .setColor(Color.parseColor("#2563EB"))
             .addAction(R.drawable.ic_stat_notification, "Update Now", contentPendingIntent)
 
-        try {
-            postNotificationIfPermitted(context, notificationId, builder.build())
-            Log.d(TAG, "App update notification posted: v${updateInfo.versionName}")
-            InAppNotificationStore.getInstance(context).recordNotification(
-                type = NotificationItemType.SYSTEM,
-                title = title,
-                message = updateInfo.releaseNotes.ifBlank { "New version v${updateInfo.versionName} available." },
-                relatedKey = "app_update_${updateInfo.versionCode}",
-                navTab = 0
-            )
+        return try {
+            val posted = postNotificationIfPermitted(context, notificationId, builder.build())
+            if (posted) {
+                Log.d(TAG, "App update notification posted: v${updateInfo.versionName}")
+                InAppNotificationStore.getInstance(context).recordNotification(
+                    type = NotificationItemType.SYSTEM,
+                    title = title,
+                    message = updateInfo.releaseNotes.ifBlank { "New version v${updateInfo.versionName} available." },
+                    relatedKey = "app_update_${updateInfo.versionCode}",
+                    navTab = 0
+                )
+            }
+            posted
         } catch (e: Exception) {
             Log.e(TAG, "Failed to post app update notification: ${e.message}")
+            false
         }
     }
 

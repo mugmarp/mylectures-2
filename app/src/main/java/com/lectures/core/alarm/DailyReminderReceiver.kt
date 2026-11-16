@@ -70,13 +70,21 @@ class DailyReminderReceiver : BroadcastReceiver() {
                         classes = classes
                     )
 
-                    // Self-healing daily safety net: Ensure today's and this week's enrolled class alarms are armed
+                    // Self-healing daily safety net: Ensure today's and this week's enrolled class alerts are armed
                     if (programme.isNotEmpty() && !isTest) {
                         val allCohortClasses = repository.getLocalSchedule(programme).firstOrNull() ?: emptyList()
                         if (allCohortClasses.isNotEmpty()) {
                             val leadMinutes = etagStore.getClassAlarmLeadMinutes()
-                            AlarmScheduler(context).scheduleAllEnrolledClassAlarms(allCohortClasses, leadMinutes)
-                            Log.d(TAG, "Daily morning check armed enrolled class alarms with lead=$leadMinutes min")
+                            val customNoteMap = repository.getNotesWithAlarms()
+                                .mapNotNull { note -> note.alarmMinutes?.let { note.naturalKey to it } }
+                                .toMap()
+                            AlarmScheduler(context).scheduleAllEnrolledClassAlarms(
+                                classes = allCohortClasses,
+                                leadMinutes = leadMinutes,
+                                isAlarm = false,
+                                customAlarmNotes = customNoteMap
+                            )
+                            Log.d(TAG, "Daily morning check armed enrolled class alerts with lead=$leadMinutes min")
                         }
                     }
                 }

@@ -57,6 +57,7 @@ fun QuickAddBottomSheet(
     initialMode: QuickAddMode = QuickAddMode.ACTIVITY,
     availableCourses: List<String> = emptyList(),
     courseDetails: List<Pair<String, String>> = emptyList(),
+    defaultTaskReminderMinutes: Int = 120,
     onDismiss: () -> Unit,
     onSaveActivity: (CustomEvent) -> Unit,
     onSaveTask: (
@@ -105,7 +106,7 @@ fun QuickAddBottomSheet(
         if (taskDueTime.isNotBlank()) "$taskDueDateOnly $taskDueTime".trim() else taskDueDateOnly
     }
     var taskPriority by remember { mutableStateOf("Medium") }
-    var taskReminderMinutes by remember { mutableStateOf<Int?>(1440) }
+    var taskReminderMinutes by remember(defaultTaskReminderMinutes) { mutableStateOf<Int?>(defaultTaskReminderMinutes) }
     var isTaskCustomReminder by remember { mutableStateOf(false) }
     var taskCustomMinutesText by remember { mutableStateOf("") }
     var taskNotes by remember { mutableStateOf("") }
@@ -884,9 +885,11 @@ fun QuickAddBottomSheet(
                     ) {
                         listOf(
                             "None" to null,
-                            "15m" to 15,
                             "30m" to 30,
                             "1h" to 60,
+                            "2h" to 120,
+                            "6h" to 360,
+                            "12h" to 720,
                             "1d" to 1440
                         ).forEach { (label, minutes) ->
                             val isSelected = !isTaskCustomReminder && taskReminderMinutes == minutes

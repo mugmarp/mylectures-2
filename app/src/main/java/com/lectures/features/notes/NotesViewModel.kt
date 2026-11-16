@@ -227,7 +227,15 @@ class NotesViewModel(
 
                 if (alarmMinutes != null) {
                     val entry = repository.getTimetableEntryByNaturalKey(key)
-                    if (classAlarmScheduler != null) {
+                    if (!repository.etagStore.isNotificationsEnabled()) {
+                        classAlarmScheduler?.cancelClassAlarm(key)
+                        if (entry != null || !attachedClass.isNullOrBlank()) {
+                            alarmStatusNote = "Note saved (Quiet Mode active — alert paused)"
+                        } else {
+                            savedAlarmMinutes = null
+                            alarmStatusNote = "Note saved (attach a timetable class to arm alerts)"
+                        }
+                    } else if (classAlarmScheduler != null) {
                         val scheduled = if (entry != null) {
                             classAlarmScheduler.scheduleClassAlarm(entry, alarmMinutes)
                         } else {

@@ -125,11 +125,7 @@ fun TimetableScreen(
             val isExistingUser = (app?.repository?.checkIsOnboardingCompleted() == true) ||
                 com.lectures.features.timetable.data.ETagStore(context).isOnboardingCompleted()
 
-            if (isExistingUser && !alreadyPrompted) {
-                // Existing install: student has already set up the app. Do not harass them on screen transitions.
-                com.lectures.core.util.NotificationPermissionHelper.setPromptedNotificationPermission(context, true)
-            } else if (!granted && !alreadyPrompted) {
-                // Record prompted immediately to prevent re-triggering across recompositions or tab switches
+            if (!granted && !alreadyPrompted && !isExistingUser) {
                 com.lectures.core.util.NotificationPermissionHelper.setPromptedNotificationPermission(context, true)
                 notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
@@ -948,6 +944,10 @@ fun TimetableScreen(
 
     // MODAL: Native QuickAddBottomSheet supporting Custom Events & Tasks
     if (showQuickAddSheet) {
+        val appInstance = context.applicationContext as? TimetableApplication
+        val defaultTaskLeadHours by (appInstance?.repository?.taskReminderLeadPref
+            ?.collectAsState(initial = appInstance.repository.getTaskReminderLeadHours())
+            ?: remember { mutableIntStateOf(2) })
         val courseDetailsList = remember(entries) {
             entries.map { it.courseCode to it.courseTitle }.distinctBy { it.first }
         }
@@ -955,6 +955,7 @@ fun TimetableScreen(
             initialDayOfWeek = selectedDay,
             availableCourses = entries.map { it.courseCode }.distinct(),
             courseDetails = courseDetailsList,
+            defaultTaskReminderMinutes = defaultTaskLeadHours * 60,
             onDismiss = { showQuickAddSheet = false },
             onSaveActivity = { event ->
                 onAddActivity(event)

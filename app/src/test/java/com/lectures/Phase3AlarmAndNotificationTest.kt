@@ -309,4 +309,118 @@ class Phase3AlarmAndNotificationTest {
         assertNotEquals(viewIntent.data, markDoneIntent.data)
         assertEquals("lectures", viewIntent.data?.scheme)
     }
+
+    @Test
+    fun taskDateTimeParserPreservesExplicitTimeOnDedicatedPickerFormatAndNextWeek() {
+        val fixedDueMillis = com.lectures.core.alarm.TaskDateTimeParser.calculateDueMillis("Mon, Nov 16, 2026 17:00")
+        assertNotNull(fixedDueMillis)
+        val cal = Calendar.getInstance().apply { timeInMillis = fixedDueMillis!! }
+        assertEquals(2026, cal.get(Calendar.YEAR))
+        assertEquals(Calendar.NOVEMBER, cal.get(Calendar.MONTH))
+        assertEquals(16, cal.get(Calendar.DAY_OF_MONTH))
+        assertEquals(17, cal.get(Calendar.HOUR_OF_DAY))
+        assertEquals(0, cal.get(Calendar.MINUTE))
+
+        // Dynamic +10d future test: 17:00 - 60m lead MUST trigger at 16:00 (not 22:59 end-of-day)
+        val futureDateCal = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, 10) }
+        val futureDateStr = java.text.SimpleDateFormat("EEE, MMM d, yyyy", java.util.Locale.US).format(futureDateCal.time)
+        val triggerMillis = com.lectures.core.alarm.TaskDateTimeParser.calculateTriggerTimeMillis("$futureDateStr 17:00", 60)
+        assertNotNull(triggerMillis)
+        val trigCal = Calendar.getInstance().apply { timeInMillis = triggerMillis!! }
+        assertEquals(16, trigCal.get(Calendar.HOUR_OF_DAY))
+        assertEquals(0, trigCal.get(Calendar.MINUTE))
+
+        val nextWeekMillis = com.lectures.core.alarm.TaskDateTimeParser.calculateDueMillis("Next Week")
+        assertNotNull(nextWeekMillis)
+        val diffDays = (nextWeekMillis!! - System.currentTimeMillis()) / (24L * 60L * 60L * 1000L)
+        assertTrue("Next Week should resolve roughly 6..8 days from now (was $diffDays)", diffDays in 6..8)
+    }
+
+    @Test
+    fun scheduleAllEnrolledClassAlarmsPreservesCustomNotesAndSeparatesChannels() {
+        val scheduler = AlarmScheduler(app)
+        val entryRegular = TimetableEntry(
+            natural_key = "BCS I|CSC1101|Monday|09:00|Hall 1",
+            program_group = "BCS I",
+            day = "Monday",
+            time_slot = "09:00 - 11:00",
+            start_time = "09:00",
+            end_time = "11:00",
+            course_code = "CSC1101",
+            course_title = "Programming I",
+            session_type = "Lecture",
+            lecturer = "Dr. A",
+            room = "Hall 1"
+        )
+        val entryWithCustomNote = TimetableEntry(
+            natural_key = "BCS I|CSC1102|Tuesday|14:00|Lab 2",
+            program_group = "BCS I",
+            day = "Tuesday",
+            time_slot = "14:00 - 16:00",
+            start_time = "14:00",
+            end_time = "16:00",
+            course_code = "CSC1102",
+            course_title = "Web Dev",
+            session_type = "Lab",
+            lecturer = "Dr. B",
+            room = "Lab 2"
+        )
+
+        val count = scheduler.scheduleAllEnrolledClassAlarms(
+            classes = listOf(entryRegular, entryWithCustomNote),
+            leadMinutes = 30,
+            isAlarm = false,
+            customAlarmNotes = mapOf(entryWithCustomNote.naturalKey to 15)
+        )
+        assertEquals(2, count)
+        assertEquals(2, shadowAlarmManager.scheduledAlarms.size)
+
+        val intents = shadowAlarmManager.scheduledAlarms.map { shadowOf(it.operation).savedIntent }
+        val regularIntent = intents.first { it.getStringExtra("COURSE_CODE") == "CSC1101" }
+        val customIntent = intents.first { it.getStringExtra("COURSE_CODE") == "CSC1102" }
+
+        assertEquals(30, regularIntent.getIntExtra("MINUTES_BEFORE", -1))
+        assertFalse("Routine enrolled class should use reminder channel (isAlarm=false)", regularIntent.getBooleanExtra("IS_ALARM", true))
+
+        assertEquals(15, customIntent.getIntExtra("MINUTES_BEFORE", -1))
+        assertTrue("Class with custom note alert should preserve isAlarm=true", customIntent.getBooleanExtra("IS_ALARM", false))
+    }
+
+    @Test
+    fun notificationHelperHonorsVibrationSettingAndSkipsInAppHistoryWhenBlocked() = runBlocking {
+        val store = com.lectures.core.notification.InAppNotificationStore.getInstance(app)
+        store.clearAll()
+
+        app.etagStore.setAlarmVibration(false)
+        try {
+            val posted = NotificationHelper.showClassAlarmNotification(
+                context = app,
+                courseCode = "CSC4101",
+                courseTitle = "Distributed Systems",
+                room = "Lab 3",
+                startTime = "11:00"
+            )
+            assertTrue(posted)
+            assertEquals(1, store.notifications.value.size)
+
+            notificationManager.cancelAll()
+            store.clearAll()
+
+            // Revoke permission -> must return false and not record phantom history
+            shadowOf(app).denyPermissions(Manifest.permission.POST_NOTIFICATIONS)
+            val postedWhenDenied = NotificationHelper.showTaskReminderNotification(
+                context = app,
+                taskId = 505L,
+                title = "Blocked Task",
+                courseCode = "CSC4101",
+                dueDate = "Tomorrow",
+                priority = "High"
+            )
+            assertFalse(postedWhenDenied)
+            assertTrue("Blocked notification must not be recorded in InAppNotificationStore", store.notifications.value.isEmpty())
+        } finally {
+            app.etagStore.setAlarmVibration(true)
+            shadowOf(app).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
 }

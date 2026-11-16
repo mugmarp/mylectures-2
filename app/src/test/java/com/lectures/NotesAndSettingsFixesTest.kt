@@ -241,14 +241,30 @@ class NotesAndSettingsFixesTest {
 
         vm.setTaskReminderLeadHours(12)
         vm.setAlarmVibration(false)
-        vm.setAlarmSound("Gentle Bell")
         vm.setThemeMode(ThemeMode.SYSTEM)
         testScheduler.advanceUntilIdle()
 
         assertEquals(12, repository.taskReminderLeadPref.first())
         assertFalse(repository.alarmVibrationPref.first())
-        assertEquals("Gentle Bell", repository.alarmSoundPref.first())
         assertEquals(ThemeMode.SYSTEM, vm.uiState.value.themeMode)
+
+        // Quiet mode blocks rescheduleAllAlarms from arming alerts
+        vm.setNotificationsEnabled(false)
+        awaitCondition(testScheduler) {
+            !vm.uiState.value.notificationsEnabled && vm.uiState.value.successMessage != null
+        }
+        vm.clearFeedbackMessages()
+        vm.rescheduleAllAlarms()
+        awaitCondition(testScheduler) {
+            vm.uiState.value.successMessage?.contains("Quiet Mode", ignoreCase = true) == true
+        }
+        assertTrue(vm.uiState.value.successMessage?.contains("Quiet Mode", ignoreCase = true) == true)
+
+        // Denying POST_NOTIFICATIONS makes sendTestNotification report an actionable error
+        org.robolectric.Shadows.shadowOf(app).denyPermissions(android.Manifest.permission.POST_NOTIFICATIONS)
+        vm.sendTestNotification(context)
+        assertNotNull(vm.uiState.value.errorMessage)
+        org.robolectric.Shadows.shadowOf(app).grantPermissions(android.Manifest.permission.POST_NOTIFICATIONS)
     }
 
     @Test

@@ -8,16 +8,18 @@ object TaskDateTimeParser {
 
     private val TIME_REGEX = Pattern.compile("(\\b[01]?[0-9]|2[0-3]):([0-5][0-9])")
     private val DATE_PATTERNS = listOf(
+        "EEE, MMM d, yyyy HH:mm",
+        "EEE, MMM d yyyy HH:mm",
+        "MMM d, yyyy HH:mm",
+        "EEE, MMM d HH:mm",
+        "MMM d HH:mm",
+        "yyyy-MM-dd HH:mm",
+        "dd/MM/yyyy HH:mm",
         "EEE, MMM d, yyyy",
         "EEE, MMM d yyyy",
         "MMM d, yyyy",
         "yyyy-MM-dd",
-        "dd/MM/yyyy",
-        "yyyy-MM-dd HH:mm",
-        "dd/MM/yyyy HH:mm",
-        "MMM d, yyyy HH:mm",
-        "MMM d HH:mm",
-        "EEE, MMM d HH:mm"
+        "dd/MM/yyyy"
     )
 
     private val DAYS_OF_WEEK = mapOf(
@@ -31,16 +33,19 @@ object TaskDateTimeParser {
     )
 
     /**
-     * Safely attempts to parse [dateStr] using a specified pattern across multiple locales.
-     * SimpleDateFormat is not thread-safe, so fresh instances are created per parse.
+     * Safely attempts to parse [dateStr] using a specified pattern across multiple locales,
+     * requiring full-string consumption so date-only patterns cannot truncate trailing time tokens.
      */
     private fun tryParsePattern(dateStr: String, pattern: String): Date? {
         val locales = listOf(Locale.US, Locale.getDefault()).distinct()
         for (locale in locales) {
             try {
                 val sdf = SimpleDateFormat(pattern, locale).apply { isLenient = false }
-                val parsed = sdf.parse(dateStr)
-                if (parsed != null) return parsed
+                val pos = java.text.ParsePosition(0)
+                val parsed = sdf.parse(dateStr, pos)
+                if (parsed != null && pos.errorIndex == -1 && pos.index == dateStr.length) {
+                    return parsed
+                }
             } catch (_: Exception) {}
         }
         return null
@@ -105,6 +110,9 @@ object TaskDateTimeParser {
             }
             lower.contains("tomorrow") -> {
                 targetCal.add(Calendar.DAY_OF_YEAR, 1)
+            }
+            lower.contains("next week") -> {
+                targetCal.add(Calendar.DAY_OF_YEAR, 7)
             }
             else -> {
                 // Check for day of week (e.g. "Friday • 17:00")
