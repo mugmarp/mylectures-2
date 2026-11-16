@@ -91,7 +91,7 @@ class SettingsViewModel(
         viewModelScope.launch {
             repository.themeModePref.collect { modeStr ->
                 val mode = try {
-                    ThemeMode.valueOf(modeStr.uppercase())
+                    ThemeMode.valueOf(modeStr.uppercase(java.util.Locale.ROOT))
                 } catch (e: Exception) {
                     ThemeMode.SYSTEM
                 }

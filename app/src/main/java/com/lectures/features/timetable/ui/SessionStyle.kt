@@ -2,6 +2,7 @@ package com.lectures.features.timetable.ui
 
 import androidx.compose.ui.graphics.Color
 import com.lectures.features.timetable.domain.TimetableEntry
+import java.util.Locale
 
 data class SessionStyle(
     val badgeBg: Color,
@@ -10,15 +11,15 @@ data class SessionStyle(
 )
 
 fun sessionStyle(sessionType: String?, room: String, title: String): SessionStyle {
-    val type = sessionType?.uppercase() ?: ""
+    val type = sessionType?.uppercase(Locale.ROOT) ?: ""
     val isAssociation = title.contains("MUCOSA", ignoreCase = true) ||
             title.contains("ASSOCIATION", ignoreCase = true) ||
             title.contains("GUILD", ignoreCase = true) ||
             title.contains("SOCIETY", ignoreCase = true) ||
             type.contains("ASSOCIATION")
 
-    val isPractical = type == "PRACTICAL" || type == "LAB" || room.uppercase().contains("LAB")
-    val isClinical = type == "CLINICAL" || title.uppercase().contains("CLINICAL") || title.uppercase().contains("WARD")
+    val isPractical = type == "PRACTICAL" || type == "LAB" || room.uppercase(Locale.ROOT).contains("LAB")
+    val isClinical = type == "CLINICAL" || title.uppercase(Locale.ROOT).contains("CLINICAL") || title.uppercase(Locale.ROOT).contains("WARD")
 
     return when {
         isAssociation -> SessionStyle(Color(0xFF8B5CF6), Color.White, Color(0xFF7C3AED))
@@ -30,8 +31,8 @@ fun sessionStyle(sessionType: String?, room: String, title: String): SessionStyl
 }
 
 fun resolveSessionTypeLabel(entry: TimetableEntry): String {
-    val code = entry.courseCode.trim().uppercase()
-    val title = entry.courseTitle.trim().uppercase()
+    val code = entry.courseCode.trim().uppercase(Locale.ROOT)
+    val title = entry.courseTitle.trim().uppercase(Locale.ROOT)
     if (code.contains("MUCOSA") || title.contains("MUCOSA") ||
         title.contains("ASSOCIATION") || title.contains("GUILD") ||
         code.contains("GUILD") || title.contains("SOCIETY")
@@ -41,16 +42,16 @@ fun resolveSessionTypeLabel(entry: TimetableEntry): String {
 
     val type = entry.sessionType?.trim()
     if (!type.isNullOrEmpty()) {
-        return when (type.uppercase()) {
+        return when (type.uppercase(Locale.ROOT)) {
             "THEORY" -> "Lecture"
             "LAB" -> "Lab"
             "PRACTICAL" -> "Practical"
             "CLINICAL" -> "Clinical"
-            else -> type.lowercase().replaceFirstChar { it.uppercase() }
+            else -> type.lowercase(Locale.ROOT).replaceFirstChar { it.uppercase(Locale.ROOT) }
         }
     }
 
-    if (entry.room?.uppercase()?.contains("LAB") == true) return "Lab"
+    if (entry.room?.uppercase(Locale.ROOT)?.contains("LAB") == true) return "Lab"
     if (title.contains("CLINICAL") || title.contains("WARD")) return "Clinical"
     return "Lecture"
 }

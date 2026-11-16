@@ -1,13 +1,18 @@
-<?xml version="1.0" encoding="utf-8"?><!--
-   Sample backup rules file; uncomment and customize as necessary.
-   See https://developer.android.com/guide/topics/data/autobackup
-   for details.
-   Note: This file is ignored for devices older than API 31
-   See https://developer.android.com/about/versions/12/backup-restore
--->
+<?xml version="1.0" encoding="utf-8"?>
 <full-backup-content>
-    <!--
-   <include domain="sharedpref" path="."/>
-   <exclude domain="sharedpref" path="device.xml"/>
--->
+    <!-- Exclude SQLite journal/WAL files and WorkManager internal DBs to avoid corrupt partial restores -->
+    <exclude domain="database" path="mustime_db-wal" />
+    <exclude domain="database" path="mustime_db-shm" />
+    <exclude domain="database" path="mustime_db-journal" />
+    <exclude domain="database" path="androidx.work.workdb" />
+    <exclude domain="database" path="androidx.work.workdb-wal" />
+    <exclude domain="database" path="androidx.work.workdb-shm" />
+
+    <!-- Exclude device-specific sync watermarks, OS notification prompt flags, update state, and ephemeral banners -->
+    <exclude domain="sharedpref" path="mustime_sync_prefs.xml" />
+    <exclude domain="sharedpref" path="mustime_notification_prefs.xml" />
+    <exclude domain="sharedpref" path="app_update_prefs.xml" />
+    <exclude domain="sharedpref" path="mustime_analytics.xml" />
+    <exclude domain="sharedpref" path="mustime_inapp_notifications.xml" />
 </full-backup-content>
+

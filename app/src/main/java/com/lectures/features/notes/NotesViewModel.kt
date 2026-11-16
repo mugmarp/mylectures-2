@@ -143,15 +143,15 @@ class NotesViewModel(
                 else -> courseCode.equals(filter, ignoreCase = true)
             }
 
-            val q = query.trim().lowercase()
+            val q = query.trim().lowercase(java.util.Locale.ROOT)
             val matchesSearch = if (q.isEmpty()) {
                 true
             } else {
-                note.title?.lowercase()?.contains(q) == true ||
-                note.content.lowercase().contains(q) ||
-                courseCode.lowercase().contains(q) ||
-                note.tag?.lowercase()?.contains(q) == true ||
-                note.attachedClass?.lowercase()?.contains(q) == true
+                note.title?.lowercase(java.util.Locale.ROOT)?.contains(q) == true ||
+                note.content.lowercase(java.util.Locale.ROOT).contains(q) ||
+                courseCode.lowercase(java.util.Locale.ROOT).contains(q) ||
+                note.tag?.lowercase(java.util.Locale.ROOT)?.contains(q) == true ||
+                note.attachedClass?.lowercase(java.util.Locale.ROOT)?.contains(q) == true
             }
 
             matchesFilter && matchesSearch

@@ -94,7 +94,7 @@ object TimeUtil {
 
     fun toMinutes(timeString: String): Int {
         if (timeString.isBlank() || !timeString.contains(":")) return 0
-        val clean = timeString.trim().uppercase()
+        val clean = timeString.trim().uppercase(java.util.Locale.ROOT)
         val isPm = clean.endsWith("PM")
         val isAm = clean.endsWith("AM")
         val stripped = clean.removeSuffix("PM").removeSuffix("AM").trim()

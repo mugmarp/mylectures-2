@@ -29,8 +29,8 @@ data class TimetableMetadata(
         get() = when {
             isFinal -> "FINAL"
             draftNumber != null -> "DRAFT $draftNumber"
-            versionLabel.contains("Draft", ignoreCase = true) -> versionLabel.uppercase()
-            else -> status.uppercase()
+            versionLabel.contains("Draft", ignoreCase = true) -> versionLabel.uppercase(java.util.Locale.ROOT)
+            else -> status.uppercase(java.util.Locale.ROOT)
         }
 
     val displaySummary: String

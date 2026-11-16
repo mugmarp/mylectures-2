@@ -42,7 +42,7 @@ class TimetableRepository(
         val clean = programme.trim()
         if (clean.isEmpty()) return null
         val parts = clean.split(Regex("[\\s-]+")).filter { it.isNotEmpty() }
-        val rawCode = parts.firstOrNull()?.uppercase()?.replace(Regex("[^A-Z]"), "") ?: ""
+        val rawCode = parts.firstOrNull()?.uppercase(java.util.Locale.ROOT)?.replace(Regex("[^A-Z]"), "") ?: ""
         val officialCode = TimetableMatcher.CODE_ALIASES[rawCode] ?: rawCode
         val alias = if (officialCode != rawCode) rawCode else {
             TimetableMatcher.CODE_ALIASES.entries.firstOrNull { it.value == officialCode }?.key

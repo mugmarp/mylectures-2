@@ -201,7 +201,7 @@ class CalendarViewModel(
         val currentMonth = calendar.get(Calendar.MONTH)
 
         temp.set(Calendar.DAY_OF_MONTH, validSelectedDay)
-        val dayOfWeekFormat = SimpleDateFormat("EEEE", Locale.getDefault())
+        val dayOfWeekFormat = SimpleDateFormat("EEEE", Locale.US)
         val selectedDayOfWeek = dayOfWeekFormat.format(temp.time)
 
         // Determine if viewed month contains today
@@ -355,7 +355,7 @@ class CalendarViewModel(
         val validDay = day.coerceIn(1, daysInMonth)
         val temp = calendar.clone() as Calendar
         temp.set(Calendar.DAY_OF_MONTH, validDay)
-        val dayOfWeekFormat = SimpleDateFormat("EEEE", Locale.getDefault())
+        val dayOfWeekFormat = SimpleDateFormat("EEEE", Locale.US)
         val selectedDayOfWeek = dayOfWeekFormat.format(temp.time)
 
         val academicContext = _uiState.value.monthAcademicContexts[validDay] ?: AcademicCalendarEngine.getAcademicContextForDate(
@@ -397,7 +397,7 @@ class CalendarViewModel(
     fun getDayOfWeekNameForDay(day: Int): String {
         val temp = calendar.clone() as Calendar
         temp.set(Calendar.DAY_OF_MONTH, day.coerceIn(1, _uiState.value.daysInMonth))
-        return SimpleDateFormat("EEEE", Locale.getDefault()).format(temp.time)
+        return SimpleDateFormat("EEEE", Locale.US).format(temp.time)
     }
 
     fun isToday(day: Int): Boolean {

@@ -30,7 +30,7 @@ enum class CalloutType(val defaultTitle: String) {
 
     companion object {
         fun fromString(str: String): CalloutType {
-            val key = str.trim().uppercase()
+            val key = str.trim().uppercase(java.util.Locale.ROOT)
             return when {
                 key in listOf("NOTE", "NOTES") -> NOTE
                 key in listOf("TIP", "HINT") -> TIP
@@ -98,7 +98,7 @@ object MarkdownUtils {
     fun extractInlineTags(markdown: String): List<String> {
         if (markdown.isBlank()) return emptyList()
         return REGEX_SYNTAX_TAG.findAll(markdown)
-            .map { it.value.lowercase() }
+            .map { it.value.lowercase(java.util.Locale.ROOT) }
             .distinct()
             .toList()
     }

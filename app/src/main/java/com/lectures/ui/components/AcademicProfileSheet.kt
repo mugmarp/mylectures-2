@@ -5,43 +5,31 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import com.lectures.R
 import com.lectures.TimetableApplication
-import com.lectures.features.onboarding.FACULTIES
 import com.lectures.features.timetable.ui.*
 import com.lectures.ui.LocalAppTheme
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.launch
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -79,7 +67,6 @@ fun AcademicProfileSheet(
     val dbMetadata by (repository?.timetableMetadata ?: flowOf(null))
         .collectAsState(initial = null)
 
-    val scope = rememberCoroutineScope()
     var showChangeProgrammeDialog by remember { mutableStateOf(false) }
 
     val effectiveAcademicYear = academicYear.ifBlank { dbMetadata?.academicYear ?: savedYear }
@@ -96,7 +83,7 @@ fun AcademicProfileSheet(
     }
 
     val campusName = remember(effectiveProgramme) {
-        val progCode = effectiveProgramme.substringBefore(" ").trim().uppercase()
+        val progCode = effectiveProgramme.substringBefore(" ").trim().uppercase(Locale.ROOT)
         when (progCode) {
             "MBR", "PHA", "BNS", "MLS", "BSP", "PHS", "DCM", "DEM", "DCAM" -> "Town Campus (MUST Hospital)"
             "EEE", "BME", "PEEM", "CVE", "MIE", "BCS", "BIT", "BSE" -> "Kihumuro Campus"
@@ -183,7 +170,7 @@ fun AcademicProfileSheet(
                 Surface(
                     shape = RoundedCornerShape(16.dp),
                     color = if (isDark) Color(0xFF291B00) else Color(0xFFFEF3C7),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, if (isDark) Color(0xFFB45309) else Color(0xFFF59E0B)),
+                    border = BorderStroke(1.dp, if (isDark) Color(0xFFB45309) else Color(0xFFF59E0B)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
@@ -258,7 +245,7 @@ fun AcademicProfileSheet(
             Surface(
                 shape = RoundedCornerShape(16.dp),
                 color = cardBg,
-                border = androidx.compose.foundation.BorderStroke(1.dp, cardBorder),
+                border = BorderStroke(1.dp, cardBorder),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -320,12 +307,10 @@ fun AcademicProfileSheet(
             Surface(
                 shape = RoundedCornerShape(14.dp),
                 color = cardBg,
-                border = androidx.compose.foundation.BorderStroke(1.dp, cardBorder),
+                border = BorderStroke(1.dp, cardBorder),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable {
-                        showChangeProgrammeDialog = true
-                    }
+                    .clickable { showChangeProgrammeDialog = true }
             ) {
                 Row(
                     modifier = Modifier.padding(16.dp),
@@ -379,7 +364,7 @@ fun AcademicProfileSheet(
             Surface(
                 shape = RoundedCornerShape(14.dp),
                 color = cardBg,
-                border = androidx.compose.foundation.BorderStroke(1.dp, cardBorder),
+                border = BorderStroke(1.dp, cardBorder),
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable {
@@ -464,559 +449,8 @@ fun AcademicProfileSheet(
 }
 
 @Composable
-fun QuickChangeProgrammeDialog(
-    viewingProgramme: String,
-    enrolledProgramme: String,
-    isPeeking: Boolean,
-    isDark: Boolean,
-    onDismiss: () -> Unit,
-    onPeekSelected: (String) -> Unit = {},
-    onProgrammeSelected: (String) -> Unit,
-    onOpenFullReconfigure: () -> Unit
-) {
-    val effectiveActive = viewingProgramme.ifBlank { enrolledProgramme }
-    val currentProgCode = effectiveActive.substringBefore(" ").trim()
-    val currentYear = effectiveActive.substringAfter(" ").trim().ifBlank { "I" }
-
-    var selectedFacultyId by remember {
-        val found = FACULTIES.find { f -> f.programmes.any { it.code.equals(currentProgCode, ignoreCase = true) } }
-        mutableStateOf(found?.id ?: FACULTIES.first().id)
-    }
-
-    val selectedFaculty = remember(selectedFacultyId) {
-        FACULTIES.find { it.id == selectedFacultyId } ?: FACULTIES.first()
-    }
-
-    var selectedProgrammeCode by remember(selectedFacultyId) {
-        val prog = selectedFaculty.programmes.find { it.code.equals(currentProgCode, ignoreCase = true) }
-            ?: selectedFaculty.programmes.first()
-        mutableStateOf(prog.code)
-    }
-
-    val selectedProgramme = remember(selectedFaculty, selectedProgrammeCode) {
-        selectedFaculty.programmes.find { it.code == selectedProgrammeCode } ?: selectedFaculty.programmes.first()
-    }
-
-    val parsedCurrent = com.lectures.features.timetable.domain.TimetableMatcher.parseGroupParts(effectiveActive)
-    val initialYear = parsedCurrent?.year?.ifBlank { "I" } ?: "I"
-
-    var selectedYear by remember(selectedProgramme) {
-        val defaultYear = if (initialYear in selectedProgramme.defaultYears) initialYear else selectedProgramme.defaultYears.firstOrNull() ?: "I"
-        mutableStateOf(defaultYear)
-    }
-
-    val tracksForYear = remember(selectedProgramme, selectedYear) {
-        selectedProgramme.tracks[selectedYear] ?: emptyList()
-    }
-
-    var selectedTrack by remember(selectedProgramme, selectedYear) {
-        val found = tracksForYear.find { track ->
-            parsedCurrent != null && (
-                track.equals(parsedCurrent.subject, ignoreCase = true) ||
-                parsedCurrent.subject.contains(track, ignoreCase = true) ||
-                track.contains(parsedCurrent.subject, ignoreCase = true) ||
-                (parsedCurrent.subject.startsWith("BIOLOG") && track.startsWith("BIOLOG"))
-            )
-        }
-        mutableStateOf(found ?: tracksForYear.firstOrNull() ?: "")
-    }
-
-    val selectedClassGroup = remember(selectedProgramme, selectedYear, selectedTrack) {
-        if (tracksForYear.isEmpty()) {
-            "${selectedProgramme.code} $selectedYear"
-        } else if (selectedProgramme.code == "HEAP") {
-            "${selectedProgramme.code} $selectedTrack"
-        } else {
-            "${selectedProgramme.code} $selectedTrack $selectedYear"
-        }
-    }
-
-    var facultyDropdownExpanded by remember { mutableStateOf(false) }
-    var programmeDropdownExpanded by remember { mutableStateOf(false) }
-
-    val primaryColor = MaterialTheme.colorScheme.primary
-
-    val handleDismiss = {
-        facultyDropdownExpanded = false
-        programmeDropdownExpanded = false
-        onDismiss()
-    }
-
-    Dialog(onDismissRequest = handleDismiss) {
-        Card(
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = if (isDark) DarkSurfaceCard else Color.White),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(20.dp)
-            ) {
-                // Header
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = "Switch Programme",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isDark) Color.White else TextPrimaryLight
-                        )
-                        Text(
-                            text = "Select your faculty, program and year group",
-                            fontSize = 12.sp,
-                            color = if (isDark) Color(0xFF94A3B8) else TextMutedLight
-                        )
-                    }
-                    IconButton(onClick = handleDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(20.dp))
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // 1. Faculty Dropdown Selector
-                Text(
-                    text = "1. Faculty",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = primaryColor
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-
-                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                    val triggerWidth = maxWidth
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = if (isDark) DarkSurfaceBase else Color(0xFFF8FAFC),
-                        border = BorderStroke(1.dp, if (isDark) DarkBorderSubtle else BorderSubtleLight),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                programmeDropdownExpanded = false
-                                facultyDropdownExpanded = !facultyDropdownExpanded
-                            }
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 14.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = selectedFaculty.name,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = if (isDark) Color.White else TextPrimaryLight,
-                                modifier = Modifier.weight(1f)
-                            )
-                            Icon(
-                                imageVector = Icons.Default.ArrowDropDown,
-                                contentDescription = "Select Faculty",
-                                tint = primaryColor
-                            )
-                        }
-                    }
-
-                    DropdownMenu(
-                        expanded = facultyDropdownExpanded,
-                        onDismissRequest = { facultyDropdownExpanded = false },
-                        modifier = Modifier
-                            .width(triggerWidth)
-                            .heightIn(max = 240.dp)
-                            .background(if (isDark) DarkSurfaceCard else Color.White, RoundedCornerShape(12.dp))
-                            .border(1.dp, if (isDark) DarkBorderSubtle else BorderSubtleLight, RoundedCornerShape(12.dp))
-                    ) {
-                        FACULTIES.forEach { faculty ->
-                            val isSelected = faculty.id == selectedFacultyId
-                            DropdownMenuItem(
-                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 4.dp, vertical = 2.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(
-                                        if (isSelected) (if (isDark) primaryColor.copy(alpha = 0.28f) else primaryColor.copy(alpha = 0.16f))
-                                        else Color.Transparent
-                                    )
-                                    .border(
-                                        width = if (isSelected) 1.5.dp else 0.dp,
-                                        color = if (isSelected) primaryColor else Color.Transparent,
-                                        shape = RoundedCornerShape(8.dp)
-                                    ),
-                                text = {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = faculty.name,
-                                            fontSize = 13.sp,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                            color = if (isSelected) primaryColor else (if (isDark) Color.White else TextPrimaryLight),
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                        if (isSelected) {
-                                            Surface(
-                                                shape = RoundedCornerShape(4.dp),
-                                                color = primaryColor.copy(alpha = 0.18f)
-                                            ) {
-                                                Text(
-                                                    text = "Selected",
-                                                    fontSize = 10.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = primaryColor,
-                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                                )
-                                            }
-                                        }
-                                    }
-                                },
-                                onClick = {
-                                    selectedFacultyId = faculty.id
-                                    selectedProgrammeCode = faculty.programmes.first().code
-                                    facultyDropdownExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // 2. Degree / Diploma Programme Dropdown Selector
-                Text(
-                    text = "2. Programme (${selectedFaculty.programmes.size} available)",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = primaryColor
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-
-                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                    val triggerWidth = maxWidth
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = if (isDark) DarkSurfaceBase else Color(0xFFF8FAFC),
-                        border = BorderStroke(1.dp, if (isDark) DarkBorderSubtle else BorderSubtleLight),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                facultyDropdownExpanded = false
-                                programmeDropdownExpanded = !programmeDropdownExpanded
-                            }
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 14.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "${selectedProgramme.code} · ${selectedProgramme.name}",
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = if (isDark) Color.White else TextPrimaryLight,
-                                    maxLines = 1
-                                )
-                                Text(
-                                    text = "${selectedProgramme.years} Year Curriculum",
-                                    fontSize = 11.sp,
-                                    color = if (isDark) Color(0xFF94A3B8) else TextMutedLight
-                                )
-                            }
-                            Icon(
-                                imageVector = Icons.Default.ArrowDropDown,
-                                contentDescription = "Select Programme",
-                                tint = primaryColor
-                            )
-                        }
-                    }
-
-                    DropdownMenu(
-                        expanded = programmeDropdownExpanded,
-                        onDismissRequest = { programmeDropdownExpanded = false },
-                        modifier = Modifier
-                            .width(triggerWidth)
-                            .heightIn(max = 240.dp)
-                            .background(if (isDark) DarkSurfaceCard else Color.White, RoundedCornerShape(12.dp))
-                            .border(1.dp, if (isDark) DarkBorderSubtle else BorderSubtleLight, RoundedCornerShape(12.dp))
-                    ) {
-                        selectedFaculty.programmes.forEach { prog ->
-                            val isSelected = prog.code == selectedProgrammeCode
-                            DropdownMenuItem(
-                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 4.dp, vertical = 2.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(
-                                        if (isSelected) (if (isDark) primaryColor.copy(alpha = 0.28f) else primaryColor.copy(alpha = 0.16f))
-                                        else Color.Transparent
-                                    )
-                                    .border(
-                                        width = if (isSelected) 1.5.dp else 0.dp,
-                                        color = if (isSelected) primaryColor else Color.Transparent,
-                                        shape = RoundedCornerShape(8.dp)
-                                    ),
-                                text = {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                text = "${prog.code} · ${prog.name}",
-                                                fontSize = 13.sp,
-                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                                color = if (isSelected) primaryColor else (if (isDark) Color.White else TextPrimaryLight)
-                                            )
-                                            Text(
-                                                text = "${prog.years} Years Curriculum",
-                                                fontSize = 10.sp,
-                                                color = if (isSelected) primaryColor.copy(alpha = 0.85f) else (if (isDark) Color(0xFF94A3B8) else TextMutedLight)
-                                            )
-                                        }
-                                        if (isSelected) {
-                                            Surface(
-                                                shape = RoundedCornerShape(4.dp),
-                                                color = primaryColor.copy(alpha = 0.18f)
-                                            ) {
-                                                Text(
-                                                    text = "Selected",
-                                                    fontSize = 10.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = primaryColor,
-                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                                )
-                                            }
-                                        }
-                                    }
-                                },
-                                onClick = {
-                                    selectedProgrammeCode = prog.code
-                                    programmeDropdownExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // 3. Year of Study & Specialization Track Selector
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "3. Class Group",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = primaryColor
-                    )
-                    Surface(
-                        shape = RoundedCornerShape(6.dp),
-                        color = primaryColor.copy(alpha = 0.12f)
-                    ) {
-                        Text(
-                            text = selectedClassGroup,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = primaryColor,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Year selector chips
-                Text(
-                    text = "Year of Study",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = if (isDark) Color(0xFF94A3B8) else TextMutedLight
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                @OptIn(ExperimentalLayoutApi::class)
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    selectedProgramme.defaultYears.forEach { yr ->
-                        val isSelected = yr == selectedYear
-                        FilterChip(
-                            selected = isSelected,
-                            onClick = { selectedYear = yr },
-                            label = {
-                                Text(
-                                    text = yr,
-                                    fontSize = 13.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                                )
-                            },
-                            shape = RoundedCornerShape(10.dp)
-                        )
-                    }
-                }
-
-                // If tracks exist for this year, show Track / Specialization FlowRow
-                if (tracksForYear.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text(
-                        text = "Subject Track / Specialization",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = if (isDark) Color(0xFF94A3B8) else TextMutedLight
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    @OptIn(ExperimentalLayoutApi::class)
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        tracksForYear.forEach { trk ->
-                            val isSelected = trk == selectedTrack
-                            val displayLabel = when (trk.uppercase()) {
-                                "BIOLOGICAL", "BIOLOGY" -> "Biological"
-                                "CHEM MATHS" -> "Chemistry - Maths"
-                                "PHYSICAL" -> "Physical"
-                                "MATHEMATICS" -> "Mathematics"
-                                "CHEMISTRY" -> "Chemistry"
-                                "PHYSICS" -> "Physics"
-                                "ACCOUNTING" -> "Accounting"
-                                "BANKING AND FINANCE" -> "Banking & Finance"
-                                "HUMAN RESOURCE" -> "Human Resource"
-                                "MARKETING" -> "Marketing"
-                                "PROCUREMENT" -> "Procurement"
-                                "SUSTAINABLE RURAL DEVELOPMENT" -> "Rural Development"
-                                "URBAN POLICY" -> "Urban Policy"
-                                "BIOLOGY-CHEMISTRY" -> "Biology - Chemistry"
-                                "CHEMISTRY- MATHS" -> "Chemistry - Maths"
-                                "PHYSICS-MATHS" -> "Physics - Maths"
-                                else -> trk
-                            }
-                            FilterChip(
-                                selected = isSelected,
-                                onClick = { selectedTrack = trk },
-                                label = {
-                                    Text(
-                                        text = displayLabel,
-                                        fontSize = 12.sp,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                                    )
-                                },
-                                shape = RoundedCornerShape(10.dp)
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(18.dp))
-
-                val chosenGroup = selectedClassGroup
-                val isDifferentFromViewing = chosenGroup.trim() != viewingProgramme.trim()
-                val isDifferentFromEnrolled = chosenGroup.trim() != enrolledProgramme.trim()
-                val canReturnToEnrolled = isPeeking && !isDifferentFromEnrolled
-
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    // 1. Preview Schedule
-                    val previewEnabled = isDifferentFromViewing || canReturnToEnrolled
-                    OutlinedButton(
-                        onClick = {
-                            facultyDropdownExpanded = false
-                            programmeDropdownExpanded = false
-                            onPeekSelected(chosenGroup)
-                        },
-                        enabled = previewEnabled,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(
-                            1.dp,
-                            if (previewEnabled) (if (isDark) Color(0xFFF59E0B) else Color(0xFFD97706)) else (if (isDark) DarkBorderSubtle else Color(0xFFCBD5E1))
-                        ),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = if (isDark) Color(0xFFFBBF24) else Color(0xFFB45309),
-                            disabledContentColor = if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8)
-                        )
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Visibility,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = when {
-                                canReturnToEnrolled -> "Return to My Programme ($enrolledProgramme)"
-                                isDifferentFromViewing -> "Preview $chosenGroup"
-                                else -> "Currently Viewing"
-                            },
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    // 2. Set as My Programme
-                    Button(
-                        onClick = {
-                            facultyDropdownExpanded = false
-                            programmeDropdownExpanded = false
-                            onProgrammeSelected(chosenGroup)
-                        },
-                        enabled = isDifferentFromEnrolled,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = primaryColor,
-                            disabledContainerColor = if (isDark) DarkSurfaceBase else Color(0xFFE2E8F0),
-                            disabledContentColor = if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8)
-                        )
-                    ) {
-                        Text(
-                            text = if (isDifferentFromEnrolled) "Set as My Programme" else "Enrolled Programme",
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                TextButton(
-                    onClick = {
-                        facultyDropdownExpanded = false
-                        programmeDropdownExpanded = false
-                        onOpenFullReconfigure()
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Open Full Onboarding / Reconfigure", fontSize = 12.sp)
-                }
-            }
-        }
-    }
-}
-
-@Composable
 private fun ProfileItemRow(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
     label: String,
     value: String,
     isDark: Boolean

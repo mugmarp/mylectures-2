@@ -48,7 +48,7 @@ object TimetableVersionResolver {
         val match = draftRegex.find(clean)
         val draftNumber = match?.groupValues?.get(1)?.toIntOrNull() ?: run {
             val romanRegex = Regex("(?i)draft\\s*(I|II|III|IV|V|VI)\\b")
-            val romanMatch = romanRegex.find(clean)?.groupValues?.get(1)?.uppercase()
+            val romanMatch = romanRegex.find(clean)?.groupValues?.get(1)?.uppercase(java.util.Locale.ROOT)
             when (romanMatch) {
                 "I" -> 1
                 "II" -> 2

@@ -113,7 +113,7 @@ data class RoomItem(
     }
 
     private fun normalize(s: String): String =
-        s.lowercase().replace('-', ' ').replace(WHITESPACE_REGEX, " ").trim()
+        s.lowercase(java.util.Locale.ROOT).replace('-', ' ').replace(WHITESPACE_REGEX, " ").trim()
 }
 
 /**
@@ -1682,7 +1682,7 @@ object UniversityDirectory {
         if (found != null) return found.level
 
         // Smart heuristics for room codes / custom room inputs
-        val upper = clean.uppercase()
+        val upper = clean.uppercase(java.util.Locale.ROOT)
         return when {
             Regex(".*\\b(GROUND\\s+FLOOR|GRND\\s+FLOOR|GROUND|GRND|GF|LG)\\b.*").matches(upper) ||
                     Regex(".*[A-Z]?G\\d{1,3}\\b.*").matches(upper) -> BuildingLevel.GROUND

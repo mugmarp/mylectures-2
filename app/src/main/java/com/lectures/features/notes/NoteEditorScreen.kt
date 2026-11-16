@@ -1,63 +1,93 @@
 package com.lectures.features.notes
 
-import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.activity.result.PickVisualMediaRequest
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.ui.platform.LocalContext
-import com.lectures.TimetableApplication
-import com.lectures.ui.LocalAppTheme
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.*
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.automirrored.outlined.HelpOutline
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lectures.TimetableApplication
 import com.lectures.core.storage.AttachmentStore
 import com.lectures.features.timetable.domain.LectureNote
 import com.lectures.features.timetable.domain.TimetableEntry
-import androidx.compose.ui.platform.testTag
+import com.lectures.ui.Chrome
+import com.lectures.ui.LocalAppTheme
 import com.lectures.ui.components.AcademicProfileSheet
-import com.lectures.ui.components.RoomFloorBadge
+import com.lectures.ui.rememberLecturesWindow
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
@@ -70,6 +100,55 @@ private val WEEKDAY_IN_KEY_REGEX = Regex("(Mon|Tue|Wed|Thu|Fri|Sat|Sun)", RegexO
 enum class NoteEditorTab {
     WRITE,
     PREVIEW
+}
+
+private fun continueMarkdownListOnNewline(oldText: String, newVal: TextFieldValue): TextFieldValue {
+    val newText = newVal.text
+    if (newText.length == oldText.length + 1 && newVal.selection.start == newVal.selection.end) {
+        val cursor = newVal.selection.start
+        if (cursor > 0 && newText[cursor - 1] == '\n') {
+            val textBeforeNewline = newText.substring(0, cursor - 1)
+            val lastLine = textBeforeNewline.substringAfterLast('\n')
+            val trimmedLastLine = lastLine.trim()
+            when {
+                trimmedLastLine in listOf("- [ ]", "- [x]", "- [X]") || trimmedLastLine in listOf("-", "*", "•") -> {
+                    val prefixStart = cursor - 1 - lastLine.length
+                    val cleanedText = newText.substring(0, prefixStart) + "\n" + newText.substring(cursor)
+                    return TextFieldValue(cleanedText, TextRange(prefixStart + 1))
+                }
+                lastLine.startsWith("- [ ] ") || lastLine.startsWith("- [x] ") || lastLine.startsWith("- [X] ") -> {
+                    val continuation = lastLine.takeWhile { it == ' ' || it == '\t' } + "- [ ] "
+                    val autoText = newText.substring(0, cursor) + continuation + newText.substring(cursor)
+                    return TextFieldValue(autoText, TextRange(cursor + continuation.length))
+                }
+                lastLine.startsWith("- ") || lastLine.startsWith("* ") -> {
+                    val bulletChar = if (lastLine.startsWith("- ")) "- " else "* "
+                    val continuation = lastLine.takeWhile { it == ' ' || it == '\t' } + bulletChar
+                    val autoText = newText.substring(0, cursor) + continuation + newText.substring(cursor)
+                    return TextFieldValue(autoText, TextRange(cursor + continuation.length))
+                }
+                NUMBERED_LIST_LINE_REGEX.find(lastLine) != null -> {
+                    val num = NUMBERED_LIST_LINE_REGEX.find(lastLine)?.groupValues?.get(1)?.toIntOrNull()
+                    if (trimmedLastLine == "${num}.") {
+                        val prefixStart = cursor - 1 - lastLine.length
+                        val cleanedText = newText.substring(0, prefixStart) + "\n" + newText.substring(cursor)
+                        return TextFieldValue(cleanedText, TextRange(prefixStart + 1))
+                    } else if (num != null) {
+                        val indent = lastLine.takeWhile { it == ' ' || it == '\t' }
+                        val continuation = "$indent${num + 1}. "
+                        val autoText = newText.substring(0, cursor) + continuation + newText.substring(cursor)
+                        return TextFieldValue(autoText, TextRange(cursor + continuation.length))
+                    }
+                }
+                lastLine.startsWith("> ") || lastLine.startsWith(">") -> {
+                    val continuation = "> "
+                    val autoText = newText.substring(0, cursor) + continuation + newText.substring(cursor)
+                    return TextFieldValue(autoText, TextRange(cursor + continuation.length))
+                }
+            }
+        }
+    }
+    return newVal
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -124,7 +203,7 @@ fun NoteEditorScreen(
             }
     }
     val initialLocation = matchedInitialClass?.room?.trim()
-        ?.takeIf { it.isNotBlank() && it.uppercase() !in listOf("TBA", "TBD", "NONE", "N/A") }
+        ?.takeIf { it.isNotBlank() && it.uppercase(Locale.ROOT) !in listOf("TBA", "TBD", "NONE", "N/A") }
         ?.let { "📍 $it" } ?: ""
     val initialLecturer = matchedInitialClass?.lecturer?.trim().orEmpty()
 
@@ -145,14 +224,12 @@ fun NoteEditorScreen(
     var lecturer by rememberSaveable(noteKey) { mutableStateOf(initialLecturer) }
     var attachmentName by rememberSaveable(noteKey) { mutableStateOf(initialAttachment) }
     var attachmentPath by rememberSaveable(noteKey) { mutableStateOf(initialAttachmentPath) }
-
-    // Editor tab: Write vs Live Preview
     var currentTab by rememberSaveable(noteKey, initialTab) { mutableStateOf(initialTab) }
 
     val context = LocalContext.current
     val isDark = LocalAppTheme.current.isDark
     val primaryColor = MaterialTheme.colorScheme.primary
-    val windowInfo = com.lectures.ui.rememberLecturesWindow()
+    val windowInfo = rememberLecturesWindow()
     val coroutineScope = rememberCoroutineScope()
     var isCopyingAttachment by remember { mutableStateOf(false) }
     val stagedNewPaths = remember(noteKey) { mutableStateListOf<String>() }
@@ -221,7 +298,6 @@ fun NoteEditorScreen(
         }
     }
 
-    // Modals
     var showClassPicker by rememberSaveable(noteKey) { mutableStateOf(false) }
     var showCoursePickerModal by rememberSaveable(noteKey) { mutableStateOf(false) }
     var showTagPicker by rememberSaveable(noteKey) { mutableStateOf(false) }
@@ -231,20 +307,18 @@ fun NoteEditorScreen(
     var showDiscardConfirmDialog by rememberSaveable(noteKey) { mutableStateOf(false) }
     var showProfileSheet by rememberSaveable(noteKey) { mutableStateOf(false) }
     var showCustomReminderDialog by rememberSaveable(noteKey) { mutableStateOf(false) }
-    var customReminderText by rememberSaveable(noteKey) { mutableStateOf(selectedAlarmMinutes?.toString() ?: "45") }
 
     val canScheduleClassAlert = attachedClassText.isNotBlank() ||
         WEEKDAY_IN_KEY_REGEX.containsMatchIn(initialNote?.naturalKey.orEmpty())
 
-    // Determine if form has unsaved modifications
     val isModified = selectedCourse != initialCourse ||
-            title != initialTitleVal ||
-            contentValue.text != initialContentVal ||
-            selectedAlarmMinutes != initialAlarm ||
-            tag != initialTag ||
-            attachedClassText != initialClassText ||
-            attachmentName != initialAttachment ||
-            attachmentPath != initialAttachmentPath
+        title != initialTitleVal ||
+        contentValue.text != initialContentVal ||
+        selectedAlarmMinutes != initialAlarm ||
+        tag != initialTag ||
+        attachedClassText != initialClassText ||
+        attachmentName != initialAttachment ||
+        attachmentPath != initialAttachmentPath
 
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -261,145 +335,49 @@ fun NoteEditorScreen(
 
     BackHandler(enabled = true, onBack = handleBackPress)
 
-    // Markdown insertion helper supporting selection wrapping
-    val applyMarkdown: (prefix: String, suffix: String, defaultPlaceholder: String) -> Unit = { prefix, suffix, defaultPlaceholder ->
+    val applyMarkdown: (String, String, String) -> Unit = { prefix, suffix, defaultPlaceholder ->
         val text = contentValue.text
         val selection = contentValue.selection
         if (selection.start != selection.end) {
             val selectedText = text.substring(selection.start, selection.end)
             val newText = text.substring(0, selection.start) + prefix + selectedText + suffix + text.substring(selection.end)
             val newCursor = selection.end + prefix.length + suffix.length
-            contentValue = TextFieldValue(
-                text = newText,
-                selection = TextRange(newCursor)
-            )
+            contentValue = TextFieldValue(text = newText, selection = TextRange(newCursor))
         } else {
             val newText = text.substring(0, selection.start) + prefix + defaultPlaceholder + suffix + text.substring(selection.start)
             val newStart = selection.start + prefix.length
             val newEnd = newStart + defaultPlaceholder.length
-            contentValue = TextFieldValue(
-                text = newText,
-                selection = TextRange(newStart, newEnd)
-            )
+            contentValue = TextFieldValue(text = newText, selection = TextRange(newStart, newEnd))
         }
     }
 
-    val insertLinePrefix: (prefix: String) -> Unit = { linePrefix ->
+    val insertLinePrefix: (String) -> Unit = { linePrefix ->
         val text = contentValue.text
-        val selection = contentValue.selection
-        val insertPos = selection.start
+        val insertPos = contentValue.selection.start
         val needsLeadingNewline = insertPos > 0 && text[insertPos - 1] != '\n'
         val insertion = if (needsLeadingNewline) "\n$linePrefix" else linePrefix
         val newText = text.substring(0, insertPos) + insertion + text.substring(insertPos)
-        val newCursor = insertPos + insertion.length
-        contentValue = TextFieldValue(
-            text = newText,
-            selection = TextRange(newCursor)
-        )
+        contentValue = TextFieldValue(text = newText, selection = TextRange(insertPos + insertion.length))
     }
 
     val insertSnippet: (String) -> Unit = { snippet ->
         val text = contentValue.text
-        val selection = contentValue.selection
-        val insertPos = selection.start
+        val insertPos = contentValue.selection.start
         val needsLeadingNewline = insertPos > 0 && text[insertPos - 1] != '\n' && !snippet.startsWith("\n")
         val insertion = if (needsLeadingNewline) "\n$snippet" else snippet
         val newText = text.substring(0, insertPos) + insertion + text.substring(insertPos)
-        val newCursor = insertPos + insertion.length
-        contentValue = TextFieldValue(
-            text = newText,
-            selection = TextRange(newCursor)
-        )
+        contentValue = TextFieldValue(text = newText, selection = TextRange(insertPos + insertion.length))
     }
 
-    // Insert current date stamp
     val insertDateStamp: () -> Unit = {
         val formatter = SimpleDateFormat("EEEE, MMM d, yyyy", Locale.getDefault())
-        val dateStr = "📅 **${formatter.format(Date())}**\n"
-        insertSnippet(dateStr)
+        insertSnippet("📅 **${formatter.format(Date())}**\n")
     }
 
-    // Toggle checklist in preview mode
     val toggleChecklistInPreview: (Int) -> Unit = { lineIndex ->
-        val updatedText = MarkdownUtils.toggleChecklistAt(contentValue.text, lineIndex)
-        contentValue = contentValue.copy(text = updatedText)
+        contentValue = contentValue.copy(text = MarkdownUtils.toggleChecklistAt(contentValue.text, lineIndex))
     }
 
-    // Smart list and callout auto-continuation on Enter (Obsidian editor behavior)
-    val handleContentChange: (TextFieldValue) -> Unit = handleContent@ { newVal ->
-        val oldText = contentValue.text
-        val newText = newVal.text
-        if (newText.length == oldText.length + 1 && newVal.selection.start == newVal.selection.end) {
-            val cursor = newVal.selection.start
-            if (cursor > 0 && newText[cursor - 1] == '\n') {
-                val textBeforeNewline = newText.substring(0, cursor - 1)
-                val lastLine = textBeforeNewline.substringAfterLast('\n')
-                val trimmedLastLine = lastLine.trim()
-
-                when {
-                    // Empty checklist item -> clear prefix on Enter
-                    trimmedLastLine in listOf("- [ ]", "- [x]", "- [X]") -> {
-                        val prefixStart = cursor - 1 - lastLine.length
-                        val cleanedText = newText.substring(0, prefixStart) + "\n" + newText.substring(cursor)
-                        contentValue = TextFieldValue(cleanedText, TextRange(prefixStart + 1))
-                        return@handleContent
-                    }
-                    // Empty bullet -> clear prefix on Enter
-                    trimmedLastLine in listOf("-", "*", "•") -> {
-                        val prefixStart = cursor - 1 - lastLine.length
-                        val cleanedText = newText.substring(0, prefixStart) + "\n" + newText.substring(cursor)
-                        contentValue = TextFieldValue(cleanedText, TextRange(prefixStart + 1))
-                        return@handleContent
-                    }
-                    // Auto-continue checklist
-                    lastLine.startsWith("- [ ] ") || lastLine.startsWith("- [x] ") || lastLine.startsWith("- [X] ") -> {
-                        val indent = lastLine.takeWhile { it == ' ' || it == '\t' }
-                        val continuation = indent + "- [ ] "
-                        val autoText = newText.substring(0, cursor) + continuation + newText.substring(cursor)
-                        contentValue = TextFieldValue(autoText, TextRange(cursor + continuation.length))
-                        return@handleContent
-                    }
-                    // Auto-continue bullet list
-                    lastLine.startsWith("- ") || lastLine.startsWith("* ") -> {
-                        val bulletChar = if (lastLine.startsWith("- ")) "- " else "* "
-                        val indent = lastLine.takeWhile { it == ' ' || it == '\t' }
-                        val continuation = indent + bulletChar
-                        val autoText = newText.substring(0, cursor) + continuation + newText.substring(cursor)
-                        contentValue = TextFieldValue(autoText, TextRange(cursor + continuation.length))
-                        return@handleContent
-                    }
-                    // Auto-continue numbered list
-                    NUMBERED_LIST_LINE_REGEX.find(lastLine) != null -> {
-                        val numMatch = NUMBERED_LIST_LINE_REGEX.find(lastLine)
-                        val num = numMatch?.groupValues?.get(1)?.toIntOrNull()
-                        if (trimmedLastLine == "${num}.") {
-                            val prefixStart = cursor - 1 - lastLine.length
-                            val cleanedText = newText.substring(0, prefixStart) + "\n" + newText.substring(cursor)
-                            contentValue = TextFieldValue(cleanedText, TextRange(prefixStart + 1))
-                            return@handleContent
-                        } else if (num != null) {
-                            val indent = lastLine.takeWhile { it == ' ' || it == '\t' }
-                            val nextNum = num + 1
-                            val continuation = "$indent$nextNum. "
-                            val autoText = newText.substring(0, cursor) + continuation + newText.substring(cursor)
-                            contentValue = TextFieldValue(autoText, TextRange(cursor + continuation.length))
-                            return@handleContent
-                        }
-                    }
-                    // Auto-continue callout lines
-                    lastLine.startsWith("> ") || lastLine.startsWith(">") -> {
-                        val continuation = "> "
-                        val autoText = newText.substring(0, cursor) + continuation + newText.substring(cursor)
-                        contentValue = TextFieldValue(autoText, TextRange(cursor + continuation.length))
-                        return@handleContent
-                    }
-                }
-            }
-        }
-        contentValue = newVal
-    }
-
-    // Calculate word & char count & checklist progress
     val wordsCount = remember(contentValue.text) {
         contentValue.text.trim().split("\\s+".toRegex()).filter { it.isNotBlank() }.size
     }
@@ -410,295 +388,52 @@ fun NoteEditorScreen(
 
     val scrollState = rememberScrollState()
 
-    // Discard Confirmation Dialog
     if (showDiscardConfirmDialog) {
-        AlertDialog(
-            onDismissRequest = { showDiscardConfirmDialog = false },
-            icon = {
-                Icon(
-                    Icons.Outlined.WarningAmber,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.error
-                )
+        DiscardNoteConfirmDialog(
+            onDiscard = {
+                showDiscardConfirmDialog = false
+                discardAndCancel()
             },
-            title = {
-                Text(
-                    text = "Discard unsaved changes?",
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            },
-            text = {
-                Text(
-                    text = "You have unsaved changes to this note. Leaving now will cause edits to be lost.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showDiscardConfirmDialog = false
-                        discardAndCancel()
-                    },
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Text("Discard", fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDiscardConfirmDialog = false }) {
-                    Text("Keep Editing")
-                }
-            }
+            onDismiss = { showDiscardConfirmDialog = false }
         )
     }
 
-    // Course Selection Modal
     if (showCoursePickerModal) {
-        var customCourseCode by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { showCoursePickerModal = false },
-            title = { Text("Select Course", fontWeight = FontWeight.Bold) },
-            text = {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        "Choose from your enrolled courses or enter a custom course code:",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    availableCourses.forEach { course ->
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    selectedCourse = course.code
-                                    showCoursePickerModal = false
-                                },
-                            shape = RoundedCornerShape(10.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (selectedCourse.equals(course.code, ignoreCase = true))
-                                    MaterialTheme.colorScheme.primaryContainer
-                                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                            )
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .padding(12.dp)
-                                    .fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(10.dp)
-                                        .clip(CircleShape)
-                                        .background(
-                                            try { Color(android.graphics.Color.parseColor(course.color)) } catch (e: Exception) { Color(0xFF2563EB) }
-                                        )
-                                )
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Column {
-                                    Text(course.code, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                                    Text(course.title, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text("Custom Course Code:", fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        OutlinedTextField(
-                            value = customCourseCode,
-                            onValueChange = { customCourseCode = it.uppercase() },
-                            placeholder = { Text("e.g. CSC3100") },
-                            singleLine = true,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Button(
-                            onClick = {
-                                if (customCourseCode.isNotBlank()) {
-                                    selectedCourse = customCourseCode.trim()
-                                    showCoursePickerModal = false
-                                }
-                            },
-                            enabled = customCourseCode.isNotBlank()
-                        ) {
-                            Text("Set")
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showCoursePickerModal = false }) {
-                    Text("Cancel")
-                }
-            }
+        NoteCoursePickerDialog(
+            selectedCourse = selectedCourse,
+            availableCourses = availableCourses,
+            onSelectCourse = { selectedCourse = it },
+            onDismiss = { showCoursePickerModal = false }
         )
     }
 
-    // Tag Selection Modal
     if (showTagPicker) {
-        val standardTags = listOf(
-            "Lecture" to "General classroom notes & discussions",
-            "Lab Prep" to "Practical assignments, code logs & experiments",
-            "Study Guide" to "Comprehensive summaries & textbook synthesis",
-            "Assignment" to "Coursework breakdown, research & references",
-            "Revision" to "High-yield exam prep, formulas & confidence tracker",
-            "Exam Prep" to "Targeted past papers & test solutions",
-            "Quick Note" to "Lightweight thoughts & immediate reminders"
-        )
-        var customTagInput by remember { mutableStateOf("") }
-
-        AlertDialog(
-            onDismissRequest = { showTagPicker = false },
-            title = { Text("Select Note Category", fontWeight = FontWeight.Bold) },
-            text = {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    standardTags.forEach { (tagName, desc) ->
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    tag = tagName
-                                    showTagPicker = false
-                                },
-                            shape = RoundedCornerShape(10.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (tag == tagName)
-                                    MaterialTheme.colorScheme.primaryContainer
-                                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                            )
-                        ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                Text("🏷️ $tagName", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                                Text(desc, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text("Custom Tag:", fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        OutlinedTextField(
-                            value = customTagInput,
-                            onValueChange = { customTagInput = it },
-                            placeholder = { Text("e.g. Fieldwork") },
-                            singleLine = true,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Button(
-                            onClick = {
-                                if (customTagInput.isNotBlank()) {
-                                    tag = customTagInput.trim()
-                                    showTagPicker = false
-                                }
-                            },
-                            enabled = customTagInput.isNotBlank()
-                        ) {
-                            Text("Set")
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showTagPicker = false }) {
-                    Text("Cancel")
-                }
-            }
+        NoteTagPickerDialog(
+            currentTag = tag,
+            onSelectTag = { tag = it },
+            onDismiss = { showTagPicker = false }
         )
     }
 
-    // Class selection modal
     if (showClassPicker) {
-        AlertDialog(
-            onDismissRequest = { showClassPicker = false },
-            title = { Text("Attach Timetable Class", fontWeight = FontWeight.Bold) },
-            text = {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    if (attachedClassText.isNotBlank()) {
-                        OutlinedButton(
-                            onClick = {
-                                attachedClassText = ""
-                                attachedLocation = ""
-                                lecturer = ""
-                                if (!WEEKDAY_IN_KEY_REGEX.containsMatchIn(initialNote?.naturalKey.orEmpty())) {
-                                    selectedAlarmMinutes = null
-                                }
-                                showClassPicker = false
-                            },
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(Icons.Default.Clear, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Detach Current Class")
-                        }
-                    }
-
-                    val matchingClasses = timetableClasses.filter {
-                        it.courseCode.equals(selectedCourse, ignoreCase = true)
-                    }.ifEmpty { timetableClasses }
-
-                    if (matchingClasses.isEmpty()) {
-                        Text("No specific timetable classes found. You can still write notes without an attached class.")
-                    } else {
-                        matchingClasses.forEach { entry ->
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        attachedClassText = "${entry.courseCode}: ${entry.courseTitle} · ${entry.day}, ${entry.startTime} – ${entry.endTime}"
-                                        attachedLocation = if (!entry.room.isNullOrBlank() && entry.room.trim().uppercase() !in listOf("TBA", "TBD", "NONE", "N/A")) "📍 ${entry.room.trim()}" else ""
-                                        lecturer = entry.lecturer?.trim().orEmpty()
-                                        showClassPicker = false
-                                    },
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                            ) {
-                                Column(modifier = Modifier.padding(12.dp)) {
-                                    Text("${entry.courseCode} · ${entry.courseTitle}", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                    val roomPart = if (!entry.room.isNullOrBlank() && entry.room.trim().uppercase() !in listOf("TBA", "TBD", "NONE", "N/A")) " · ${entry.room.trim()}" else ""
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text("${entry.day} ${entry.startTime} - ${entry.endTime}$roomPart", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        if (!entry.room.isNullOrBlank() && entry.room.trim().uppercase() !in listOf("TBA", "TBD", "NONE", "N/A")) {
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            RoomFloorBadge(roomName = entry.room, compact = true)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+        NoteClassPickerDialog(
+            attachedClassText = attachedClassText,
+            selectedCourse = selectedCourse,
+            timetableClasses = timetableClasses,
+            onDetachClass = {
+                attachedClassText = ""
+                attachedLocation = ""
+                lecturer = ""
+                if (!WEEKDAY_IN_KEY_REGEX.containsMatchIn(initialNote?.naturalKey.orEmpty())) {
+                    selectedAlarmMinutes = null
                 }
             },
-            confirmButton = {
-                TextButton(onClick = { showClassPicker = false }) {
-                    Text("Close")
-                }
-            }
+            onAttachClass = { classText, locText, lectName ->
+                attachedClassText = classText
+                attachedLocation = locText
+                lecturer = lectName
+            },
+            onDismiss = { showClassPicker = false }
         )
     }
 
@@ -720,65 +455,31 @@ fun NoteEditorScreen(
         contentValue = TextFieldValue(text = filledContent, selection = TextRange(filledContent.length))
     }
 
-    // Templates BottomSheet
     if (showTemplatesSheet) {
         NoteTemplatesBottomSheet(
             onDismiss = { showTemplatesSheet = false },
             onSelectTemplate = { tpl ->
-                if (contentValue.text.isBlank()) {
-                    applyTemplate(tpl)
-                } else {
-                    pendingTemplate = tpl
-                }
+                if (contentValue.text.isBlank()) applyTemplate(tpl) else pendingTemplate = tpl
             }
         )
     }
 
     if (pendingTemplate != null) {
         val targetTemplate = pendingTemplate!!
-        AlertDialog(
-            onDismissRequest = { pendingTemplate = null },
-            icon = {
-                Icon(
-                    Icons.Outlined.AutoAwesome,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
-                )
+        NoteTemplateConfirmDialog(
+            targetTemplate = targetTemplate,
+            onConfirmReplace = {
+                applyTemplate(targetTemplate)
+                pendingTemplate = null
             },
-            title = { Text("Apply \"${targetTemplate.title}\"?", fontWeight = FontWeight.Bold) },
-            text = {
-                Text(
-                    "Your current note already contains text. Applying a template will replace the existing note body.",
-                    fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        applyTemplate(targetTemplate)
-                        pendingTemplate = null
-                    },
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Text("Replace Content")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { pendingTemplate = null }) {
-                    Text("Keep Current")
-                }
-            }
+            onDismiss = { pendingTemplate = null }
         )
     }
 
-    // Markdown Guide BottomSheet
     if (showHelpSheet) {
         MarkdownHelpBottomSheet(
             onDismiss = { showHelpSheet = false },
-            onInsertSnippet = { snippet ->
-                insertSnippet(snippet)
-            }
+            onInsertSnippet = insertSnippet
         )
     }
 
@@ -787,177 +488,152 @@ fun NoteEditorScreen(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             Surface(
-                color = MaterialTheme.colorScheme.surface.copy(alpha = com.lectures.ui.Chrome.TopBarGlassAlpha),
+                color = MaterialTheme.colorScheme.surface.copy(alpha = Chrome.TopBarGlassAlpha),
                 tonalElevation = 2.dp,
                 shadowElevation = 2.dp,
                 border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .statusBarsPadding()
-                ) {
-                // Unified Header: Back, Title, Mode Selector, Save Button
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = if (windowInfo.isNarrow) 8.dp else 12.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                Column(modifier = Modifier.fillMaxWidth().statusBarsPadding()) {
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f, fill = false)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = if (windowInfo.isNarrow) 8.dp else 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        IconButton(onClick = handleBackPress) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back",
-                                tint = MaterialTheme.colorScheme.onSurface
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f, fill = false)
+                        ) {
+                            IconButton(onClick = handleBackPress) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onSurface)
+                            }
+                            Spacer(modifier = Modifier.width(2.dp))
+                            Text(
+                                text = if (initialNote == null) "New Note" else "Edit Note",
+                                fontSize = if (windowInfo.isNarrow) 15.sp else 17.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
-                        Spacer(modifier = Modifier.width(2.dp))
-                        Text(
-                            text = if (initialNote == null) "New Note" else "Edit Note",
-                            fontSize = if (windowInfo.isNarrow) 15.sp else 17.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
 
-                    Spacer(modifier = Modifier.width(6.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
 
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(if (windowInfo.isNarrow) 6.dp else 8.dp)
-                    ) {
-                        // Write vs Preview Segmented Control (compact on narrow/tight font screens)
-                        val isCompactToggle = windowInfo.isNarrow || windowInfo.isTightFont
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(if (windowInfo.isNarrow) 6.dp else 8.dp)
                         ) {
-                            Row(modifier = Modifier.padding(2.dp)) {
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .background(
-                                            if (currentTab == NoteEditorTab.WRITE) MaterialTheme.colorScheme.primary
-                                             else Color.Transparent
-                                        )
-                                        .clickable {
-                                            focusManager.clearFocus()
-                                            keyboardController?.hide()
-                                            currentTab = NoteEditorTab.WRITE
-                                        }
-                                        .padding(
-                                            horizontal = if (isCompactToggle) 8.dp else 10.dp,
-                                            vertical = 4.dp
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(
-                                            Icons.Default.Edit,
-                                            contentDescription = "Write",
-                                            tint = if (currentTab == NoteEditorTab.WRITE) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(13.dp)
-                                        )
-                                        if (!isCompactToggle) {
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Text(
-                                                "Write",
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = if (currentTab == NoteEditorTab.WRITE) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                            val isCompactToggle = windowInfo.isNarrow || windowInfo.isTightFont
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                            ) {
+                                Row(modifier = Modifier.padding(2.dp)) {
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .background(if (currentTab == NoteEditorTab.WRITE) MaterialTheme.colorScheme.primary else Color.Transparent)
+                                            .clickable {
+                                                focusManager.clearFocus()
+                                                keyboardController?.hide()
+                                                currentTab = NoteEditorTab.WRITE
+                                            }
+                                            .padding(horizontal = if (isCompactToggle) 8.dp else 10.dp, vertical = 4.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                Icons.Default.Edit,
+                                                contentDescription = "Write",
+                                                tint = if (currentTab == NoteEditorTab.WRITE) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(13.dp)
                                             )
+                                            if (!isCompactToggle) {
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text(
+                                                    "Write",
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = if (currentTab == NoteEditorTab.WRITE) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
                                         }
                                     }
-                                }
 
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .background(
-                                            if (currentTab == NoteEditorTab.PREVIEW) MaterialTheme.colorScheme.primary
-                                            else Color.Transparent
-                                        )
-                                        .clickable {
-                                            focusManager.clearFocus()
-                                            keyboardController?.hide()
-                                            currentTab = NoteEditorTab.PREVIEW
-                                        }
-                                        .padding(
-                                            horizontal = if (isCompactToggle) 8.dp else 10.dp,
-                                            vertical = 4.dp
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(
-                                            Icons.Default.Visibility,
-                                            contentDescription = "Preview",
-                                            tint = if (currentTab == NoteEditorTab.PREVIEW) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(13.dp)
-                                        )
-                                        if (!isCompactToggle) {
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Text(
-                                                "Preview",
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = if (currentTab == NoteEditorTab.PREVIEW) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .background(if (currentTab == NoteEditorTab.PREVIEW) MaterialTheme.colorScheme.primary else Color.Transparent)
+                                            .clickable {
+                                                focusManager.clearFocus()
+                                                keyboardController?.hide()
+                                                currentTab = NoteEditorTab.PREVIEW
+                                            }
+                                            .padding(horizontal = if (isCompactToggle) 8.dp else 10.dp, vertical = 4.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                Icons.Default.Visibility,
+                                                contentDescription = "Preview",
+                                                tint = if (currentTab == NoteEditorTab.PREVIEW) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(13.dp)
                                             )
+                                            if (!isCompactToggle) {
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text(
+                                                    "Preview",
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = if (currentTab == NoteEditorTab.PREVIEW) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
                                         }
                                     }
                                 }
                             }
-                        }
 
-                        Button(
-                            onClick = {
-                                focusManager.clearFocus()
-                                keyboardController?.hide()
-                                val finalAttachmentPath = attachmentPath
-                                onSave(
-                                    initialNote?.naturalKey,
-                                    selectedCourse,
-                                    title.ifBlank { "Academic Note: $selectedCourse" },
-                                    contentValue.text,
-                                    if (canScheduleClassAlert) selectedAlarmMinutes else null,
-                                    tag,
-                                    attachedClassText,
-                                    attachmentName,
-                                    finalAttachmentPath
-                                )
-                                cleanupOrphanedAttachments(finalAttachmentPath)
-                            },
-                            enabled = !isCopyingAttachment,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary
-                            ),
-                            shape = RoundedCornerShape(14.dp),
-                            contentPadding = PaddingValues(
-                                horizontal = if (windowInfo.isNarrow) 10.dp else 14.dp,
-                                vertical = 6.dp
-                            ),
-                            modifier = Modifier.testTag("note_save_button")
-                        ) {
-                            Text("Save ✓", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            Button(
+                                onClick = {
+                                    focusManager.clearFocus()
+                                    keyboardController?.hide()
+                                    val finalAttachmentPath = attachmentPath
+                                    onSave(
+                                        initialNote?.naturalKey,
+                                        selectedCourse,
+                                        title.ifBlank { "Academic Note: $selectedCourse" },
+                                        contentValue.text,
+                                        if (canScheduleClassAlert) selectedAlarmMinutes else null,
+                                        tag,
+                                        attachedClassText,
+                                        attachmentName,
+                                        finalAttachmentPath
+                                    )
+                                    cleanupOrphanedAttachments(finalAttachmentPath)
+                                },
+                                enabled = !isCopyingAttachment,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = MaterialTheme.colorScheme.onPrimary
+                                ),
+                                shape = RoundedCornerShape(14.dp),
+                                contentPadding = PaddingValues(horizontal = if (windowInfo.isNarrow) 10.dp else 14.dp, vertical = 6.dp),
+                                modifier = Modifier.testTag("note_save_button")
+                            ) {
+                                Text("Save ✓", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            }
                         }
                     }
-                }
 
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), thickness = 1.dp)
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), thickness = 1.dp)
+                }
             }
         }
-    }
-) { innerPadding ->
+    ) { innerPadding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -974,955 +650,280 @@ fun NoteEditorScreen(
                     .verticalScroll(scrollState)
                     .padding(horizontal = 18.dp, vertical = 12.dp)
             ) {
-            // 1. TITLE INPUT
-            BasicTextField(
-                value = title,
-                onValueChange = { title = it },
-                textStyle = TextStyle(
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                ),
-                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                decorationBox = { innerTextField ->
-                    if (title.isEmpty()) {
-                        Text(
-                            "Enter note title or lecture topic...",
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
-                        )
-                    }
-                    innerTextField()
-                }
-            )
-
-            HorizontalDivider(
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
-                thickness = 1.dp,
-                modifier = Modifier.padding(vertical = 6.dp)
-            )
-
-            // 2. METADATA PILLS STRIP
-            LazyRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Course Pill
-                item {
-                    AssistChip(
-                        onClick = { showCoursePickerModal = true },
-                        label = {
+                BasicTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    textStyle = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface),
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    decorationBox = { innerTextField ->
+                        if (title.isEmpty()) {
                             Text(
-                                text = if (selectedCourse.isNotBlank()) "📚 $selectedCourse" else "📚 Select Course",
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 12.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        },
-                        trailingIcon = {
-                            Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp))
-                        },
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                }
-
-                // Category Tag Pill
-                item {
-                    AssistChip(
-                        onClick = { showTagPicker = true },
-                        label = { Text("🏷️ $tag", fontSize = 12.sp, fontWeight = FontWeight.Medium) },
-                        trailingIcon = {
-                            Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(14.dp))
-                        },
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                }
-
-                // Quick Templates Button
-                item {
-                    AssistChip(
-                        onClick = { showTemplatesSheet = true },
-                        leadingIcon = {
-                            Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(15.dp))
-                        },
-                        label = { Text("Templates", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary) },
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                }
-
-                // Formatting Guide Pill
-                item {
-                    AssistChip(
-                        onClick = { showHelpSheet = true },
-                        leadingIcon = {
-                            Icon(Icons.Outlined.HelpOutline, contentDescription = null, modifier = Modifier.size(14.dp))
-                        },
-                        label = { Text("Guide", fontSize = 12.sp, fontWeight = FontWeight.Medium) },
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                }
-
-                // Attached Class Pill
-                item {
-                    AssistChip(
-                        onClick = { showClassPicker = true },
-                        label = {
-                            val labelText = if (attachedClassText.isNotBlank()) {
-                                "📍 ${attachedClassText.substringBefore(" · ").take(18)}"
-                            } else {
-                                "📍 Attach Class"
-                            }
-                            Text(labelText, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        },
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                }
-
-                // Pre-class Alert Pill
-                item {
-                    AssistChip(
-                        onClick = { showCustomReminderDialog = true },
-                        label = {
-                            val alertText = if (selectedAlarmMinutes != null) "⏰ ${selectedAlarmMinutes}m alert" else "⏰ Add Alert"
-                            Text(alertText, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                        },
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // 3. MAIN EDITOR CARD OR PREVIEW CARD
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    if (currentTab == NoteEditorTab.WRITE) {
-                        // VISUAL FORMATTING TOOLBAR (WYSIWYG Helpers for everyone)
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(10.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .horizontalScroll(rememberScrollState())
-                                    .padding(horizontal = 6.dp, vertical = 4.dp),
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                // Bold
-                                Box(
-                                    modifier = Modifier
-                                        .defaultMinSize(minWidth = 44.dp, minHeight = 44.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .clickable { applyMarkdown("**", "**", "Bold text") }
-                                        .padding(horizontal = 8.dp, vertical = 6.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text("B", fontWeight = FontWeight.Black, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
-                                }
-
-                                // Italic
-                                Box(
-                                    modifier = Modifier
-                                        .defaultMinSize(minWidth = 44.dp, minHeight = 44.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .clickable { applyMarkdown("*", "*", "Italic text") }
-                                        .padding(horizontal = 8.dp, vertical = 6.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text("I", fontStyle = FontStyle.Italic, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
-                                }
-
-                                // Obsidian Highlight (==text==)
-                                Box(
-                                    modifier = Modifier
-                                        .defaultMinSize(minWidth = 44.dp, minHeight = 44.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(if (isDark) Color(0xFF713F12) else Color(0xFFFEF08A))
-                                        .clickable { applyMarkdown("==", "==", "highlighted term") }
-                                        .padding(horizontal = 8.dp, vertical = 6.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        "==",
-                                        fontWeight = FontWeight.ExtraBold,
-                                        fontSize = 12.sp,
-                                        color = if (isDark) Color(0xFFFEF08A) else Color(0xFF713F12)
-                                    )
-                                }
-
-                                // Heading 1
-                                Box(
-                                    modifier = Modifier
-                                        .defaultMinSize(minWidth = 44.dp, minHeight = 44.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .clickable { insertLinePrefix("# ") }
-                                        .padding(horizontal = 8.dp, vertical = 6.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text("H1", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = MaterialTheme.colorScheme.primary)
-                                }
-
-                                // Heading 2
-                                Box(
-                                    modifier = Modifier
-                                        .defaultMinSize(minWidth = 44.dp, minHeight = 44.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .clickable { insertLinePrefix("## ") }
-                                        .padding(horizontal = 8.dp, vertical = 6.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text("H2", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
-                                }
-
-                                // Checklist / To-Do
-                                IconButton(
-                                    onClick = { insertLinePrefix("- [ ] ") }
-                                ) {
-                                    Icon(
-                                        Icons.Default.Checklist,
-                                        contentDescription = "Checklist item",
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(19.dp)
-                                    )
-                                }
-
-                                // Obsidian Callout (> [!NOTE])
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f),
-                                    modifier = Modifier
-                                        .defaultMinSize(minWidth = 44.dp, minHeight = 44.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .clickable {
-                                            insertSnippet("> [!NOTE] Key Takeaway\n> Core concept explained here\n")
-                                        }
-                                ) {
-                                    Box(
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            "[!Note]",
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.tertiary
-                                        )
-                                    }
-                                }
-
-                                // Markdown Table
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
-                                    modifier = Modifier
-                                        .defaultMinSize(minWidth = 44.dp, minHeight = 44.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .clickable {
-                                            insertSnippet("\n| Topic | Key Concept | Status |\n| :--- | :--- | :---: |\n| Point 1 | Definition | Ready |\n| Point 2 | Example | Review |\n")
-                                        }
-                                ) {
-                                    Box(
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            "Table",
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.secondary
-                                        )
-                                    }
-                                }
-
-                                // Math Formula ($$ formula $$)
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
-                                    modifier = Modifier
-                                        .defaultMinSize(minWidth = 44.dp, minHeight = 44.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .clickable {
-                                            applyMarkdown("$$", "$$", "E = mc^2")
-                                        }
-                                ) {
-                                    Box(
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            "$$ Math",
-                                            fontSize = 11.sp,
-                                            fontStyle = FontStyle.Italic,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
-                                    }
-                                }
-
-                                // Obsidian WikiLink ([[Note Title]])
-                                Box(
-                                    modifier = Modifier
-                                        .defaultMinSize(minWidth = 44.dp, minHeight = 44.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .clickable { applyMarkdown("[[", "]]", "Course Note") }
-                                        .padding(horizontal = 8.dp, vertical = 6.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text("[[Link]]", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
-                                }
-
-                                // Bullet List
-                                IconButton(
-                                    onClick = { insertLinePrefix("- ") }
-                                ) {
-                                    Icon(
-                                        Icons.Default.FormatListBulleted,
-                                        contentDescription = "Bullet List",
-                                        tint = MaterialTheme.colorScheme.onSurface,
-                                        modifier = Modifier.size(19.dp)
-                                    )
-                                }
-
-                                // Numbered List
-                                IconButton(
-                                    onClick = { insertLinePrefix("1. ") }
-                                ) {
-                                    Icon(
-                                        Icons.Default.FormatListNumbered,
-                                        contentDescription = "Numbered List",
-                                        tint = MaterialTheme.colorScheme.onSurface,
-                                        modifier = Modifier.size(19.dp)
-                                    )
-                                }
-
-                                // Quote / Callout
-                                IconButton(
-                                    onClick = { insertLinePrefix("> ") }
-                                ) {
-                                    Icon(
-                                        Icons.Default.FormatQuote,
-                                        contentDescription = "Quote",
-                                        tint = MaterialTheme.colorScheme.tertiary,
-                                        modifier = Modifier.size(19.dp)
-                                    )
-                                }
-
-                                // Code / Formula
-                                IconButton(
-                                    onClick = { applyMarkdown("`", "`", "formula") }
-                                ) {
-                                    Icon(
-                                        Icons.Default.Code,
-                                        contentDescription = "Code or Formula",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-
-                                // Divider Line
-                                IconButton(
-                                    onClick = { insertSnippet("\n---\n") }
-                                ) {
-                                    Icon(
-                                        Icons.Default.HorizontalRule,
-                                        contentDescription = "Divider",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-
-                                // Insert Date Stamp
-                                IconButton(
-                                    onClick = insertDateStamp
-                                ) {
-                                    Icon(
-                                        Icons.Outlined.Today,
-                                        contentDescription = "Insert Date Stamp",
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        // Text Area with selection tracking and Live Syntax Highlighting
-                        val liveTransformation = remember(isDark, primaryColor) {
-                            MarkdownLiveVisualTransformation(isDark, primaryColor)
-                        }
-
-                        BasicTextField(
-                            value = contentValue,
-                            onValueChange = handleContentChange,
-                            visualTransformation = liveTransformation,
-                            textStyle = TextStyle(
-                                fontSize = 15.sp,
-                                lineHeight = 24.sp,
-                                color = MaterialTheme.colorScheme.onSurface
-                            ),
-                            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 180.dp),
-                            decorationBox = { innerTextField ->
-                                if (contentValue.text.isEmpty()) {
-                                    Text(
-                                        "Start taking lecture notes, revision points, or checklists...\n• Live Markdown highlighting in editor\n• Use ==highlight==, > [!NOTE], and | Tables |\n• Tap 'Templates' for full academic note outlines\n• Switch to 'Preview' tab anytime for rich rendered notes",
-                                        fontSize = 14.sp,
-                                        lineHeight = 22.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                                    )
-                                }
-                                innerTextField()
-                            }
-                        )
-                    } else {
-                        // PREVIEW TAB (Rendered Rich Markdown)
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                "RICH PREVIEW",
-                                fontSize = 11.sp,
+                                "Enter note title or lecture topic...",
+                                fontSize = 20.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary,
-                                letterSpacing = 0.5.sp
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
                             )
-                            if (checklistProgress != null) {
-                                val (done, total) = checklistProgress
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(
-                                            if (done == total) Color(0xFFDCFCE7) else MaterialTheme.colorScheme.primaryContainer
-                                        )
-                                        .padding(horizontal = 8.dp, vertical = 2.dp)
-                                ) {
-                                    Text(
-                                        "☑ $done / $total completed",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (done == total) Color(0xFF15803D) else MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                            }
                         }
+                        innerTextField()
+                    }
+                )
 
-                        Spacer(modifier = Modifier.height(8.dp))
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), thickness = 1.dp)
-                        Spacer(modifier = Modifier.height(10.dp))
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                    thickness = 1.dp,
+                    modifier = Modifier.padding(vertical = 6.dp)
+                )
 
-                        MarkdownViewer(
-                            markdown = contentValue.text,
-                            onToggleChecklist = toggleChecklistInPreview,
-                            onWikiLinkClick = onWikiLinkClick,
-                            onUrlClick = { rawUrl ->
-                                val safeUrl = if (rawUrl.startsWith("http://", ignoreCase = true) || rawUrl.startsWith("https://", ignoreCase = true)) {
-                                    rawUrl
-                                } else {
-                                    "https://$rawUrl"
-                                }
-                                try {
-                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(safeUrl)))
-                                } catch (_: Exception) {
-                                    onAttachmentError?.invoke("Unable to open link")
-                                }
-                            }
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    item {
+                        AssistChip(
+                            onClick = { showCoursePickerModal = true },
+                            label = {
+                                Text(
+                                    text = if (selectedCourse.isNotBlank()) "📚 $selectedCourse" else "📚 Select Course",
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 12.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            },
+                            trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                            shape = RoundedCornerShape(12.dp)
                         )
                     }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), thickness = 1.dp)
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                Icons.Outlined.Check,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(13.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                "Markdown & Visual formatting",
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Text(
-                            "$wordsCount words · $charsCount chars",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                    item {
+                        AssistChip(
+                            onClick = { showTagPicker = true },
+                            label = { Text("🏷️ $tag", fontSize = 12.sp, fontWeight = FontWeight.Medium) },
+                            trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(14.dp)) },
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
+                    item {
+                        AssistChip(
+                            onClick = { showTemplatesSheet = true },
+                            leadingIcon = { Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(15.dp)) },
+                            label = { Text("Templates", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary) },
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
+                    item {
+                        AssistChip(
+                            onClick = { showHelpSheet = true },
+                            leadingIcon = { Icon(Icons.AutoMirrored.Outlined.HelpOutline, contentDescription = null, modifier = Modifier.size(14.dp)) },
+                            label = { Text("Guide", fontSize = 12.sp, fontWeight = FontWeight.Medium) },
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
+                    item {
+                        AssistChip(
+                            onClick = { showClassPicker = true },
+                            label = {
+                                val labelText = if (attachedClassText.isNotBlank()) {
+                                    "📍 ${attachedClassText.substringBefore(" · ").take(18)}"
+                                } else {
+                                    "📍 Attach Class"
+                                }
+                                Text(labelText, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            },
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
+                    item {
+                        AssistChip(
+                            onClick = { showCustomReminderDialog = true },
+                            label = {
+                                val alertText = if (selectedAlarmMinutes != null) "⏰ ${selectedAlarmMinutes}m alert" else "⏰ Add Alert"
+                                Text(alertText, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                            },
+                            shape = RoundedCornerShape(12.dp)
                         )
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
-            // ATTACHED CLASS CARD (If attached)
-            if (attachedClassText.isNotBlank()) {
                 Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { showClassPicker = true },
+                    modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(IntrinsicSize.Min)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .width(6.dp)
-                                .fillMaxHeight()
-                                .background(MaterialTheme.colorScheme.primary)
-                        )
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        if (currentTab == NoteEditorTab.WRITE) {
+                            MarkdownFormattingToolbar(
+                                isDark = isDark,
+                                applyMarkdown = applyMarkdown,
+                                insertLinePrefix = insertLinePrefix,
+                                insertSnippet = insertSnippet,
+                                insertDateStamp = insertDateStamp
+                            )
 
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(start = 14.dp, top = 14.dp, end = 16.dp, bottom = 14.dp)
-                        ) {
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            val liveTransformation = remember(isDark, primaryColor) {
+                                MarkdownLiveVisualTransformation(isDark, primaryColor)
+                            }
+
+                            BasicTextField(
+                                value = contentValue,
+                                onValueChange = { contentValue = continueMarkdownListOnNewline(contentValue.text, it) },
+                                visualTransformation = liveTransformation,
+                                textStyle = TextStyle(fontSize = 15.sp, lineHeight = 24.sp, color = MaterialTheme.colorScheme.onSurface),
+                                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 180.dp),
+                                decorationBox = { innerTextField ->
+                                    if (contentValue.text.isEmpty()) {
+                                        Text(
+                                            "Start taking lecture notes, revision points, or checklists...\n• Live Markdown highlighting in editor\n• Use ==highlight==, > [!NOTE], and | Tables |\n• Tap 'Templates' for full academic note outlines\n• Switch to 'Preview' tab anytime for rich rendered notes",
+                                            fontSize = 14.sp,
+                                            lineHeight = 22.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                        )
+                                    }
+                                    innerTextField()
+                                }
+                            )
+                        } else {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("RICH PREVIEW", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, letterSpacing = 0.5.sp)
+                                if (checklistProgress != null) {
+                                    val (done, total) = checklistProgress
                                     Box(
                                         modifier = Modifier
-                                            .size(32.dp)
                                             .clip(RoundedCornerShape(8.dp))
-                                            .background(MaterialTheme.colorScheme.primaryContainer),
-                                        contentAlignment = Alignment.Center
+                                            .background(if (done == total) Color(0xFFDCFCE7) else MaterialTheme.colorScheme.primaryContainer)
+                                            .padding(horizontal = 8.dp, vertical = 2.dp)
                                     ) {
-                                        Icon(
-                                            Icons.Outlined.EventNote,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        "ATTACHED TIMETABLE CLASS",
-                                        color = MaterialTheme.colorScheme.primary,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        letterSpacing = 0.5.sp
-                                    )
-                                }
-
-                                if (attachedLocation.isNotBlank()) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
                                         Text(
-                                            attachedLocation,
-                                            fontSize = 12.sp,
-                                            color = MaterialTheme.colorScheme.tertiary,
-                                            fontWeight = FontWeight.Medium
+                                            "☑ $done / $total completed",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (done == total) Color(0xFF15803D) else MaterialTheme.colorScheme.primary
                                         )
-                                        val roomClean = attachedLocation.removePrefix("📍").trim()
-                                        if (roomClean.isNotBlank()) {
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            RoomFloorBadge(roomName = roomClean, compact = true)
-                                        }
                                     }
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = attachedClassText.substringBefore(" · "),
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            val detailLine = buildString {
-                                val schedulePart = attachedClassText.substringAfter(" · ", "")
-                                append(schedulePart)
-                                if (lecturer.isNotBlank()) {
-                                    if (isNotEmpty()) append(" · ")
-                                    append(lecturer)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), thickness = 1.dp)
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            MarkdownViewer(
+                                markdown = contentValue.text,
+                                onToggleChecklist = toggleChecklistInPreview,
+                                onWikiLinkClick = onWikiLinkClick,
+                                onUrlClick = { rawUrl ->
+                                    val safeUrl = if (rawUrl.startsWith("http://", ignoreCase = true) || rawUrl.startsWith("https://", ignoreCase = true)) {
+                                        rawUrl
+                                    } else {
+                                        "https://$rawUrl"
+                                    }
+                                    try {
+                                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(safeUrl)))
+                                    } catch (_: Exception) {
+                                        onAttachmentError?.invoke("Unable to open link")
+                                    }
                                 }
-                            }
-                            if (detailLine.isNotBlank()) {
-                                Text(
-                                    text = detailLine,
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(14.dp))
-            }
-
-            // PRE-CLASS ALERT REMINDER CARD
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                Icons.Outlined.NotificationsActive,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                "PRE-CLASS ALERT REMINDER",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                letterSpacing = 0.5.sp
                             )
                         }
 
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(MaterialTheme.colorScheme.secondaryContainer)
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Text(
-                                when {
-                                    !canScheduleClassAlert -> "Needs Class"
-                                    selectedAlarmMinutes != null -> "${selectedAlarmMinutes}m Alert"
-                                    else -> "Disabled"
-                                },
-                                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
+                        Spacer(modifier = Modifier.height(12.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), thickness = 1.dp)
+                        Spacer(modifier = Modifier.height(8.dp))
 
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    if (!canScheduleClassAlert) {
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
-                                .clickable { showClassPicker = true }
-                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = "Attach a timetable class to arm pre-class alerts.",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.weight(1f)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Attach",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    } else {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            val reminderOptions = listOf(
-                                "None" to null,
-                                "15m" to 15,
-                                "30m" to 30,
-                                "1h" to 60,
-                                (if (selectedAlarmMinutes != null && selectedAlarmMinutes !in listOf(15, 30, 60)) "${selectedAlarmMinutes}m" else "Custom") to selectedAlarmMinutes
-                            )
-
-                            reminderOptions.forEachIndexed { idx, (label, minutes) ->
-                                val isSelected = (idx == 4 && selectedAlarmMinutes != null && selectedAlarmMinutes !in listOf(15, 30, 60)) || (idx < 4 && selectedAlarmMinutes == minutes)
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .defaultMinSize(minHeight = 44.dp)
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .background(
-                                            if (isSelected) MaterialTheme.colorScheme.primary
-                                            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
-                                        )
-                                        .clickable {
-                                            if (idx == 4) {
-                                                showCustomReminderDialog = true
-                                            } else {
-                                                selectedAlarmMinutes = minutes
-                                            }
-                                        }
-                                        .padding(vertical = 8.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = label,
-                                        fontSize = 12.sp,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Outlined.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(13.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Markdown & Visual formatting", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
+                            Text("$wordsCount words · $charsCount chars", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
-            // QUICK ATTACHMENTS (Slides/Documents & Whiteboard Photos)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    "ATTACHMENTS & SLIDES",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    letterSpacing = 0.5.sp
+                if (attachedClassText.isNotBlank()) {
+                    AttachedTimetableClassCard(
+                        attachedClassText = attachedClassText,
+                        attachedLocation = attachedLocation,
+                        lecturer = lecturer,
+                        onClick = { showClassPicker = true }
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
+                }
+
+                PreClassAlertReminderCard(
+                    canScheduleClassAlert = canScheduleClassAlert,
+                    selectedAlarmMinutes = selectedAlarmMinutes,
+                    onOpenClassPicker = { showClassPicker = true },
+                    onSelectAlarmMinutes = { selectedAlarmMinutes = it },
+                    onOpenCustomDialog = { showCustomReminderDialog = true }
                 )
-                Text(
-                    when {
-                        isCopyingAttachment -> "Saving file..."
-                        attachmentName.isNotBlank() -> "1 file attached"
-                        else -> "None"
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                NoteAttachmentsSection(
+                    isCopyingAttachment = isCopyingAttachment,
+                    attachmentName = attachmentName,
+                    attachmentPath = attachmentPath,
+                    onPickDocument = {
+                        documentPickerLauncher.launch(
+                            arrayOf(
+                                "application/pdf",
+                                "application/msword",
+                                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                "application/vnd.ms-powerpoint",
+                                "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                                "text/*"
+                            )
+                        )
                     },
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Medium
+                    onPickPhoto = {
+                        photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    },
+                    onOpenAttachment = {
+                        val path = attachmentPath
+                        val uri = if (path != null) AttachmentStore.contentUriFor(context, path) else null
+                        if (uri == null) {
+                            onAttachmentError?.invoke("Attachment file is missing")
+                        } else {
+                            val intent = Intent(Intent.ACTION_VIEW).apply {
+                                setDataAndType(uri, context.contentResolver.getType(uri) ?: "*/*")
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            try {
+                                context.startActivity(intent)
+                            } catch (_: Exception) {
+                                onAttachmentError?.invoke("No app can open this file")
+                            }
+                        }
+                    },
+                    onRemoveAttachment = {
+                        attachmentName = ""
+                        attachmentPath = null
+                    }
                 )
+
+                Spacer(modifier = Modifier.height(36.dp))
             }
-
-            if (isCopyingAttachment) {
-                Spacer(modifier = Modifier.height(6.dp))
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                // Lecture Slide / Document (via zero-permission Android System Document Picker)
-                Card(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable(enabled = !isCopyingAttachment) {
-                            documentPickerLauncher.launch(
-                                arrayOf(
-                                    "application/pdf",
-                                    "application/msword",
-                                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                                    "application/vnd.ms-powerpoint",
-                                    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-                                    "text/*"
-                                )
-                            )
-                        },
-                    shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(38.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primaryContainer),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                Icons.Default.PictureAsPdf,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text("Slide / Doc", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface)
-                    }
-                }
-
-                // Whiteboard Photo (via zero-permission Android Photo Picker)
-                Card(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable(enabled = !isCopyingAttachment) {
-                            photoPickerLauncher.launch(
-                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                            )
-                        },
-                    shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(38.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.tertiaryContainer),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                Icons.Default.CameraAlt,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.tertiary,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text("Whiteboard", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface)
-                    }
-                }
-            }
-
-            // Attached file item badge
-            if (attachmentName.isNotBlank()) {
-                Spacer(modifier = Modifier.height(10.dp))
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .padding(10.dp)
-                            .fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .weight(1f)
-                                .clickable(enabled = attachmentPath != null) {
-                                    val path = attachmentPath ?: return@clickable
-                                    val uri = AttachmentStore.contentUriFor(context, path)
-                                    if (uri == null) {
-                                        onAttachmentError?.invoke("Attachment file is missing")
-                                    } else {
-                                        val intent = Intent(Intent.ACTION_VIEW).apply {
-                                            setDataAndType(uri, context.contentResolver.getType(uri) ?: "*/*")
-                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                        }
-                                        try {
-                                            context.startActivity(intent)
-                                        } catch (_: Exception) {
-                                            onAttachmentError?.invoke("No app can open this file")
-                                        }
-                                    }
-                                }
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(MaterialTheme.colorScheme.primaryContainer),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    Icons.Default.Description,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column {
-                                Text(
-                                    text = attachmentName,
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Text(
-                                    // Legacy name-only rows have no stored file.
-                                    if (attachmentPath != null) "Tap to open" else "Name only — file not stored",
-                                    fontSize = 10.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-
-                        IconButton(
-                            onClick = {
-                                // Only detach in draft state; file cleanup waits until Save/Discard.
-                                attachmentName = ""
-                                attachmentPath = null
-                            },
-                            modifier = Modifier.size(48.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Close,
-                                contentDescription = "Remove attachment",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(36.dp))
         }
     }
-}
 
     if (showProfileSheet) {
         val enrolledProg = (LocalContext.current.applicationContext as? TimetableApplication)?.repository?.getInitialProgramme() ?: ""
@@ -1956,36 +957,10 @@ fun NoteEditorScreen(
     }
 
     if (showCustomReminderDialog) {
-        AlertDialog(
-            onDismissRequest = { showCustomReminderDialog = false },
-            title = { Text("Custom Pre-Class Alert", fontWeight = FontWeight.Bold) },
-            text = {
-                Column {
-                    Text("Minutes before class begins:", fontSize = 13.sp)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = customReminderText,
-                        onValueChange = { customReminderText = it.filter { ch -> ch.isDigit() }.take(4) },
-                        label = { Text("Minutes") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    val parsed = customReminderText.toIntOrNull()?.coerceIn(1, 1440)
-                    if (parsed != null) selectedAlarmMinutes = parsed
-                    showCustomReminderDialog = false
-                }) {
-                    Text("Apply", fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showCustomReminderDialog = false }) {
-                    Text("Cancel")
-                }
-            }
+        CustomPreClassAlertDialog(
+            initialMinutesText = selectedAlarmMinutes?.toString() ?: "45",
+            onApply = { parsed -> selectedAlarmMinutes = parsed },
+            onDismiss = { showCustomReminderDialog = false }
         )
     }
 }

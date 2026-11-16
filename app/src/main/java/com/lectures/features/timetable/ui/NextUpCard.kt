@@ -126,7 +126,7 @@ fun NextUpCard(entry: TimetableEntry, minutesUntil: Int, onClick: () -> Unit) {
                 }
                 
                 val roomText = entry.room?.trim()
-                if (!roomText.isNullOrEmpty() && roomText.uppercase() !in listOf("TBA", "TBD", "NONE", "N/A")) {
+                if (!roomText.isNullOrEmpty() && roomText.uppercase(java.util.Locale.ROOT) !in listOf("TBA", "TBD", "NONE", "N/A")) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Outlined.MeetingRoom, contentDescription = "Venue", tint = Color.White, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))

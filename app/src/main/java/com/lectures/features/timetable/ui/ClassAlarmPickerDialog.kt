@@ -93,7 +93,7 @@ fun ClassAlarmPickerDialog(
                     color = textSub
                 )
                 val roomText = entry.room?.trim()
-                if (!roomText.isNullOrEmpty() && roomText.uppercase() !in listOf("TBA", "TBD", "NONE", "N/A")) {
+                if (!roomText.isNullOrEmpty() && roomText.uppercase(java.util.Locale.ROOT) !in listOf("TBA", "TBD", "NONE", "N/A")) {
                     Spacer(modifier = Modifier.height(6.dp))
                     Row(
                         verticalAlignment = Alignment.CenterVertically,

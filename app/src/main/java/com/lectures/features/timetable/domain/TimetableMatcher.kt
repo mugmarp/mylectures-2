@@ -1,5 +1,7 @@
 package com.lectures.features.timetable.domain
 
+import java.util.Locale
+
 data class ParsedGroup(
     val code: String,
     val subject: String,
@@ -99,8 +101,8 @@ object TimetableMatcher {
 
         // 1. Direct un-prefixed database groups
         DIRECT_DB_GROUPS[clean]?.let { return it }
-        val upperClean = clean.uppercase()
-        DIRECT_DB_GROUPS.entries.firstOrNull { it.key.uppercase() == upperClean }?.value?.let { return it }
+        val upperClean = clean.uppercase(Locale.ROOT)
+        DIRECT_DB_GROUPS.entries.firstOrNull { it.key.uppercase(Locale.ROOT) == upperClean }?.value?.let { return it }
 
         // 2. HEAP tracks
         if (upperClean.startsWith("HEAP")) {
@@ -111,16 +113,16 @@ object TimetableMatcher {
         // 3. Normal Roman numeral formats (handles both spaces and hyphens e.g. "DLT-BIOLOGY II", "BS-CHEM-MATHS I")
         val parts = clean.split(Regex("[\\s-]+")).filter { it.isNotEmpty() }
         val romanYears = setOf("I", "II", "III", "IV", "V", "VI")
-        val yearIdx = parts.indexOfFirst { it.uppercase() in romanYears }
+        val yearIdx = parts.indexOfFirst { it.uppercase(Locale.ROOT) in romanYears }
         if (yearIdx <= 0) return null
 
-        val rawCode = parts[0].uppercase().replace(Regex("[^A-Z]"), "")
+        val rawCode = parts[0].uppercase(Locale.ROOT).replace(Regex("[^A-Z]"), "")
         val code = CODE_ALIASES[rawCode] ?: rawCode
         if (code !in OFFICIAL_CODES) return null
 
-        val year = parts[yearIdx].uppercase()
+        val year = parts[yearIdx].uppercase(Locale.ROOT)
         val subject = (parts.subList(1, yearIdx) + parts.subList(yearIdx + 1, parts.size))
-            .joinToString(" ").uppercase().trim()
+            .joinToString(" ").uppercase(Locale.ROOT).trim()
             .replace("BIOLOGY", "BIOLOGICAL")
 
         return ParsedGroup(code, subject, year)
@@ -146,11 +148,11 @@ object TimetableMatcher {
 
     fun entryMatchesGroup(entry: TimetableEntry, selectedGroup: String): Boolean {
         val target = parseGroupParts(selectedGroup)
-        val cleanSel = selectedGroup.trim().uppercase()
+        val cleanSel = selectedGroup.trim().uppercase(Locale.ROOT)
         val entryGroups = listOf(entry.program_group) + entry.shared_with
 
         for (g in entryGroups) {
-            val gClean = g.trim().uppercase()
+            val gClean = g.trim().uppercase(Locale.ROOT)
             if (gClean == cleanSel) return true
 
             val parsed = parseGroupParts(g)
@@ -177,13 +179,13 @@ object TimetableMatcher {
         if (entries.size <= 1) {
             return entries.map { cleanAnomalousEntry(it) }
         }
-        val targetNorm = targetGroup.trim().uppercase()
+        val targetNorm = targetGroup.trim().uppercase(Locale.ROOT)
         val result = LinkedHashMap<String, TimetableEntry>()
 
         for (rawEntry in entries) {
             val entry = cleanAnomalousEntry(rawEntry)
-            val codeKey = entry.course_code.trim().uppercase()
-            val dayKey = entry.day.trim().take(3).uppercase()
+            val codeKey = entry.course_code.trim().uppercase(Locale.ROOT)
+            val dayKey = entry.day.trim().take(3).uppercase(Locale.ROOT)
             val startKey = entry.start_time.trim()
             val endKey = (entry.end_time ?: "").trim()
             val sessionKey = "$codeKey|$dayKey|$startKey|$endKey"
@@ -192,14 +194,14 @@ object TimetableMatcher {
             if (existing == null) {
                 result[sessionKey] = entry
             } else {
-                val newMatchesDirectly = targetNorm.isNotEmpty() && entry.program_group.trim().uppercase().contains(targetNorm)
-                val existingMatchesDirectly = targetNorm.isNotEmpty() && existing.program_group.trim().uppercase().contains(targetNorm)
+                val newMatchesDirectly = targetNorm.isNotEmpty() && entry.program_group.trim().uppercase(Locale.ROOT).contains(targetNorm)
+                val existingMatchesDirectly = targetNorm.isNotEmpty() && existing.program_group.trim().uppercase(Locale.ROOT).contains(targetNorm)
                 val primary = if (newMatchesDirectly && !existingMatchesDirectly) entry else existing
                 val secondary = if (primary == entry) existing else entry
 
                 val mergedRoom = when {
-                    !primary.room.isNullOrBlank() && primary.room.trim().uppercase() !in listOf("TBA", "TBD", "NONE", "N/A") -> primary.room.trim()
-                    !secondary.room.isNullOrBlank() && secondary.room.trim().uppercase() !in listOf("TBA", "TBD", "NONE", "N/A") -> secondary.room.trim()
+                    !primary.room.isNullOrBlank() && primary.room.trim().uppercase(Locale.ROOT) !in listOf("TBA", "TBD", "NONE", "N/A") -> primary.room.trim()
+                    !secondary.room.isNullOrBlank() && secondary.room.trim().uppercase(Locale.ROOT) !in listOf("TBA", "TBD", "NONE", "N/A") -> secondary.room.trim()
                     else -> null
                 }
 

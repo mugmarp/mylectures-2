@@ -74,7 +74,7 @@ class AlarmScheduler(private val context: Context) {
     }
 
     private fun parseStartTime(rawTime: String): Pair<Int, Int>? {
-        val clean = rawTime.trim().uppercase()
+        val clean = rawTime.trim().uppercase(java.util.Locale.ROOT)
         val isPm = clean.endsWith("PM")
         val isAm = clean.endsWith("AM")
         val stripped = clean.removeSuffix("PM").removeSuffix("AM").trim()
@@ -94,7 +94,7 @@ class AlarmScheduler(private val context: Context) {
             return false
         }
 
-        val targetDow = when (entry.dayOfWeek.trim().lowercase().take(3)) {
+        val targetDow = when (entry.dayOfWeek.trim().lowercase(java.util.Locale.ROOT).take(3)) {
             "mon" -> Calendar.MONDAY
             "tue" -> Calendar.TUESDAY
             "wed" -> Calendar.WEDNESDAY
@@ -269,7 +269,7 @@ class AlarmScheduler(private val context: Context) {
         return scheduleClassAlarm(syntheticEntry, minutesBefore)
     }
 
-    private fun parseDayPrefix(rawDay: String): Int? = when (rawDay.trim().lowercase().take(3)) {
+    private fun parseDayPrefix(rawDay: String): Int? = when (rawDay.trim().lowercase(java.util.Locale.ROOT).take(3)) {
         "mon" -> Calendar.MONDAY
         "tue" -> Calendar.TUESDAY
         "wed" -> Calendar.WEDNESDAY

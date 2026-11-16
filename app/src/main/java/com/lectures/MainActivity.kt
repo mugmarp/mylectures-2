@@ -74,7 +74,7 @@ class MainActivity : ComponentActivity() {
 
             val themeMode = remember(themeModeStr) {
                 try {
-                    ThemeMode.valueOf(themeModeStr.uppercase())
+                    ThemeMode.valueOf(themeModeStr.uppercase(java.util.Locale.ROOT))
                 } catch (e: Exception) {
                     ThemeMode.LIGHT
                 }

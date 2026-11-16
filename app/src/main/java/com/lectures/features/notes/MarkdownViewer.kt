@@ -14,6 +14,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -106,7 +107,7 @@ fun MarkdownViewer(
                         CalloutType.DANGER -> Triple(Color(0xFFDC2626), if (isDark) Color(0xFF7F1D1D).copy(alpha = 0.4f) else Color(0xFFFEF2F2), Icons.Outlined.ErrorOutline)
                         CalloutType.SUCCESS -> Triple(Color(0xFF16A34A), if (isDark) Color(0xFF14532D).copy(alpha = 0.4f) else Color(0xFFF0FDF4), Icons.Outlined.CheckCircle)
                         CalloutType.INFO -> Triple(Color(0xFF0284C7), if (isDark) Color(0xFF0C4A6E).copy(alpha = 0.4f) else Color(0xFFF0F9FF), Icons.Outlined.Info)
-                        CalloutType.QUESTION -> Triple(Color(0xFFEAB308), if (isDark) Color(0xFF713F12).copy(alpha = 0.4f) else Color(0xFFFEFCE8), Icons.Outlined.HelpOutline)
+                        CalloutType.QUESTION -> Triple(Color(0xFFEAB308), if (isDark) Color(0xFF713F12).copy(alpha = 0.4f) else Color(0xFFFEFCE8), Icons.AutoMirrored.Outlined.HelpOutline)
                         CalloutType.EXAMPLE -> Triple(Color(0xFF4F46E5), if (isDark) Color(0xFF312E81).copy(alpha = 0.4f) else Color(0xFFEEF2FF), Icons.Outlined.Science)
                         CalloutType.QUOTE -> Triple(Color(0xFF64748B), if (isDark) Color(0xFF1E293B) else Color(0xFFF8FAFC), Icons.Default.FormatQuote)
                     }
@@ -502,7 +503,7 @@ fun MarkdownViewer(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = (block.language ?: "CODE").uppercase(),
+                                    text = (block.language ?: "CODE").uppercase(java.util.Locale.ROOT),
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFF38BDF8)

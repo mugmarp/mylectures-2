@@ -144,7 +144,7 @@ object TaskMetricsCalculator {
     }
 
     private fun isTaskInWindow(task: Assignment, startMillis: Long, endMillis: Long): Boolean {
-        val lower = task.dueDate.lowercase(Locale.getDefault())
+        val lower = task.dueDate.lowercase(Locale.ROOT)
         if (lower.contains("today") || lower.contains("tomorrow")) return true
         val dayNames = listOf("mon", "tue", "wed", "thu", "fri", "sat", "sun")
         if (dayNames.any { lower.contains(it) }) return true
@@ -162,7 +162,7 @@ object TaskMetricsCalculator {
             val c = Calendar.getInstance().apply { timeInMillis = millis }
             return c.get(Calendar.DAY_OF_WEEK)
         }
-        val lower = task.dueDate.lowercase(Locale.getDefault())
+        val lower = task.dueDate.lowercase(Locale.ROOT)
         if (lower.contains("today")) return currentCal.get(Calendar.DAY_OF_WEEK)
         if (lower.contains("tomorrow")) {
             val c = currentCal.clone() as Calendar

@@ -1,69 +1,52 @@
 package com.lectures.features.timetable.ui
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowForward
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Today
-import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import com.lectures.TimetableApplication
-import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import android.os.Build
-import android.content.pm.PackageManager
-import androidx.core.content.ContextCompat
-import android.Manifest
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import com.lectures.TimetableApplication
+import com.lectures.core.util.NotificationPermissionHelper
 import com.lectures.core.util.SessionProgress
 import com.lectures.core.util.TimeUtil
 import com.lectures.core.util.rememberLiveClockPulse
+import com.lectures.features.timetable.data.ETagStore
 import com.lectures.features.timetable.domain.Assignment
 import com.lectures.features.timetable.domain.CustomEvent
 import com.lectures.features.timetable.domain.LectureNote
+import com.lectures.features.timetable.domain.TimetableConflictDetector
 import com.lectures.features.timetable.domain.TimetableEntry
-import com.lectures.features.timetable.domain.TimetableMatcher
 import com.lectures.ui.Chrome
 import com.lectures.ui.LocalAppTheme
-import com.lectures.ui.rememberLecturesWindow
 import com.lectures.ui.components.AcademicProfileSheet
-import androidx.compose.foundation.layout.WindowInsets
-import com.lectures.ui.components.RoomFloorBadge
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.repeatOnLifecycle
+import com.lectures.ui.rememberLecturesWindow
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
-// Helper for Real-Time Global Next Up session
 data class GlobalNextUp(
     val entry: TimetableEntry,
     val isLive: Boolean,
@@ -102,17 +85,13 @@ fun TimetableScreen(
     onNavigateToTasks: () -> Unit = {},
     onOpenVacantRooms: () -> Unit = {}
 ) {
-    val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
     val isDark = LocalAppTheme.current.isDark
-    val primaryColor = MaterialTheme.colorScheme.primary
 
-    // Prompt notification permission at most ONCE on initial setup if on Android 13+ (API 33+)
-    // Respects user choice: if the user denies or already made a decision, NEVER auto-prompts again!
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
-        onResult = { isGranted ->
-            com.lectures.core.util.NotificationPermissionHelper.setPromptedNotificationPermission(context, true)
+        onResult = {
+            NotificationPermissionHelper.setPromptedNotificationPermission(context, true)
         }
     )
     LaunchedEffect(Unit) {
@@ -123,22 +102,20 @@ fun TimetableScreen(
                 context,
                 Manifest.permission.POST_NOTIFICATIONS
             ) == PackageManager.PERMISSION_GRANTED
-            val alreadyPrompted = com.lectures.core.util.NotificationPermissionHelper.hasPromptedNotificationPermission(context)
+            val alreadyPrompted = NotificationPermissionHelper.hasPromptedNotificationPermission(context)
             val isExistingUser = (app?.repository?.checkIsOnboardingCompleted() == true) ||
-                com.lectures.features.timetable.data.ETagStore(context).isOnboardingCompleted()
+                ETagStore(context).isOnboardingCompleted()
 
             if (!granted && !alreadyPrompted && !isExistingUser) {
-                com.lectures.core.util.NotificationPermissionHelper.setPromptedNotificationPermission(context, true)
+                NotificationPermissionHelper.setPromptedNotificationPermission(context, true)
                 notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
         }
     }
 
-    // Dynamic current real-time day and calendar
     var todayName by remember { mutableStateOf(TimeUtil.todayName()) }
     val daysList = remember { TimeUtil.DAYS }
 
-    // Dialog & BottomSheet state
     var detailLectureKey by rememberSaveable { mutableStateOf<String?>(null) }
     var alarmLectureKey by rememberSaveable { mutableStateOf<String?>(null) }
     var showQuickAddSheet by rememberSaveable { mutableStateOf(false) }
@@ -160,10 +137,9 @@ fun TimetableScreen(
         editingActivityId?.let { id -> customEvents.firstOrNull { it.id == id } }
     }
 
-    // 1. Compute day dates for the current week (Monday through Sunday)
     val dayInfoList = remember(todayName) {
         val now = Calendar.getInstance()
-        val currentDayOfWeek = now.get(Calendar.DAY_OF_WEEK) // Sunday=1, Monday=2
+        val currentDayOfWeek = now.get(Calendar.DAY_OF_WEEK)
         val daysFromMonday = when (currentDayOfWeek) {
             Calendar.MONDAY -> 0
             Calendar.TUESDAY -> 1
@@ -188,19 +164,15 @@ fun TimetableScreen(
     }
 
     val clockPulse = rememberLiveClockPulse()
-
-    // Ensure todayName always syncs on clock pulse (e.g. crossing midnight or waking from sleep)
     val realTodayName = TimeUtil.todayName()
     if (!todayName.equals(realTodayName, ignoreCase = true)) {
         todayName = realTodayName
     }
 
-    // Real-time clock pulse to re-evaluate next-up, countdowns, and progress bars periodically.
     val globalNextUp = remember(entries, todayName, clockPulse) {
         findActualNextUp(entries, todayName)
     }
 
-    // 3. Filter sessions for the selected day from the real Room database
     val dayEntries = remember(entries, selectedDay, selectedFilter) {
         val onDay = entries.filter { it.dayOfWeek.equals(selectedDay, ignoreCase = true) }
         val filtered = when (selectedFilter) {
@@ -229,7 +201,6 @@ fun TimetableScreen(
         filtered.sortedBy { TimeUtil.toMinutes(it.startTime) }
     }
 
-    // Selected day info
     val isViewingToday = selectedDay.equals(todayName, ignoreCase = true)
     val selectedDayInfo = dayInfoList.firstOrNull { it.first.equals(selectedDay, ignoreCase = true) }
     val formattedSelectedDate = selectedDayInfo?.third ?: selectedDay
@@ -256,7 +227,6 @@ fun TimetableScreen(
         }
     }
 
-    // Horizontal drag gesture tracking for swiping between days
     var dragTotal by remember { mutableFloatStateOf(0f) }
     val windowInfo = rememberLecturesWindow()
     val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
@@ -264,9 +234,7 @@ fun TimetableScreen(
     val listState = rememberLazyListState()
 
     if (isPeeking) {
-        BackHandler(enabled = true) {
-            onResetToEnrolled()
-        }
+        BackHandler(enabled = true) { onResetToEnrolled() }
     }
 
     Scaffold(
@@ -278,9 +246,7 @@ fun TimetableScreen(
                 program = programme,
                 subtitle = if (programme.isNotBlank()) semesterWeekLabel else "Select Programme",
                 isPeeking = isPeeking,
-                onProfileClick = {
-                    showAcademicProfileSheet = true
-                },
+                onProfileClick = { showAcademicProfileSheet = true },
                 onSettingsClick = onSettingsClick,
                 onOpenVacantRooms = onOpenVacantRooms
             )
@@ -297,11 +263,7 @@ fun TimetableScreen(
                         .padding(bottom = Chrome.fabBottomPadding(windowInfo.useNavigationRail))
                         .testTag("timetable_fab")
                 ) {
-                    Icon(
-                        Icons.Default.Add,
-                        contentDescription = "Add Activity",
-                        modifier = Modifier.size(24.dp)
-                    )
+                    Icon(Icons.Default.Add, contentDescription = "Add Activity", modifier = Modifier.size(24.dp))
                 }
             } else {
                 ExtendedFloatingActionButton(
@@ -309,20 +271,8 @@ fun TimetableScreen(
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = Color.White,
                     shape = RoundedCornerShape(16.dp),
-                    icon = {
-                        Icon(
-                            Icons.Default.Add,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    },
-                    text = {
-                        Text(
-                            text = "Add Activity",
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 14.sp
-                        )
-                    },
+                    icon = { Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(20.dp)) },
+                    text = { Text(text = "Add Activity", fontWeight = FontWeight.SemiBold, fontSize = 14.sp) },
                     modifier = Modifier
                         .navigationBarsPadding()
                         .padding(bottom = Chrome.fabBottomPadding(windowInfo.useNavigationRail))
@@ -343,11 +293,8 @@ fun TimetableScreen(
                             val currentIndex = daysList.indexOfFirst { it.equals(selectedDay, ignoreCase = true) }
                             if (currentIndex != -1) {
                                 if (dragTotal < -threshold) {
-                                    // Swiped Left -> Move to next day (e.g., Monday -> Tuesday)
-                                    val nextIndex = (currentIndex + 1) % daysList.size
-                                    onDaySelected(daysList[nextIndex])
+                                    onDaySelected(daysList[(currentIndex + 1) % daysList.size])
                                 } else if (dragTotal > threshold) {
-                                    // Swiped Right -> Move to previous day (e.g., Tuesday -> Monday)
                                     val prevIndex = if (currentIndex - 1 < 0) daysList.size - 1 else currentIndex - 1
                                     onDaySelected(daysList[prevIndex])
                                 }
@@ -373,191 +320,35 @@ fun TimetableScreen(
                     bottom = listBottomPadding
                 )
             ) {
-                // PEEK MODE BANNER: Shown when temporarily browsing another program or friend's schedule
                 if (isPeeking) {
                     item(key = "peek_mode_banner") {
-                        Surface(
-                            shape = RoundedCornerShape(16.dp),
-                            color = if (isDark) Color(0xFF291B00) else Color(0xFFFEF3C7),
-                            border = BorderStroke(1.dp, if (isDark) Color(0xFFB45309) else Color(0xFFF59E0B)),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 20.dp, vertical = 8.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(14.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(38.dp)
-                                        .background(
-                                            if (isDark) Color(0xFF78350F) else Color(0xFFFDE68A),
-                                            CircleShape
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Visibility,
-                                        contentDescription = "Peek Mode",
-                                        tint = if (isDark) Color(0xFFFBBF24) else Color(0xFFB45309),
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = "Previewing $programme",
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (isDark) Color(0xFFFDE68A) else Color(0xFF92400E)
-                                    )
-                                    Text(
-                                        text = "Viewing temporarily. Your alarms remain set for $enrolledProgramme.",
-                                        fontSize = 11.sp,
-                                        color = if (isDark) Color(0xFFFCD34D) else Color(0xFFB45309),
-                                        lineHeight = 14.sp
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Button(
-                                    onClick = onResetToEnrolled,
-                                    shape = RoundedCornerShape(10.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = if (isDark) Color(0xFFB45309) else Color(0xFFD97706),
-                                        contentColor = Color.White
-                                    ),
-                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                                ) {
-                                    Text("Exit Preview", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
+                        TimetablePeekBanner(
+                            programme = programme,
+                            enrolledProgramme = enrolledProgramme,
+                            isDark = isDark,
+                            onResetToEnrolled = onResetToEnrolled
+                        )
                     }
                 }
 
-                // Prompt to select programme if not yet chosen
                 if (programme.isBlank()) {
                     item(key = "no_prog_prompt") {
-                        Surface(
-                            shape = RoundedCornerShape(16.dp),
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 20.dp, vertical = 12.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(16.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.School,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(28.dp)
-                                )
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = "No Programme Selected",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 15.sp,
-                                        color = if (isDark) Color.White else TextPrimaryLight
-                                    )
-                                    Text(
-                                        text = "Select your programme to view your class timetable.",
-                                        fontSize = 12.sp,
-                                        color = if (isDark) Color(0xFF94A3B8) else TextMutedLight
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Button(
-                                    onClick = onSettingsClick,
-                                    shape = RoundedCornerShape(10.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                                ) {
-                                    Text("Select", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
+                        NoProgrammePromptCard(isDark = isDark, onSelectClick = onSettingsClick)
                     }
                 }
 
-                // SECTION 1: TODAY'S SCHEDULE HEADER (ABOVE THE DAYS)
                 item(key = "today_schedule_header") {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 4.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text(
-                                text = "Today's Schedule",
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isDark) Color.White else TextPrimaryLight
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = todayDateFormatted,
-                                fontSize = 13.sp,
-                                color = if (isDark) Color(0xFF94A3B8) else TextMutedLight,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-
-                        if (todayEntries.isNotEmpty()) {
-                            Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                            ) {
-                                Text(
-                                    text = "${todayEntries.size} ${if (todayEntries.size == 1) "session" else "sessions"}",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                                )
-                            }
-                        }
-                    }
+                    TodaysScheduleHeader(
+                        todayDateFormatted = todayDateFormatted,
+                        todaySessionCount = todayEntries.size,
+                        isDark = isDark
+                    )
                 }
 
-                // SECTION 2: HAPPENING NOW / NEXT UP HERO CARD (ABOVE THE DAYS)
                 val currentNextUp = globalNextUp
                 if (allTodayClassesCompleted && currentNextUp != null && !currentNextUp.isLive) {
                     item(key = "today_completed_badge") {
-                        PaddingBox(top = 4.dp, bottom = 2.dp) {
-                            Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = Color(0xFF10B981).copy(alpha = 0.12f),
-                                border = BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.25f)),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.CheckCircle,
-                                        contentDescription = null,
-                                        tint = Color(0xFF10B981),
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = "All classes for today are completed",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = Color(0xFF10B981)
-                                    )
-                                }
-                            }
-                        }
+                        TodayClassesCompletedBadge()
                     }
                 }
 
@@ -580,9 +371,7 @@ fun TimetableScreen(
                                 elapsedText = session.elapsedText,
                                 remainingText = session.remainingText,
                                 onQuickNote = { detailLectureKey = entry.naturalKey },
-                                onAlarmDismiss = {
-                                    alarmLectureKey = entry.naturalKey
-                                },
+                                onAlarmDismiss = { alarmLectureKey = entry.naturalKey },
                                 onClick = { detailLectureKey = entry.naturalKey },
                                 modifier = Modifier.padding(top = 6.dp, bottom = 6.dp)
                             )
@@ -597,7 +386,6 @@ fun TimetableScreen(
                                 }
                                 else -> "${currentNextUp.dayLabel} at ${entry.startTime}"
                             }
-
                             val session = entry.toSpecClassSession(
                                 currentProgramme = programme,
                                 note = note,
@@ -606,9 +394,7 @@ fun TimetableScreen(
                             )
                             NextUpHeroCard(
                                 session = session,
-                                onSetAlarm = {
-                                    alarmLectureKey = entry.naturalKey
-                                },
+                                onSetAlarm = { alarmLectureKey = entry.naturalKey },
                                 onQuickNote = { detailLectureKey = entry.naturalKey },
                                 onClick = { detailLectureKey = entry.naturalKey },
                                 modifier = Modifier.padding(top = 6.dp, bottom = 6.dp)
@@ -617,51 +403,10 @@ fun TimetableScreen(
                     }
                 } else if (todayEntries.isEmpty() && programme.isNotBlank() && !isLoading) {
                     item(key = "no_classes_today_card") {
-                        PaddingBox(top = 8.dp, bottom = 6.dp) {
-                            Surface(
-                                shape = RoundedCornerShape(16.dp),
-                                color = if (isDark) DarkSurfaceCard else Color.White,
-                                border = BorderStroke(1.dp, if (isDark) DarkBorderSubtle else BorderSubtleLight),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(16.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(40.dp)
-                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), CircleShape),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Outlined.EventAvailable,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Column {
-                                        Text(
-                                            text = "No classes scheduled for today",
-                                            fontWeight = FontWeight.SemiBold,
-                                            fontSize = 14.sp,
-                                            color = if (isDark) Color.White else TextPrimaryLight
-                                        )
-                                        Text(
-                                            text = "Take time for self-study or add personal activities.",
-                                            fontSize = 12.sp,
-                                            color = if (isDark) Color(0xFF94A3B8) else TextMutedLight
-                                        )
-                                    }
-                                }
-                            }
-                        }
+                        NoClassesTodayCard(isDark = isDark)
                     }
                 }
 
-                // SECTION 3: 7-DAY CAPSULE SELECTOR (MON - SUN) (PLACED DIRECTLY BELOW TODAY'S SCHEDULE & CARD)
                 item(key = "day_capsules") {
                     val specDays = remember(daysList, selectedDay, todayName) {
                         daysList.map { dayName ->
@@ -679,13 +424,9 @@ fun TimetableScreen(
                     )
                 }
 
-                // SECTION 4: SELECTED DAY SESSIONS HEADER
                 item(key = "schedule_header") {
                     val filterLabel = when (selectedFilter) {
                         "All" -> "All Sessions"
-                        "Lectures" -> "Lectures"
-                        "Labs" -> "Labs"
-                        "Associations" -> "Associations"
                         else -> selectedFilter
                     }
                     ScheduleHeaderSection(
@@ -704,7 +445,6 @@ fun TimetableScreen(
                     )
                 }
 
-                // SECTION 4: REAL TIMETABLE SESSIONS & CUSTOM ACTIVITIES
                 if (isLoading) {
                     item(key = "loading_state") {
                         Box(
@@ -718,64 +458,16 @@ fun TimetableScreen(
                     }
                 } else if (dayEntries.isEmpty() && dayCustomEvents.isEmpty()) {
                     item(key = "empty_state") {
-                        PaddingBox(top = 24.dp, bottom = 24.dp) {
-                            Surface(
-                                shape = RoundedCornerShape(20.dp),
-                                color = if (isDark) DarkSurfaceCard else Color.White,
-                                border = BorderStroke(1.dp, if (isDark) DarkBorderSubtle else BorderSubtleLight),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(32.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(56.dp)
-                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), CircleShape),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Outlined.EventAvailable,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(28.dp)
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.height(14.dp))
-                                    Text(
-                                        text = "No classes scheduled for $selectedDay",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 16.sp,
-                                        color = if (isDark) Color.White else TextPrimaryLight
-                                    )
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    Text(
-                                        text = "Take time to study, revise, or add a custom study session.",
-                                        fontSize = 12.sp,
-                                        color = if (isDark) Color(0xFF94A3B8) else TextMutedLight,
-                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                    )
-                                    Spacer(modifier = Modifier.height(18.dp))
-                                    Button(
-                                        onClick = { showQuickAddSheet = true },
-                                        shape = ActionButtonShape,
-                                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                                    ) {
-                                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text("Add Custom Activity", fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                    }
-                                }
-                            }
-                        }
+                        EmptyDayScheduleCard(
+                            selectedDay = selectedDay,
+                            isDark = isDark,
+                            onAddCustomActivityClick = { showQuickAddSheet = true }
+                        )
                     }
                 } else {
-                    // Render real lectures with TimelineClassCard from specification
                     items(dayEntries, key = { it.naturalKey.ifBlank { "${it.courseCode}_${it.startTime}_${it.dayOfWeek}" } }) { entry ->
                         val entryNote = notes[entry.naturalKey]
-                        val hasConflict = com.lectures.features.timetable.domain.TimetableConflictDetector
-                            .hasConflict(entry, dayEntries)
+                        val hasConflict = TimetableConflictDetector.hasConflict(entry, dayEntries)
                         val startsIn = if (isViewingToday) {
                             val now = Calendar.getInstance()
                             val curMin = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
@@ -798,22 +490,15 @@ fun TimetableScreen(
                         )
                         TimelineClassCard(
                             session = specSession,
-                            onToggleAlarm = {
-                                alarmLectureKey = entry.naturalKey
-                            },
-                            onAttachedNoteClick = {
-                                detailLectureKey = entry.naturalKey
-                            },
-                            onClick = {
-                                detailLectureKey = entry.naturalKey
-                            },
+                            onToggleAlarm = { alarmLectureKey = entry.naturalKey },
+                            onAttachedNoteClick = { detailLectureKey = entry.naturalKey },
+                            onClick = { detailLectureKey = entry.naturalKey },
                             modifier = Modifier
                                 .padding(vertical = 5.dp)
                                 .animateItem()
                         )
                     }
 
-                    // Render custom student events
                     items(dayCustomEvents, key = { "custom_event_${it.id}" }) { event ->
                         PaddingBox(top = 4.dp, bottom = 6.dp, modifier = Modifier.animateItem()) {
                             ActivityCard(
@@ -826,7 +511,6 @@ fun TimetableScreen(
                     }
                 }
 
-                // Dedicated bottom spacer so content scrolls completely above floating pill dock
                 item(key = "bottom_nav_spacer") {
                     Spacer(modifier = Modifier.height(110.dp))
                 }
@@ -834,69 +518,17 @@ fun TimetableScreen(
         }
     }
 
-    // Activity Detail Dialog
     selectedActivityForDetail?.let { event ->
-        AlertDialog(
-            onDismissRequest = { detailActivityId = null },
-            title = {
-                Text(
-                    text = event.title,
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.titleLarge
-                )
+        TimetableActivityDetailDialog(
+            event = event,
+            onDismiss = { detailActivityId = null },
+            onEdit = { id ->
+                detailActivityId = null
+                editingActivityId = id
             },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = "Category: ${event.category}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = "Time: ${event.dayOfWeek} · ${event.startTime} - ${event.endTime}",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    if (event.location.isNotBlank()) {
-                        Text(
-                            text = "Venue: ${event.location}",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                    if (event.notes.isNotBlank()) {
-                        Text(
-                            text = "Notes: ${event.notes}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = {
-                        val toEditId = event.id
-                        detailActivityId = null
-                        editingActivityId = toEditId
-                    }) {
-                        Text("Edit", fontWeight = FontWeight.Bold)
-                    }
-                    TextButton(onClick = { detailActivityId = null }) {
-                        Text("Close")
-                    }
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        val id = event.id
-                        detailActivityId = null
-                        onDeleteActivity(id)
-                    },
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Text("Delete Activity")
-                }
+            onDelete = { id ->
+                detailActivityId = null
+                onDeleteActivity(id)
             }
         )
     }
@@ -912,9 +544,8 @@ fun TimetableScreen(
         )
     }
 
-    // MODAL: Real Native LectureDetailSheet connected to Room Notes & Alarms
     if (selectedEntryForDetail != null) {
-        val entry = selectedEntryForDetail!!
+        val entry = selectedEntryForDetail
         LectureDetailSheet(
             entry = entry,
             initialNote = notes[entry.naturalKey]?.content ?: "",
@@ -926,9 +557,8 @@ fun TimetableScreen(
         )
     }
 
-    // MODAL: Dedicated Customizable Class Alarm Picker Dialog
     if (selectedEntryForAlarm != null) {
-        val entry = selectedEntryForAlarm!!
+        val entry = selectedEntryForAlarm
         val currentRem = notes[entry.naturalKey]?.alarmMinutes
         ClassAlarmPickerDialog(
             entry = entry,
@@ -938,13 +568,10 @@ fun TimetableScreen(
                 onSaveNote(entry, currentNoteContent, chosenMinutes)
                 alarmLectureKey = null
             },
-            onDismiss = {
-                alarmLectureKey = null
-            }
+            onDismiss = { alarmLectureKey = null }
         )
     }
 
-    // MODAL: Native QuickAddBottomSheet supporting Custom Events & Tasks
     if (showQuickAddSheet) {
         val appInstance = context.applicationContext as? TimetableApplication
         val defaultTaskLeadHours by (appInstance?.repository?.taskReminderLeadPref
@@ -970,7 +597,6 @@ fun TimetableScreen(
         )
     }
 
-
     if (showAcademicProfileSheet) {
         AcademicProfileSheet(
             programme = programme,
@@ -990,480 +616,4 @@ fun TimetableScreen(
             }
         )
     }
-}
-
-// -----------------------------------------------------------------------------
-// UI SUBCOMPONENTS
-// -----------------------------------------------------------------------------
-
-@Composable
-private fun PaddingBox(
-    top: androidx.compose.ui.unit.Dp = 0.dp,
-    bottom: androidx.compose.ui.unit.Dp = 0.dp,
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit
-) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .padding(top = top, bottom = bottom)
-    ) {
-        content()
-    }
-}
-
-/**
- * Converts a TimetableEntry into a SpecClassSession for high-fidelity specification UI rendering.
- */
-private fun TimetableEntry.toSpecClassSession(
-    currentProgramme: String = "",
-    note: LectureNote? = null,
-    isLive: Boolean = false,
-    progress: SessionProgress? = null,
-    startsInText: String? = null,
-    hasConflict: Boolean = false
-): SpecClassSession {
-    val codeUpper = courseCode.trim().uppercase()
-    val titleUpper = courseTitle.trim().uppercase()
-    val typeUpper = sessionType?.trim()?.uppercase() ?: ""
-
-    val specType = when {
-        codeUpper.contains("MUCOSA") || titleUpper.contains("MUCOSA") ||
-                titleUpper.contains("ASSOCIATION") || titleUpper.contains("GUILD") ||
-                codeUpper.contains("GUILD") || titleUpper.contains("SOCIETY") -> SpecSessionType.ASSOCIATION
-        typeUpper.contains("LAB") || room?.uppercase()?.contains("LAB") == true -> SpecSessionType.LAB
-        typeUpper.contains("PRACTICAL") -> SpecSessionType.PRACTICAL
-        typeUpper.contains("CLINICAL") || titleUpper.contains("CLINICAL") || titleUpper.contains("WARD") -> SpecSessionType.CLINICAL
-        else -> SpecSessionType.LECTURE
-    }
-
-    val elapsedMins = progress?.elapsedMinutes ?: 0
-    val remMins = progress?.remainingMinutes ?: 0
-    val elapsedStr = if (elapsedMins >= 60) "${elapsedMins / 60}h ${elapsedMins % 60}m elapsed" else "${elapsedMins}m elapsed"
-    val remStr = if (remMins >= 60) {
-        val h = remMins / 60
-        val m = remMins % 60
-        if (m > 0) "${h}h ${m}m left · Ends $endTime" else "${h}h left · Ends $endTime"
-    } else if (remMins > 0) {
-        "$remMins mins left · Ends $endTime"
-    } else {
-        "Ending soon · Ends $endTime"
-    }
-
-    val cleanVenue = room?.trim()?.takeIf {
-        it.isNotBlank() && it.uppercase() !in listOf("TBA", "TBD", "NONE", "N/A", "NULL")
-    }
-    val cleanLecturer = lecturer?.trim()?.takeIf {
-        it.isNotBlank() && !it.equals("Staff", ignoreCase = true) && !it.equals("TBD", ignoreCase = true) && !it.equals("None", ignoreCase = true)
-    }
-    val cleanNotePreview = note?.content?.trim()?.takeIf { it.isNotBlank() }?.take(40)
-
-    val isAssociation = specType == SpecSessionType.ASSOCIATION ||
-        codeUpper.contains("MUCOSA") || titleUpper.contains("MUCOSA") ||
-        titleUpper.contains("ASSOCIATION") || titleUpper.contains("GUILD")
-
-    val userParsed = TimetableMatcher.parseGroupParts(currentProgramme)
-    val userCanon = TimetableMatcher.canonicalCohort(currentProgramme)
-
-    val allCohorts = (listOf(programmeGroup) + shared_with)
-        .map { TimetableMatcher.canonicalCohort(it.trim()) }
-        .filter { it.isNotBlank() }
-        .distinct()
-
-    val otherCohorts = if (isAssociation) emptyList() else allCohorts.filter { cohort ->
-        if (cohort.equals(currentProgramme.trim(), ignoreCase = true)) return@filter false
-        if (userCanon.isNotBlank() && cohort.equals(userCanon, ignoreCase = true)) return@filter false
-        if (userParsed != null) {
-            val cParsed = TimetableMatcher.parseGroupParts(cohort)
-            if (cParsed != null && cParsed.code == userParsed.code && cParsed.year == userParsed.year) {
-                if (userParsed.subject.isEmpty() || cParsed.subject.isEmpty() ||
-                    cParsed.subject.equals(userParsed.subject, ignoreCase = true) ||
-                    (userParsed.subject.startsWith("BIOLOG") && cParsed.subject.startsWith("BIOLOG"))) {
-                    return@filter false
-                }
-            }
-        }
-        true
-    }
-
-    val cohortsText = if (isAssociation) "" else otherCohorts.joinToString(", ")
-    val effectiveShared = if (isAssociation) emptyList() else otherCohorts
-
-    return SpecClassSession(
-        id = naturalKey,
-        courseCode = courseCode,
-        courseName = courseTitle,
-        department = cohortsText,
-        topicDescription = null,
-        startTime = startTime,
-        endTime = endTime,
-        type = specType,
-        venue = cleanVenue,
-        floor = this.floor,
-        lecturer = cleanLecturer,
-        startsInText = startsInText,
-        attachedNotesCount = if (cleanNotePreview != null) 1 else 0,
-        attachedNotePreview = cleanNotePreview,
-        isAlarmSet = note?.alarmMinutes != null,
-        alarmMinutes = note?.alarmMinutes,
-        isHappeningNow = isLive,
-        hasConflict = hasConflict,
-        progress = progress?.progress ?: 0.5f,
-        elapsedText = elapsedStr,
-        remainingText = remStr,
-        sharedWith = effectiveShared
-    )
-}
-
-/**
- * Global Real-Time Next Up Hero Card.
- * Displays what is ACTUALLY next right now in real time, consistent across all day tabs.
- */
-@Composable
-private fun GlobalNextUpHeroCard(
-    nextUp: GlobalNextUp,
-    onClick: () -> Unit
-) {
-    val entry = nextUp.entry
-    val isLive = nextUp.isLive
-    val progress = nextUp.progress
-
-    val gradient = if (isLive) {
-        Brush.horizontalGradient(listOf(Color(0xFF1E3A8A), Color(0xFF2563EB), Color(0xFF3B82F6)))
-    } else {
-        Brush.horizontalGradient(listOf(Color(0xFF0F172A), Color(0xFF1E293B), Color(0xFF334155)))
-    }
-
-    Surface(
-        shape = RoundedCornerShape(20.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
-            .clickable(onClick = onClick),
-        shadowElevation = 4.dp
-    ) {
-        Box(
-            modifier = Modifier
-                .background(gradient)
-                .padding(18.dp)
-        ) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = if (isLive) Color(0xFF22C55E) else Color.White.copy(alpha = 0.2f)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                if (isLive) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(6.dp)
-                                            .background(Color.White, CircleShape)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                }
-                                Text(
-                                    text = if (isLive) "HAPPENING NOW" else "NEXT UP",
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = Color.White,
-                                    letterSpacing = 0.5.sp
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.width(8.dp))
-
-                        Text(
-                            text = nextUp.dayLabel,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color.White.copy(alpha = 0.8f)
-                        )
-                    }
-
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color.Black.copy(alpha = 0.25f)
-                    ) {
-                        Text(
-                            text = if (isLive) {
-                                val rem = progress?.remainingMinutes ?: 0
-                                if (rem > 0) "${rem}m left" else "Ending soon"
-                            } else {
-                                if (nextUp.minutesUntil > 0) "in ${nextUp.minutesUntil}m" else "Starting soon"
-                            },
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isLive) Color(0xFF86EFAC) else Color.White,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = entry.courseCode,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color.White
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Surface(
-                        shape = RoundedCornerShape(6.dp),
-                        color = Color.White.copy(alpha = 0.2f)
-                    ) {
-                        Text(
-                            text = entry.sessionType ?: "Theory",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(2.dp))
-
-                Text(
-                    text = entry.courseTitle,
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Outlined.Schedule,
-                            contentDescription = null,
-                            tint = Color.White.copy(alpha = 0.85f),
-                            modifier = Modifier.size(15.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "${entry.startTime} – ${entry.endTime}",
-                            fontSize = 13.sp,
-                            color = Color.White.copy(alpha = 0.9f)
-                        )
-
-                        val roomText = entry.room?.trim()
-                        if (!roomText.isNullOrEmpty() && roomText.uppercase() !in listOf("TBA", "TBD", "NONE", "N/A")) {
-                            Spacer(modifier = Modifier.width(14.dp))
-                            Icon(
-                                imageVector = Icons.Outlined.MeetingRoom,
-                                contentDescription = "Venue",
-                                tint = Color.White.copy(alpha = 0.85f),
-                                modifier = Modifier.size(15.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = roomText,
-                                fontSize = 13.sp,
-                                color = Color.White.copy(alpha = 0.9f)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            RoomFloorBadge(roomName = roomText, floor = entry.floor, compact = true, useContrastColor = true)
-                        }
-                    }
-
-                    Icon(
-                        imageVector = Icons.Default.ChevronRight,
-                        contentDescription = "View Details",
-                        tint = Color.White.copy(alpha = 0.7f),
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
-                // If live: render real-time progress bar
-                if (isLive && progress != null) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color.Black.copy(alpha = 0.25f))
-                            .padding(8.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = "Live Progress (${(progress.progress * 100).toInt()}%)",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                            Text(
-                                text = "${progress.elapsedMinutes}m elapsed",
-                                fontSize = 10.sp,
-                                color = Color.White.copy(alpha = 0.8f)
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        LinearProgressIndicator(
-                            progress = { progress.progress.coerceIn(0f, 1f) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(4.dp)
-                                .clip(RoundedCornerShape(2.dp)),
-                            color = Color(0xFF4ADE80),
-                            trackColor = Color.White.copy(alpha = 0.2f)
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-// -----------------------------------------------------------------------------
-// LOGIC: Real-Time "Today Classes Completed" ticker
-// -----------------------------------------------------------------------------
-
-/**
- * Ticks every 15 seconds and recomputes whether all of today's classes have ended.
- *
- * This is intentionally a separate composable: it owns the only `timeTick` state in
- * the timetable, so a 15-second refresh recomposes this leaf (and its parent's
- * `allTodayClassesCompleted` assignment) rather than the whole TimetableScreen tree.
- */
-@Composable
-private fun NextUpTicker(
-    entries: List<TimetableEntry>,
-    todayEntries: List<TimetableEntry>,
-    currentDayName: String,
-    onDayChanged: (String) -> Unit,
-    onCompletedChanged: (Boolean) -> Unit,
-    onNextUpChanged: (GlobalNextUp?) -> Unit
-) {
-    var timeTick by remember { mutableLongStateOf(System.currentTimeMillis()) }
-
-    // Pause timer automatically when backgrounded (ON_STOP) and immediately refresh on resume/start
-    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
-    LaunchedEffect(lifecycleOwner) {
-        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            timeTick = System.currentTimeMillis()
-            while (true) {
-                delay(15_000L)
-                timeTick = System.currentTimeMillis()
-            }
-        }
-    }
-
-    LaunchedEffect(todayEntries, entries, currentDayName, timeTick) {
-        val realToday = TimeUtil.todayName()
-        if (!realToday.equals(currentDayName, ignoreCase = true)) {
-            onDayChanged(realToday)
-        }
-
-        val completed = if (todayEntries.isEmpty()) {
-            false
-        } else {
-            val now = Calendar.getInstance()
-            val curMin = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
-            todayEntries.all { entry ->
-                val endMin = TimeUtil.toMinutes(entry.endTime)
-                endMin > 0 && endMin <= curMin
-            }
-        }
-        onCompletedChanged(completed)
-        onNextUpChanged(findActualNextUp(entries, realToday))
-    }
-}
-
-// -----------------------------------------------------------------------------
-// LOGIC: True Real-Time Next Up Finder Across Entire Schedule
-// -----------------------------------------------------------------------------
-
-private fun findActualNextUp(
-    entries: List<TimetableEntry>,
-    todayName: String
-): GlobalNextUp? {
-    if (entries.isEmpty()) return null
-
-    val now = Calendar.getInstance()
-    val currentMinutes = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
-    val todayEntries = entries.filter { it.dayOfWeek.equals(todayName, ignoreCase = true) }
-
-    // 1. Check if any class is ongoing right now today
-    for (entry in todayEntries) {
-        val prog = TimeUtil.calculateProgress(entry.startTime, entry.endTime, entry.dayOfWeek)
-        if (prog.isOngoing) {
-            return GlobalNextUp(
-                entry = entry,
-                isLive = true,
-                progress = prog,
-                minutesUntil = 0,
-                dayLabel = "Today"
-            )
-        }
-    }
-
-    // 2. Check if any class is scheduled later today
-    val upcomingToday = todayEntries
-        .mapNotNull { entry ->
-            val start = TimeUtil.toMinutes(entry.startTime)
-            if (start > currentMinutes) {
-                Pair(entry, start - currentMinutes)
-            } else null
-        }
-        .minByOrNull { it.second }
-
-    if (upcomingToday != null) {
-        return GlobalNextUp(
-            entry = upcomingToday.first,
-            isLive = false,
-            progress = null,
-            minutesUntil = upcomingToday.second,
-            dayLabel = "Today"
-        )
-    }
-
-    // 3. Look ahead on subsequent days of the week
-    val days = TimeUtil.DAYS
-    val todayIdx = days.indexOfFirst { it.equals(todayName, ignoreCase = true) }.coerceAtLeast(0)
-    for (offset in 1..6) {
-        val nextDayIdx = (todayIdx + offset) % 7
-        val nextDayName = days[nextDayIdx]
-        val nextDayEntries = entries
-            .filter { it.dayOfWeek.equals(nextDayName, ignoreCase = true) }
-            .sortedBy { TimeUtil.toMinutes(it.startTime) }
-
-        val earliest = nextDayEntries.firstOrNull()
-        if (earliest != null) {
-            val startMin = TimeUtil.toMinutes(earliest.startTime)
-            val minutesUntil = (offset * 24 * 60) - currentMinutes + startMin
-            val label = if (offset == 1) "Tomorrow" else nextDayName
-            return GlobalNextUp(
-                entry = earliest,
-                isLive = false,
-                progress = null,
-                minutesUntil = minutesUntil.coerceAtLeast(1),
-                dayLabel = label
-            )
-        }
-    }
-
-    return null
 }

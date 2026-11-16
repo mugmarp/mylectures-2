@@ -15,6 +15,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.automirrored.outlined.Notes
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -392,7 +394,7 @@ fun AccountScreen(
                             DashboardStatItem(
                                 title = "Notes",
                                 count = notesCount.size,
-                                icon = Icons.Outlined.Notes,
+                                icon = Icons.AutoMirrored.Outlined.Notes,
                                 modifier = Modifier.weight(1f)
                             )
                             DashboardStatItem(
@@ -481,7 +483,7 @@ fun AccountScreen(
                                     .height(46.dp)
                                     .testTag("sign_out_button")
                             ) {
-                                Icon(Icons.Filled.Logout, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text("Sign Out", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                             }
@@ -505,7 +507,7 @@ fun AccountScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        Icons.Filled.Logout,
+                        Icons.AutoMirrored.Filled.Logout,
                         contentDescription = null,
                         tint = Color(0xFFDC2626),
                         modifier = Modifier.size(24.dp)

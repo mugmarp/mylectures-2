@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -281,7 +282,7 @@ fun ActivityCard(
 
 private fun getCategoryIcon(category: ActivityCategory): ImageVector {
     return when (category) {
-        ActivityCategory.STUDY -> Icons.Outlined.MenuBook
+        ActivityCategory.STUDY -> Icons.AutoMirrored.Outlined.MenuBook
         ActivityCategory.LAB -> Icons.Outlined.Science
         ActivityCategory.SPORTS -> Icons.Outlined.FitnessCenter
         ActivityCategory.CLUB -> Icons.Outlined.Groups

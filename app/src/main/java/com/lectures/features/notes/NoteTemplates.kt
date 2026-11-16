@@ -8,6 +8,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Assignment
+import androidx.compose.material.icons.automirrored.outlined.Notes
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -115,7 +117,7 @@ ${'$'}${'$'}f(x) = \sum_{k=1}^n a_k \cdot \sin(k \omega t)${'$'}${'$'}
             id = "assignment",
             title = "Assignment & Coursework Tracker",
             description = "Track requirements, research notes, references, and completion checklist.",
-            icon = Icons.Outlined.Assignment,
+            icon = Icons.AutoMirrored.Outlined.Assignment,
             tag = "Assignment",
             defaultTitle = "Coursework: [Assignment Title]",
             content = """
@@ -179,7 +181,7 @@ ${'$'}${'$'}f(x) = \sum_{k=1}^n a_k \cdot \sin(k \omega t)${'$'}${'$'}
             id = "scratchpad",
             title = "Quick Lecture Scratchpad",
             description = "Simple, lightweight bullet points and immediate to-dos.",
-            icon = Icons.Outlined.Notes,
+            icon = Icons.AutoMirrored.Outlined.Notes,
             tag = "Lecture",
             defaultTitle = "Quick Notes: [Subject]",
             content = """

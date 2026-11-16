@@ -12,6 +12,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.animation.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Notes
+import androidx.compose.material.icons.automirrored.outlined.Notes
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -22,13 +24,11 @@ import com.lectures.core.notification.InAppNotificationStore
 import com.lectures.core.notification.NotificationItemType
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.MeetingRoom
-import androidx.compose.material.icons.filled.Notes
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.TaskAlt
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.CalendarToday
-import androidx.compose.material.icons.outlined.Notes
 import androidx.compose.material.icons.outlined.TaskAlt
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -251,13 +251,13 @@ fun MainScaffold(
             val filledIcons = listOf(
                 Icons.Filled.CalendarToday,
                 Icons.Filled.CalendarMonth,
-                Icons.Filled.Notes,
+                Icons.AutoMirrored.Filled.Notes,
                 Icons.Filled.TaskAlt
             )
             val outlinedIcons = listOf(
                 Icons.Outlined.CalendarToday,
                 Icons.Outlined.CalendarMonth,
-                Icons.Outlined.Notes,
+                Icons.AutoMirrored.Outlined.Notes,
                 Icons.Outlined.TaskAlt
             )
 
@@ -552,7 +552,7 @@ fun MainScaffold(
                                                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                                                 selectedTab = index
                                                             }
-                                                            .testTag("nav_${tab.lowercase()}"),
+                                                            .testTag("nav_${tab.lowercase(java.util.Locale.ROOT)}"),
                                                         contentAlignment = Alignment.Center
                                                     ) {
                                                         Column(
@@ -659,7 +659,7 @@ fun MainScaffold(
                                                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                                             selectedTab = index
                                                         }
-                                                        .testTag("nav_${tab.lowercase()}"),
+                                                        .testTag("nav_${tab.lowercase(java.util.Locale.ROOT)}"),
                                                     contentAlignment = Alignment.Center
                                                 ) {
                                                     Column(

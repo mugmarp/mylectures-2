@@ -154,20 +154,27 @@ fun DedicatedCalendarDatePickerDialog(
             }
             else -> {
                 try {
-                    val formats = listOf(
-                        SimpleDateFormat("EEE, MMM d, yyyy", Locale.getDefault()),
-                        SimpleDateFormat("MMM d, yyyy", Locale.getDefault()),
-                        SimpleDateFormat("EEE, MMM d", Locale.getDefault()),
-                        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()),
-                        SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+                    val patterns = listOf(
+                        "EEE, MMM d, yyyy",
+                        "MMM d, yyyy",
+                        "EEE, MMM d",
+                        "yyyy-MM-dd",
+                        "dd/MM/yyyy"
                     )
+                    val locales = listOf(Locale.US, Locale.getDefault()).distinct()
                     var parsed: java.util.Date? = null
-                    for (f in formats) {
-                        try {
-                            f.isLenient = false
-                            parsed = f.parse(trimmed)
-                            if (parsed != null) break
-                        } catch (_: Exception) {}
+                    outer@ for (pattern in patterns) {
+                        for (locale in locales) {
+                            try {
+                                val sdf = SimpleDateFormat(pattern, locale).apply { isLenient = false }
+                                val pos = java.text.ParsePosition(0)
+                                val candidate = sdf.parse(trimmed, pos)
+                                if (candidate != null && pos.errorIndex == -1 && pos.index == trimmed.length) {
+                                    parsed = candidate
+                                    break@outer
+                                }
+                            } catch (_: Exception) {}
+                        }
                     }
                     if (parsed != null) {
                         cal.time = parsed
@@ -207,7 +214,7 @@ fun DedicatedCalendarDatePickerDialog(
             set(Calendar.MONTH, selectedMonth)
             set(Calendar.DAY_OF_MONTH, selectedDayOfMonth)
         }
-        SimpleDateFormat("EEE, MMM d, yyyy", Locale.getDefault()).format(c.time)
+        SimpleDateFormat("EEE, MMM d, yyyy", Locale.US).format(c.time)
     }
 
     // Calendar month grid calculations
@@ -798,9 +805,9 @@ fun DedicatedCoursePickerDialog(
     val filteredList = remember(searchQuery, availableCourses) {
         if (searchQuery.isBlank()) availableCourses
         else {
-            val q = searchQuery.trim().lowercase()
+            val q = searchQuery.trim().lowercase(Locale.ROOT)
             availableCourses.filter { (code, title) ->
-                code.lowercase().contains(q) || title.lowercase().contains(q)
+                code.lowercase(Locale.ROOT).contains(q) || title.lowercase(Locale.ROOT).contains(q)
             }
         }
     }

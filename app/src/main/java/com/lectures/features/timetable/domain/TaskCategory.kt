@@ -2,6 +2,7 @@ package com.lectures.features.timetable.domain
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Assignment
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -39,7 +40,7 @@ enum class TaskCategory(
         colorHex = "#D97706",
         color = Color(0xFFD97706),
         lightContainerColor = Color(0xFFFEF3C7),
-        icon = Icons.Outlined.MenuBook
+        icon = Icons.AutoMirrored.Outlined.MenuBook
     ),
     EXAM_PREP(
         displayName = "Quiz / Exam",

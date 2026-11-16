@@ -17,8 +17,8 @@ object TimetableConflictDetector {
      * Checks if two day strings refer to the same day of the week (e.g. "Monday" and "Mon").
      */
     fun daysMatch(day1: String, day2: String): Boolean {
-        val d1 = day1.trim().lowercase()
-        val d2 = day2.trim().lowercase()
+        val d1 = day1.trim().lowercase(java.util.Locale.ROOT)
+        val d2 = day2.trim().lowercase(java.util.Locale.ROOT)
         if (d1.isEmpty() || d2.isEmpty()) return false
         if (d1 == d2) return true
         return d1.startsWith(d2.take(3)) || d2.startsWith(d1.take(3))

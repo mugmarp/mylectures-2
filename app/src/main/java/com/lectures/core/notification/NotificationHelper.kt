@@ -225,7 +225,7 @@ object NotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val priorityText = priority.replaceFirstChar { it.uppercase() }
+        val priorityText = priority.replaceFirstChar { it.uppercase(java.util.Locale.ROOT) }
         val notificationTitle = "Due Soon: $title"
         val notificationSnippet = "$courseCode • Due: $dueDate ($priorityText Priority)"
         val bigText = buildString {

@@ -116,7 +116,7 @@ fun LectureDetailSheet(
 
             // Details rows
             val roomVal = entry.room?.trim()
-            if (!roomVal.isNullOrBlank() && roomVal.uppercase() !in listOf("TBA", "TBD", "NONE", "N/A")) {
+            if (!roomVal.isNullOrBlank() && roomVal.uppercase(java.util.Locale.ROOT) !in listOf("TBA", "TBD", "NONE", "N/A")) {
                 DetailRow(
                     icon = Icons.Outlined.MeetingRoom,
                     label = "Venue / Room",

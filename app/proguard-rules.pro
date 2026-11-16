@@ -49,21 +49,25 @@
 -dontwarn kotlinx.serialization.**
 
 # --- Application Models & Data Layer ---
--keep class com.lectures.features.timetable.model.** { *; }
 -keep class com.lectures.features.timetable.domain.** { *; }
 -keep class com.lectures.features.timetable.data.** { *; }
--keep class com.lectures.features.notes.domain.** { *; }
--keep class com.lectures.features.rooms.model.** { *; }
--keep class com.lectures.features.rooms.UniversityDirectory { *; }
--keep class com.lectures.features.rooms.RoomDirectoryKt { *; }
--keep class com.lectures.features.tasks.Assignment { *; }
--keep class com.lectures.features.tasks.TaskItem { *; }
--keep class com.lectures.features.tasks.TaskPriority { *; }
+-keep class com.lectures.features.rooms.** { *; }
 -keep class com.lectures.features.tasks.TaskCategory { *; }
+-keep class com.lectures.features.tasks.DayProgress { *; }
+-keep class com.lectures.features.tasks.TaskDashboardMetrics { *; }
+-keep class com.lectures.features.notes.NoteTemplate { *; }
+-keep class com.lectures.features.notes.CourseOption { *; }
+-keep class com.lectures.features.calendar.AcademicMilestone { *; }
+-keep class com.lectures.features.calendar.DayAcademicContext { *; }
+-keep class com.lectures.features.calendar.DayWorkload { *; }
+-keep class com.lectures.core.notification.InAppNotificationItem { *; }
 
 # --- Alarms, Receivers, Workers, and System Services ---
 -keep class * extends androidx.work.ListenableWorker {
     public <init>(android.content.Context, androidx.work.WorkerParameters);
+}
+-keep class * extends android.content.BroadcastReceiver {
+    public <init>();
 }
 -keep class com.lectures.core.alarm.** { *; }
 -keep class com.lectures.core.notification.** { *; }
@@ -73,15 +77,22 @@
 -keep class com.lectures.core.network.** { *; }
 -keep class com.lectures.core.analytics.** { *; }
 -keep class com.lectures.core.database.** { *; }
+-keep class com.lectures.core.storage.** { *; }
 -keep class com.lectures.features.feedback.** { *; }
 -keep class com.lectures.features.onboarding.** { *; }
--keep class com.lectures.features.timetable.receiver.** { *; }
 
-# --- Firebase & Google Play Services ---
+# --- Firebase, Credentials, and Networking ---
 -dontwarn com.google.firebase.**
 -dontwarn com.google.android.gms.**
 -dontwarn androidx.credentials.**
+-dontwarn okhttp3.**
+-dontwarn okio.**
+-keepclassmembers class * {
+    @com.google.firebase.firestore.PropertyName <fields>;
+    @com.google.firebase.firestore.PropertyName <methods>;
+}
 -keep class androidx.credentials.** { *; }
 -keep class com.google.android.libraries.identity.googleid.** { *; }
+
 
 

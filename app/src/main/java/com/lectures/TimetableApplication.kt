@@ -77,7 +77,7 @@ class TimetableApplication : Application() {
         )
         // Strictly protect all production coursework migrations (v2-v7).
         // Only allow destructive reset for pre-release prototype version 1.
-        .fallbackToDestructiveMigrationFrom(1)
+        .fallbackToDestructiveMigrationFrom(true, 1)
         .build()
         
         etagStore = ETagStore(this)
