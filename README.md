@@ -2,7 +2,7 @@
 
 **An offline-first Android academic companion for MUST students — timetable, notes, deadlines, alarms, and a live campus vacant-room finder.**
 
-[![Android CI](https://github.com/mugmarp/mylectures/actions/workflows/android-ci.yml/badge.svg?branch=main)](https://github.com/mugmarp/mylectures/actions/workflows/android-ci.yml)
+[![Android CI](https://github.com/mugmarp/mylectures-2/actions/workflows/android-ci.yml/badge.svg?branch=main)](https://github.com/mugmarp/mylectures-2/actions/workflows/android-ci.yml)
 [![Platform](https://img.shields.io/badge/Platform-Android%208.0%2B-green.svg)](https://developer.android.com/)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.2-7F52FF.svg)](https://kotlinlang.org/)
 [![UI](https://img.shields.io/badge/UI-Jetpack%20Compose%20M3-4285F4.svg)](https://developer.android.com/jetpack/compose)
@@ -47,7 +47,7 @@ MUST has an official app — **Pulse** ([Android](https://play.google.com/store/
 | Assignment & deadline tracking | — | ✅ |
 | Exact background alarms | — | ✅ |
 | **Vacant room finder** | — | ✅ |
-| Analytics / tracking | (see its policy) | **none** |
+| Analytics / tracking | (see its policy) | **Pseudonymous install diagnostics only** (no ads / third-party analytics SDKs) |
 
 **The two real differences:** Pulse needs a login and a connection; Lectures needs neither. And Pulse does not answer *"which room is free right now?"*
 
@@ -64,7 +64,7 @@ The full semester timetable is bundled in the app, so it is available the moment
 Temporarily inspect any other academic class, year, or track without altering your official enrollment. A persistent status banner keeps you informed while your background alarms remain securely locked to your enrolled schedule.
 
 ### 🏫 Vacant Room Finder
-Derived from the university's own room allocation data: **92 rooms across 7 buildings and 2 campuses**.
+Derived from the university's own room allocation data: **93 rooms across 7 buildings and 2 campuses**.
 
 - Campus filter (Kihumuro / Town) — they're 7 km apart, so this matters
 - Building filter (FCI, FAST, Kihumuro Library, Science Block, Pharmacy, IMS, Clinical)
@@ -89,8 +89,8 @@ Merges your timetable with personal study activities into one day view, with a m
 ### ☁️ Google Cloud Backup & Cross-Device Sync
 100% functional offline by default in Guest mode. Optional Google Sign-In via Jetpack Credential Manager allows students to back up and sync their notes, coursework tasks, and schedule preferences across devices with bidirectional conflict resolution.
 
-### 🔄 Native In-App Updates
-Outside Google Play, Lectures includes a dedicated updater that checks verified releases, displays concise student-friendly changelogs, downloads APKs with a live progress bar, verifies SHA-256 integrity, strictly prevents downgrades, and triggers native 1-tap installation.
+### 🔄 In-App Update Checks
+Outside Google Play, Lectures periodically checks verified releases (`version.json` and GitHub Releases API), displays concise student-friendly changelogs and mandatory/minimum-version gating, and opens the official HTTPS GitHub Releases page when a newer version is ready.
 
 ---
 
@@ -128,7 +128,7 @@ The only data that leaves the device is **pseudonymous technical diagnostics**: 
 | Network requests | **Yes** — pseudonymous diagnostics to Firestore `/user_telemetry/` and `/feedback/` collections; no behavioural or advertising tracking |
 | Works with no connection | **Yes** — the timetable ships in the APK and the app is fully functional offline |
 
-**Firebase SDKs are bundled in the APK** — `firebase-common`, `firebase-firestore`, `firebase-auth`, `firebase-appcheck`, `firebase-ai`. Since `startTimetableSync()` runs at app launch and `AnalyticsManager` writes telemetry on first use, network requests **are** made. The data sent is limited to:
+**Firebase SDKs are bundled in the APK** — `firebase-common`, `firebase-firestore`, `firebase-auth`, `firebase-appcheck`. Since `startTimetableSync()` runs at app launch and `AnalyticsManager` writes telemetry on first use, network requests **are** made. The data sent is limited to:
 
 - Anonymous installation UUID (no IMEI, MAC, or account linkage)
 - Device model and Android OS version
@@ -265,7 +265,7 @@ The workflow generates a throwaway debug keystore, since `debug.keystore` is git
 Timetable and room data come from the university's public timetable pages:
 
 - `index_teaching.html` — one table per programme (1,348 entries)
-- `index_rooms_teaching.html` — one table per room (92 rooms, 892 sessions)
+- `index_rooms_teaching.html` — one table per room (93 rooms catalogued across 7 buildings)
 
 Room campus assignment is **derived from the faculties of the cohorts that actually use each room**, not guessed from room names.
 

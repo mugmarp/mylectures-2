@@ -106,32 +106,33 @@ The client's `SyncRepository` and `TimetableVersionResolver` continuously listen
 
 ### 2.4 `/users/{userId}` — Personal User Data Sync (Auth Gated)
 - **Current Rules State:**
+  `firestore.rules` authorizes the authenticated owner (`isOwner(userId)`) with strict schema validation across all four collections synchronized by `SyncRepository.kt`:
   ```javascript
   match /users/{userId} {
-    allow read, write: if request.auth != null && request.auth.uid == userId;
+    allow read, write: if isOwner(userId);
 
     match /notes/{noteId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId) && isValidNote(userId, noteId);
+    }
+
+    match /events/{eventId} {
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId) && isValidEvent(userId, eventId);
+    }
+
+    match /assignments/{assignmentId} {
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId) && isValidAssignment(userId, assignmentId);
+    }
+
+    match /settings/{docId} {
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId) && docId == 'preferences' && isValidSettings();
     }
   }
   ```
-- ⚠️ **CRITICAL HANDOVER WARNING FOR USER DATA EXPANSION**:
-  - The client's `SyncRepository.kt` defines bi-directional synchronization for:
-    - `/users/{userId}/notes/{noteId}`
-    - `/users/{userId}/events/{eventId}`
-    - `/users/{userId}/assignments/{assignmentId}`
-    - `/users/{userId}/settings/preferences`
-  - In `firestore.rules`, lines 132–138 currently only match `/notes/{noteId}` explicitly.
-  - **Required Action when turning on full user sync:** Update the rules to recursively authorize all subcollections for the authenticated owner:
-    ```javascript
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-
-      match /{allSubcollections=**} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
-    }
-    ```
+- **Invariant:** Any new user-scoped collection added to `SyncRepository.kt` in the future must also be matched and schema-validated under `match /users/{userId}` before release.
 
 ---
 
@@ -142,7 +143,7 @@ The client's `SyncRepository` and `TimetableVersionResolver` continuously listen
    - Any rule requiring `request.auth != null` will fail for guest users. Guest users must remain fully functional using local SQLite without crashing or hanging.
 2. **Google Sign-In Implementation:**
    - Real authentication is implemented in `com.lectures.core.auth.AuthRepository` via Jetpack **Credential Manager** (`GetSignInWithGoogleOption`).
-   - The SHA-1 and SHA-256 fingerprint hashes from the debug and release keystores must be registered in the Firebase Console under Project Settings -> Android App (`com.aistudio.lectures.app`).
+   - The SHA-1 and SHA-256 fingerprint hashes from the debug and release keystores must be registered in the Firebase Console under Project Settings -> Android App (`com.lectures.must`).
    - The Web Client ID for Credential Manager should be populated in `strings.xml` (`default_web_client_id`) when Google Sign-In is activated in the UI.
 
 ---

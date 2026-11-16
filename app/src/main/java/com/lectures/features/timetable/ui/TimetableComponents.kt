@@ -27,6 +27,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lectures.core.util.TimeUtil
+import com.lectures.ui.AccentColors
 import com.lectures.ui.LocalAppTheme
 import com.lectures.ui.components.RoomFloorBadge
 
@@ -128,6 +129,7 @@ fun TimetableTopAppBar(
     modifier: Modifier = Modifier
 ) {
     val isDark = LocalAppTheme.current.isDark
+    val accentColor = MaterialTheme.colorScheme.primary
     val textPrimary = if (isDark) Color.White else TextPrimaryLight
     val textMuted = if (isDark) Color(0xFF94A3B8) else TextMutedLight
     val capsuleBg = if (isDark) DarkSurfaceCard else SurfaceContainerLowLight
@@ -152,7 +154,7 @@ fun TimetableTopAppBar(
             Box(
                 modifier = Modifier
                     .size(38.dp)
-                    .background(PrimaryBlue, RoundedCornerShape(10.dp)),
+                    .background(accentColor, RoundedCornerShape(10.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -177,12 +179,12 @@ fun TimetableTopAppBar(
                         Spacer(modifier = Modifier.width(6.dp))
                         Box(
                             modifier = Modifier
-                                .background(PrimaryBlue.copy(alpha = 0.12f), RoundedCornerShape(6.dp))
+                                .background(accentColor.copy(alpha = 0.12f), RoundedCornerShape(6.dp))
                                 .padding(horizontal = 6.dp, vertical = 2.dp)
                         ) {
                             Text(
                                 text = program,
-                                color = PrimaryBlue,
+                                color = accentColor,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 maxLines = 1,
@@ -212,8 +214,8 @@ fun TimetableTopAppBar(
             // Free Rooms Button
             Surface(
                 shape = RoundedCornerShape(12.dp),
-                color = PrimaryBlue.copy(alpha = 0.12f),
-                border = BorderStroke(1.dp, PrimaryBlue.copy(alpha = 0.35f)),
+                color = accentColor.copy(alpha = 0.12f),
+                border = BorderStroke(1.dp, accentColor.copy(alpha = 0.35f)),
                 modifier = Modifier
                     .clip(RoundedCornerShape(12.dp))
                     .clickable { onOpenVacantRooms() }
@@ -226,7 +228,7 @@ fun TimetableTopAppBar(
                     Icon(
                         imageVector = Icons.Outlined.MeetingRoom,
                         contentDescription = "Vacant Rooms",
-                        tint = PrimaryBlue,
+                        tint = accentColor,
                         modifier = Modifier.size(16.dp)
                     )
                     if (!windowInfo.topBarCompactAction) {
@@ -235,7 +237,7 @@ fun TimetableTopAppBar(
                             text = "Free Rooms",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
-                            color = PrimaryBlue
+                            color = accentColor
                         )
                     }
                 }
@@ -279,6 +281,7 @@ fun ScheduleHeaderSection(
     modifier: Modifier = Modifier
 ) {
     val isDark = LocalAppTheme.current.isDark
+    val accentColor = MaterialTheme.colorScheme.primary
     val textPrimary = if (isDark) Color.White else TextPrimaryLight
     val textMuted = if (isDark) Color(0xFF94A3B8) else TextMutedLight
     val pillBg = if (isDark) DarkSurfaceCard else SurfaceContainerLowLight
@@ -325,7 +328,7 @@ fun ScheduleHeaderSection(
                 Icon(
                     imageVector = Icons.Outlined.Tune,
                     contentDescription = "Filter",
-                    tint = PrimaryBlue,
+                    tint = accentColor,
                     modifier = Modifier.size(15.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
@@ -333,7 +336,7 @@ fun ScheduleHeaderSection(
                     text = activeFilter,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = PrimaryBlue,
+                    color = accentColor,
                     maxLines = 1,
                     softWrap = false
                 )
@@ -361,6 +364,7 @@ fun DayCapsuleStrip(
     modifier: Modifier = Modifier
 ) {
     val isDark = LocalAppTheme.current.isDark
+    val accentColor = MaterialTheme.colorScheme.primary
     val windowInfo = com.lectures.ui.rememberLecturesWindow()
     val isCompact = windowInfo.dayStripCompact
 
@@ -383,10 +387,10 @@ fun DayCapsuleStrip(
                         .shadow(
                             elevation = 4.dp,
                             shape = RoundedCornerShape(12.dp),
-                            ambientColor = PrimaryBlue.copy(alpha = 0.35f),
-                            spotColor = PrimaryBlue.copy(alpha = 0.45f)
+                            ambientColor = accentColor.copy(alpha = 0.35f),
+                            spotColor = accentColor.copy(alpha = 0.45f)
                         )
-                        .background(PrimaryBlue, RoundedCornerShape(12.dp))
+                        .background(accentColor, RoundedCornerShape(12.dp))
                         .clickable { onDaySelected(item.name) }
                 }
                 isToday -> {
@@ -394,12 +398,12 @@ fun DayCapsuleStrip(
                         .weight(1f)
                         .heightIn(min = 44.dp)
                         .background(
-                            if (isDark) PrimaryBlue.copy(alpha = 0.22f) else PrimaryBlue.copy(alpha = 0.12f),
+                            if (isDark) accentColor.copy(alpha = 0.22f) else accentColor.copy(alpha = 0.12f),
                             RoundedCornerShape(12.dp)
                         )
                         .border(
                             width = 1.5.dp,
-                            color = PrimaryBlue,
+                            color = accentColor,
                             shape = RoundedCornerShape(12.dp)
                         )
                         .clickable { onDaySelected(item.name) }
@@ -446,7 +450,7 @@ fun DayCapsuleStrip(
                     fontWeight = if (isActive || isToday) FontWeight.Bold else FontWeight.Medium,
                     color = when {
                         isActive -> Color.White
-                        isToday -> PrimaryBlue
+                        isToday -> accentColor
                         isDark -> Color.White
                         else -> TextSecondaryLight
                     },
@@ -469,6 +473,7 @@ fun DayCapsuleStrip(
 ) {
     val days = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
     val isDark = LocalAppTheme.current.isDark
+    val accentColor = MaterialTheme.colorScheme.primary
     val todayIndex = run {
         val dow = java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_WEEK)
         if (dow == java.util.Calendar.SUNDAY) 6 else dow - 2
@@ -493,10 +498,10 @@ fun DayCapsuleStrip(
                         .shadow(
                             elevation = 4.dp,
                             shape = RoundedCornerShape(12.dp),
-                            ambientColor = PrimaryBlue.copy(alpha = 0.35f),
-                            spotColor = PrimaryBlue.copy(alpha = 0.45f)
+                            ambientColor = accentColor.copy(alpha = 0.35f),
+                            spotColor = accentColor.copy(alpha = 0.45f)
                         )
-                        .background(PrimaryBlue, RoundedCornerShape(12.dp))
+                        .background(accentColor, RoundedCornerShape(12.dp))
                         .clickable { onDaySelected(index, day) }
                 }
                 isToday -> {
@@ -504,12 +509,12 @@ fun DayCapsuleStrip(
                         .weight(1f)
                         .heightIn(min = 44.dp)
                         .background(
-                            if (isDark) PrimaryBlue.copy(alpha = 0.22f) else PrimaryBlue.copy(alpha = 0.12f),
+                            if (isDark) accentColor.copy(alpha = 0.22f) else accentColor.copy(alpha = 0.12f),
                             RoundedCornerShape(12.dp)
                         )
                         .border(
                             width = 1.5.dp,
-                            color = PrimaryBlue,
+                            color = accentColor,
                             shape = RoundedCornerShape(12.dp)
                         )
                         .clickable { onDaySelected(index, day) }
@@ -541,7 +546,7 @@ fun DayCapsuleStrip(
                     fontWeight = if (isActive || isToday) FontWeight.Bold else FontWeight.Medium,
                     color = when {
                         isActive -> Color.White
-                        isToday -> PrimaryBlue
+                        isToday -> accentColor
                         isDark -> Color.White
                         else -> TextSecondaryLight
                     }
@@ -568,13 +573,23 @@ fun NextUpHeroCard(
     onClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val safeAccentIdx = LocalAppTheme.current.accentIndex.coerceIn(0, AccentColors.lastIndex)
+    val heroStart = AccentColors[safeAccentIdx]
+    val heroEnd = when (safeAccentIdx) {
+        0 -> Color(0xFF4F46E5)
+        1 -> Color(0xFF047857)
+        2 -> Color(0xFF5B21B6)
+        3 -> Color(0xFFB45309)
+        else -> Color(0xFF0369A1)
+    }
+
     Box(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
-            .shadow(elevation = 8.dp, shape = HeroCardShape, ambientColor = PrimaryBlue.copy(alpha = 0.4f))
+            .shadow(elevation = 8.dp, shape = HeroCardShape, ambientColor = heroStart.copy(alpha = 0.4f))
             .background(
-                brush = Brush.verticalGradient(listOf(HeroGradientStart, HeroGradientEnd)),
+                brush = Brush.verticalGradient(listOf(heroStart, heroEnd)),
                 shape = HeroCardShape
             )
             .clickable(onClick = onClick)
@@ -787,7 +802,7 @@ fun NextUpHeroCard(
                         .height(44.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (session.isAlarmSet) Color(0xFFDCFCE7) else Color.White,
-                        contentColor = if (session.isAlarmSet) Color(0xFF15803D) else PrimaryBlue
+                        contentColor = if (session.isAlarmSet) Color(0xFF15803D) else heroStart
                     ),
                     shape = ActionButtonShape,
                     contentPadding = PaddingValues(horizontal = 12.dp)
@@ -853,13 +868,23 @@ fun HappeningNowHeroCard(
     onClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val safeAccentIdx = LocalAppTheme.current.accentIndex.coerceIn(0, AccentColors.lastIndex)
+    val heroStart = AccentColors[safeAccentIdx]
+    val heroEnd = when (safeAccentIdx) {
+        0 -> Color(0xFF4F46E5)
+        1 -> Color(0xFF047857)
+        2 -> Color(0xFF5B21B6)
+        3 -> Color(0xFFB45309)
+        else -> Color(0xFF0369A1)
+    }
+
     Box(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
-            .shadow(elevation = 8.dp, shape = HeroCardShape, ambientColor = PrimaryBlue.copy(alpha = 0.4f))
+            .shadow(elevation = 8.dp, shape = HeroCardShape, ambientColor = heroStart.copy(alpha = 0.4f))
             .background(
-                brush = Brush.verticalGradient(listOf(HeroGradientStart, HeroGradientEnd)),
+                brush = Brush.verticalGradient(listOf(heroStart, heroEnd)),
                 shape = HeroCardShape
             )
             .clickable(onClick = onClick)
@@ -1133,7 +1158,7 @@ fun HappeningNowHeroCard(
                 Button(
                     onClick = onQuickNote,
                     modifier = Modifier.weight(1f).height(44.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = PrimaryBlue),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = heroStart),
                     shape = ActionButtonShape,
                     contentPadding = PaddingValues(horizontal = 12.dp)
                 ) {
@@ -1206,6 +1231,7 @@ fun DockedUpNextBar(
     modifier: Modifier = Modifier
 ) {
     val isDark = LocalAppTheme.current.isDark
+    val accentColor = MaterialTheme.colorScheme.primary
     val containerColor = if (isDark) DarkSurfaceCard else SurfaceContainerLowLight
     val borderSubtle = if (isDark) DarkBorderSubtle else BorderSubtleLight
     val textPrimary = if (isDark) Color.White else TextPrimaryLight
@@ -1233,13 +1259,13 @@ fun DockedUpNextBar(
                 Box(
                     modifier = Modifier
                         .size(34.dp)
-                        .background(PrimaryBlue.copy(alpha = 0.12f), CircleShape),
+                        .background(accentColor.copy(alpha = 0.12f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.FastForward,
                         contentDescription = "Up Next",
-                        tint = PrimaryBlue,
+                        tint = accentColor,
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -1252,7 +1278,7 @@ fun DockedUpNextBar(
                             text = "UP NEXT • ${session.startTime}",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
-                            color = PrimaryBlue
+                            color = accentColor
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
@@ -1273,14 +1299,14 @@ fun DockedUpNextBar(
 
             Box(
                 modifier = Modifier
-                    .background(PrimaryBlue.copy(alpha = 0.08f), PillBadgeShape)
+                    .background(accentColor.copy(alpha = 0.08f), PillBadgeShape)
                     .padding(horizontal = 8.dp, vertical = 4.dp)
             ) {
                 Text(
                     text = startsInText,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = PrimaryBlue
+                    color = accentColor
                 )
             }
         }
@@ -1305,6 +1331,7 @@ fun TimelineClassCard(
 ) {
     val categoryColor = session.type.tagColor
     val isDark = LocalAppTheme.current.isDark
+    val accentColor = MaterialTheme.colorScheme.primary
     val cardBg = if (isDark) DarkSurfaceCard else Color.White
     val borderSubtle = if (isDark) DarkBorderSubtle else BorderSubtleLight
     val textPrimary = if (isDark) Color.White else TextPrimaryLight
@@ -1352,7 +1379,7 @@ fun TimelineClassCard(
                             text = "${session.startTime} – ${session.endTime}",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
-                            color = PrimaryBlue
+                            color = accentColor
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Box(
@@ -1375,7 +1402,7 @@ fun TimelineClassCard(
                         Icon(
                             imageVector = Icons.Outlined.Notifications,
                             contentDescription = "Set Reminder",
-                            tint = if (session.isAlarmSet) PrimaryBlue else textTertiary,
+                            tint = if (session.isAlarmSet) accentColor else textTertiary,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -1541,7 +1568,7 @@ fun TimelineClassCard(
                             Icon(
                                 imageVector = Icons.Outlined.Description,
                                 contentDescription = null,
-                                tint = PrimaryBlue,
+                                tint = accentColor,
                                 modifier = Modifier.size(14.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
@@ -1575,6 +1602,7 @@ fun OfflineArchiveCard(
     modifier: Modifier = Modifier
 ) {
     val isDark = LocalAppTheme.current.isDark
+    val accentColor = MaterialTheme.colorScheme.primary
     val cardBg = if (isDark) DarkSurfaceCard else Color.White
     val borderSubtle = if (isDark) DarkBorderSubtle else BorderSubtleLight
     val textPrimary = if (isDark) Color.White else TextPrimaryLight
@@ -1603,13 +1631,13 @@ fun OfflineArchiveCard(
                 Box(
                     modifier = Modifier
                         .size(38.dp)
-                        .background(PrimaryBlue.copy(alpha = 0.12f), RoundedCornerShape(10.dp)),
+                        .background(accentColor.copy(alpha = 0.12f), RoundedCornerShape(10.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.FolderOpen,
                         contentDescription = null,
-                        tint = PrimaryBlue,
+                        tint = accentColor,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -1637,7 +1665,7 @@ fun OfflineArchiveCard(
                 shape = RoundedCornerShape(10.dp),
                 border = BorderStroke(1.dp, borderSubtle),
                 colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = PrimaryBlue
+                    contentColor = accentColor
                 ),
                 contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
             ) {

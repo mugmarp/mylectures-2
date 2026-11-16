@@ -163,7 +163,7 @@ class TimetableSyncWorker(
         const val TAG = "TimetableSyncWorker"
         const val WORK_NAME = "PeriodicTimetableSyncWork"
         const val PREF_REMOTE_METADATA_URL = "remote_timetable_metadata_url"
-        const val DEFAULT_METADATA_URL = "https://raw.githubusercontent.com/mustime/timetable/main/timetable_metadata.json"
+        const val DEFAULT_METADATA_URL = "https://raw.githubusercontent.com/mugmarp/mylectures-2/main/timetable_metadata.json"
 
         private val httpClient: OkHttpClient by lazy {
             OkHttpClient.Builder()

@@ -33,7 +33,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import com.lectures.features.timetable.ui.PrimaryBlue
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -711,6 +710,8 @@ fun DedicatedDayPickerDialog(
 ) {
     val daysOfWeek = listOf("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
 
+    val accentColor = MaterialTheme.colorScheme.primary
+
     Dialog(onDismissRequest = onDismiss) {
         Card(
             shape = RoundedCornerShape(20.dp),
@@ -729,7 +730,7 @@ fun DedicatedDayPickerDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.CalendarMonth, contentDescription = null, tint = PrimaryBlue)
+                        Icon(Icons.Default.CalendarMonth, contentDescription = null, tint = accentColor)
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "Select Academic Day",
@@ -748,10 +749,10 @@ fun DedicatedDayPickerDialog(
                     val isSelected = day.equals(selectedDay, ignoreCase = true)
                     Surface(
                         shape = RoundedCornerShape(12.dp),
-                        color = if (isSelected) PrimaryBlue.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                        color = if (isSelected) accentColor.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
                         border = BorderStroke(
                             width = if (isSelected) 1.5.dp else 1.dp,
-                            color = if (isSelected) PrimaryBlue else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)
+                            color = if (isSelected) accentColor else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)
                         ),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -770,7 +771,7 @@ fun DedicatedDayPickerDialog(
                                 text = day,
                                 fontSize = 15.sp,
                                 fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
-                                color = if (isSelected) PrimaryBlue else MaterialTheme.colorScheme.onSurface
+                                color = if (isSelected) accentColor else MaterialTheme.colorScheme.onSurface
                             )
                         }
                     }
@@ -804,6 +805,8 @@ fun DedicatedCoursePickerDialog(
         }
     }
 
+    val accentColor = MaterialTheme.colorScheme.primary
+
     Dialog(onDismissRequest = onDismiss) {
         Card(
             shape = RoundedCornerShape(24.dp),
@@ -825,7 +828,7 @@ fun DedicatedCoursePickerDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Outlined.School, contentDescription = null, tint = PrimaryBlue)
+                        Icon(Icons.Outlined.School, contentDescription = null, tint = accentColor)
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "Choose Course Unit",
@@ -888,10 +891,10 @@ fun DedicatedCoursePickerDialog(
                             val isSelected = code.equals(selectedCourse, ignoreCase = true)
                             Surface(
                                 shape = RoundedCornerShape(12.dp),
-                                color = if (isSelected) PrimaryBlue.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                                color = if (isSelected) accentColor.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
                                 border = BorderStroke(
                                     width = if (isSelected) 1.5.dp else 1.dp,
-                                    color = if (isSelected) PrimaryBlue else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)
+                                    color = if (isSelected) accentColor else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)
                                 ),
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -910,14 +913,14 @@ fun DedicatedCoursePickerDialog(
                                         modifier = Modifier
                                             .size(36.dp)
                                             .clip(CircleShape)
-                                            .background(if (isSelected) PrimaryBlue else PrimaryBlue.copy(alpha = 0.15f)),
+                                            .background(if (isSelected) accentColor else accentColor.copy(alpha = 0.15f)),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Text(
                                             text = code.take(3),
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = if (isSelected) Color.White else PrimaryBlue
+                                            color = if (isSelected) Color.White else accentColor
                                         )
                                     }
 
@@ -928,14 +931,14 @@ fun DedicatedCoursePickerDialog(
                                             text = code,
                                             fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Bold,
                                             fontSize = 14.sp,
-                                            color = if (isSelected) PrimaryBlue else MaterialTheme.colorScheme.onSurface
+                                            color = if (isSelected) accentColor else MaterialTheme.colorScheme.onSurface
                                         )
                                         if (title.isNotBlank()) {
                                             Text(
                                                 text = title,
                                                 fontSize = 12.sp,
                                                 fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
-                                                color = if (isSelected) PrimaryBlue.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                color = if (isSelected) accentColor.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSurfaceVariant,
                                                 maxLines = 1
                                             )
                                         }

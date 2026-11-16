@@ -49,7 +49,6 @@ import com.lectures.ui.Chrome
 import com.lectures.ui.LocalAppTheme
 import com.lectures.ui.rememberLecturesWindow
 import com.lectures.ui.components.AcademicProfileSheet
-import com.lectures.ui.components.NotificationCenterSheet
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -71,7 +70,7 @@ fun NotesScreen(
 
     if (repository == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(color = Color(0xFF2563EB))
+            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
         }
         return
     }
@@ -966,25 +965,26 @@ fun NoteCardItem(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     // Reminder Pill
+                    val accentColor = MaterialTheme.colorScheme.primary
                     if (note.alarmMinutes != null) {
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(if (isDark) Color(0xFF1E3A8A).copy(alpha = 0.4f) else Color(0xFFEEF2FF))
+                                .background(accentColor.copy(alpha = if (isDark) 0.22f else 0.1f))
                                 .padding(horizontal = 8.dp, vertical = 4.dp)
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
                                     Icons.Default.NotificationsActive,
                                     contentDescription = null,
-                                    tint = if (isDark) Color(0xFF93C5FD) else Color(0xFF2563EB),
+                                    tint = accentColor,
                                     modifier = Modifier.size(12.dp)
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
                                     "${note.alarmMinutes}m alert",
                                     fontSize = 11.sp,
-                                    color = if (isDark) Color(0xFF93C5FD) else Color(0xFF2563EB),
+                                    color = accentColor,
                                     fontWeight = FontWeight.SemiBold
                                 )
                             }
@@ -999,8 +999,8 @@ fun NoteCardItem(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(
-                                    if (isComplete) Color(0xFFDCFCE7)
-                                    else (if (isDark) Color(0xFF1E3A8A).copy(alpha = 0.4f) else Color(0xFFEFF6FF))
+                                    if (isComplete) (if (isDark) Color(0xFF064E3B).copy(alpha = 0.5f) else Color(0xFFDCFCE7))
+                                    else accentColor.copy(alpha = if (isDark) 0.22f else 0.1f)
                                 )
                                 .padding(horizontal = 8.dp, vertical = 4.dp)
                         ) {
@@ -1008,14 +1008,14 @@ fun NoteCardItem(
                                 Icon(
                                     if (isComplete) Icons.Default.CheckCircle else Icons.Default.Checklist,
                                     contentDescription = null,
-                                    tint = if (isComplete) Color(0xFF15803D) else (if (isDark) Color(0xFF93C5FD) else Color(0xFF2563EB)),
+                                    tint = if (isComplete) (if (isDark) Color(0xFF6EE7B7) else Color(0xFF15803D)) else accentColor,
                                     modifier = Modifier.size(12.dp)
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
                                     "$done/$total tasks",
                                     fontSize = 11.sp,
-                                    color = if (isComplete) Color(0xFF15803D) else (if (isDark) Color(0xFF93C5FD) else Color(0xFF2563EB)),
+                                    color = if (isComplete) (if (isDark) Color(0xFF6EE7B7) else Color(0xFF15803D)) else accentColor,
                                     fontWeight = FontWeight.SemiBold
                                 )
                             }

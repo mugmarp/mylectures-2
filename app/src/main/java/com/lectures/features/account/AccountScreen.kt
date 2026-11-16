@@ -145,18 +145,20 @@ fun AccountScreen(
                 syncMessage?.let { msg ->
                     Surface(
                         shape = RoundedCornerShape(12.dp),
-                        color = Color(0xFFDCFCE7),
+                        color = if (isDark) Color(0xFF064E3B) else Color(0xFFDCFCE7),
                         modifier = Modifier.fillMaxWidth()
                     ) {
+                        val iconTint = if (isDark) Color(0xFF34D399) else Color(0xFF15803D)
+                        val msgColor = if (isDark) Color(0xFFD1FAE5) else Color(0xFF14532D)
                         Row(
                             modifier = Modifier.padding(14.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF15803D))
+                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = iconTint)
                             Spacer(modifier = Modifier.width(10.dp))
-                            Text(msg, color = Color(0xFF14532D), fontSize = 13.sp, modifier = Modifier.weight(1f))
+                            Text(msg, color = msgColor, fontSize = 13.sp, modifier = Modifier.weight(1f))
                             IconButton(onClick = { syncMessage = null }) {
-                                Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = Color(0xFF15803D), modifier = Modifier.size(16.dp))
+                                Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = iconTint, modifier = Modifier.size(16.dp))
                             }
                         }
                     }
@@ -363,7 +365,7 @@ fun AccountScreen(
                                         "Cloud Sync Active",
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.SemiBold,
-                                        color = Color(0xFF15803D)
+                                        color = if (isDark) Color(0xFF4ADE80) else Color(0xFF15803D)
                                     )
                                 }
                             }

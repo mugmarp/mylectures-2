@@ -1,5 +1,6 @@
 package com.lectures
 
+import android.Manifest
 import android.app.AlarmManager
 import android.app.NotificationManager
 import android.content.Context
@@ -46,6 +47,7 @@ class Phase3AlarmAndNotificationTest {
     @Before
     fun setUp() {
         app = ApplicationProvider.getApplicationContext()
+        shadowOf(app).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
         alarmManager = app.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         shadowAlarmManager = shadowOf(alarmManager)
         notificationManager = app.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager

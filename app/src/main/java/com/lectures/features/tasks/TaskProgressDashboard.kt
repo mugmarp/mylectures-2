@@ -244,16 +244,17 @@ fun TaskProgressDashboard(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.weight(1f, fill = false)
                 ) {
+                    val accentColor = MaterialTheme.colorScheme.primary
                     Box(
                         modifier = Modifier
                             .size(34.dp)
-                            .background(if (isDark) DarkSurfaceBase else Color(0xFFEFF6FF), CircleShape),
+                            .background(if (isDark) DarkSurfaceBase else accentColor.copy(alpha = 0.1f), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             Icons.Default.BarChart,
                             contentDescription = "Weekly Progress",
-                            tint = Color(0xFF2563EB),
+                            tint = accentColor,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -296,7 +297,7 @@ fun TaskProgressDashboard(
                             "Week",
                             fontSize = 11.sp,
                             fontWeight = if (scopeThisWeekOnly) FontWeight.Bold else FontWeight.Medium,
-                            color = if (scopeThisWeekOnly) Color(0xFF2563EB) else textSecondary
+                            color = if (scopeThisWeekOnly) MaterialTheme.colorScheme.primary else textSecondary
                         )
                     }
                     Box(
@@ -310,7 +311,7 @@ fun TaskProgressDashboard(
                             "All",
                             fontSize = 11.sp,
                             fontWeight = if (!scopeThisWeekOnly) FontWeight.Bold else FontWeight.Medium,
-                            color = if (!scopeThisWeekOnly) Color(0xFF2563EB) else textSecondary
+                            color = if (!scopeThisWeekOnly) MaterialTheme.colorScheme.primary else textSecondary
                         )
                     }
                 }
@@ -374,7 +375,7 @@ fun TaskProgressDashboard(
                         color = if (metrics.completionPercentage >= 75) {
                             if (isDark) Color(0xFF064E3B).copy(alpha = 0.5f) else Color(0xFFDCFCE7)
                         } else {
-                            if (isDark) Color(0xFF1E3A8A).copy(alpha = 0.5f) else Color(0xFFEFF6FF)
+                            MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.22f else 0.1f)
                         }
                     ) {
                         Text(
@@ -384,7 +385,7 @@ fun TaskProgressDashboard(
                             color = if (metrics.completionPercentage >= 75) {
                                 if (isDark) Color(0xFF6EE7B7) else Color(0xFF15803D)
                             } else {
-                                if (isDark) Color(0xFF93C5FD) else Color(0xFF2563EB)
+                                MaterialTheme.colorScheme.primary
                             },
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                         )

@@ -23,14 +23,14 @@ object InAppUpdateManager {
 
     // Primary endpoint: raw version.json from project repo
     const val DEFAULT_VERSION_METADATA_URL =
-        "https://raw.githubusercontent.com/mugmarp/mylectures/main/version.json"
+        "https://raw.githubusercontent.com/mugmarp/mylectures-2/main/version.json"
 
     // Secondary fallback: GitHub Releases Latest API
     const val GITHUB_RELEASES_API_URL =
-        "https://api.github.com/repos/mugmarp/mylectures/releases/latest"
+        "https://api.github.com/repos/mugmarp/mylectures-2/releases/latest"
 
     const val FALLBACK_RELEASES_WEB_URL =
-        "https://github.com/mugmarp/mylectures/releases/latest"
+        "https://github.com/mugmarp/mylectures-2/releases/latest"
 
     // In-memory cache to prevent exhausting GitHub unauthenticated 60 req/hr rate limit
     private var cachedUpdateInfo: Pair<Long, AppUpdateInfo?>? = null

@@ -54,7 +54,6 @@ import com.lectures.ui.Chrome
 import com.lectures.ui.LocalAppTheme
 import com.lectures.ui.rememberLecturesWindow
 import com.lectures.ui.components.AcademicProfileSheet
-import com.lectures.ui.components.NotificationCenterSheet
 import androidx.compose.foundation.layout.WindowInsets
 import com.lectures.ui.components.RoomFloorBadge
 import kotlinx.coroutines.delay
@@ -292,7 +291,7 @@ fun TimetableScreen(
             if (windowInfo.collapseFab) {
                 FloatingActionButton(
                     onClick = { showQuickAddSheet = true },
-                    containerColor = PrimaryBlue,
+                    containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = Color.White,
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier
@@ -309,7 +308,7 @@ fun TimetableScreen(
             } else {
                 ExtendedFloatingActionButton(
                     onClick = { showQuickAddSheet = true },
-                    containerColor = PrimaryBlue,
+                    containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = Color.White,
                     shape = RoundedCornerShape(16.dp),
                     icon = {
@@ -444,8 +443,8 @@ fun TimetableScreen(
                     item(key = "no_prog_prompt") {
                         Surface(
                             shape = RoundedCornerShape(16.dp),
-                            color = PrimaryBlue.copy(alpha = 0.08f),
-                            border = BorderStroke(1.dp, PrimaryBlue.copy(alpha = 0.25f)),
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 20.dp, vertical = 12.dp)
@@ -457,7 +456,7 @@ fun TimetableScreen(
                                 Icon(
                                     imageVector = Icons.Outlined.School,
                                     contentDescription = null,
-                                    tint = PrimaryBlue,
+                                    tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(28.dp)
                                 )
                                 Spacer(modifier = Modifier.width(12.dp))
@@ -478,7 +477,7 @@ fun TimetableScreen(
                                 Button(
                                     onClick = onSettingsClick,
                                     shape = RoundedCornerShape(10.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
+                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                                 ) {
                                     Text("Select", fontSize = 12.sp, fontWeight = FontWeight.Bold)
@@ -516,13 +515,13 @@ fun TimetableScreen(
                         if (todayEntries.isNotEmpty()) {
                             Surface(
                                 shape = RoundedCornerShape(10.dp),
-                                color = PrimaryBlue.copy(alpha = 0.12f)
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
                             ) {
                                 Text(
                                     text = "${todayEntries.size} ${if (todayEntries.size == 1) "session" else "sessions"}",
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = PrimaryBlue,
+                                    color = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                                 )
                             }
@@ -634,13 +633,13 @@ fun TimetableScreen(
                                     Box(
                                         modifier = Modifier
                                             .size(40.dp)
-                                            .background(PrimaryBlue.copy(alpha = 0.1f), CircleShape),
+                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), CircleShape),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(
                                             imageVector = Icons.Outlined.EventAvailable,
                                             contentDescription = null,
-                                            tint = PrimaryBlue,
+                                            tint = MaterialTheme.colorScheme.primary,
                                             modifier = Modifier.size(20.dp)
                                         )
                                     }
@@ -716,7 +715,7 @@ fun TimetableScreen(
                                 .height(200.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            CircularProgressIndicator(color = PrimaryBlue)
+                            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                         }
                     }
                 } else if (dayEntries.isEmpty() && dayCustomEvents.isEmpty()) {
@@ -735,13 +734,13 @@ fun TimetableScreen(
                                     Box(
                                         modifier = Modifier
                                             .size(56.dp)
-                                            .background(PrimaryBlue.copy(alpha = 0.1f), CircleShape),
+                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), CircleShape),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(
                                             imageVector = Icons.Outlined.EventAvailable,
                                             contentDescription = null,
-                                            tint = PrimaryBlue,
+                                            tint = MaterialTheme.colorScheme.primary,
                                             modifier = Modifier.size(28.dp)
                                         )
                                     }
@@ -763,7 +762,7 @@ fun TimetableScreen(
                                     Button(
                                         onClick = { showQuickAddSheet = true },
                                         shape = ActionButtonShape,
-                                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+                                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                                     ) {
                                         Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                                         Spacer(modifier = Modifier.width(6.dp))

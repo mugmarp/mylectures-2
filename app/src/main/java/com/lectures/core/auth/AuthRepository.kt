@@ -8,6 +8,7 @@ import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
+import androidx.credentials.exceptions.NoCredentialException
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.firebase.auth.FirebaseAuth
@@ -103,6 +104,14 @@ class AuthRepository private constructor() {
         } catch (e: GetCredentialCancellationException) {
             Log.w(TAG, "Google Sign-In cancelled or dismissed: ${e.message}")
             Result.failure(e)
+        } catch (e: NoCredentialException) {
+            Log.w(TAG, "No Google credentials available on device: ${e.message}")
+            Result.failure(
+                IllegalStateException(
+                    "No Google account is signed in on this device. Add a Google account in device settings and try again.",
+                    e
+                )
+            )
         } catch (e: GetCredentialException) {
             Log.e(TAG, "CredentialManager error: ${e.message}", e)
             Result.failure(e)

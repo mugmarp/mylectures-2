@@ -1,16 +1,20 @@
 package com.lectures.core.notification
 
+import android.Manifest
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import com.lectures.MainActivity
 import com.lectures.R
 import com.lectures.core.alarm.TaskActionReceiver
@@ -24,6 +28,26 @@ object NotificationHelper {
     const val CHANNEL_TIMETABLE_UPDATES = "timetable_updates"
 
     private const val TAG = "NotificationHelper"
+
+    private fun postNotificationIfPermitted(
+        context: Context,
+        notificationId: Int,
+        notification: Notification
+    ): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            Log.w(TAG, "Skipping system notification $notificationId: POST_NOTIFICATIONS permission not granted")
+            return false
+        }
+        return try {
+            NotificationManagerCompat.from(context).notify(notificationId, notification)
+            true
+        } catch (se: SecurityException) {
+            Log.w(TAG, "SecurityException posting notification $notificationId: ${se.message}")
+            false
+        }
+    }
 
     /**
      * Applies the user's selected sound profile to all notification channels.
@@ -249,7 +273,7 @@ object NotificationHelper {
             .addAction(R.drawable.ic_stat_notification, "View Tasks", contentPendingIntent)
 
         try {
-            NotificationManagerCompat.from(context).notify(notificationId, builder.build())
+            postNotificationIfPermitted(context, notificationId, builder.build())
             Log.d(TAG, "Notification posted for task $taskId: $title")
             InAppNotificationStore.getInstance(context).recordNotification(
                 type = NotificationItemType.TASK_REMINDER,
@@ -336,7 +360,7 @@ object NotificationHelper {
             .addAction(R.drawable.ic_stat_notification, "View Class", contentPendingIntent)
 
         try {
-            NotificationManagerCompat.from(context).notify(notificationId, builder.build())
+            postNotificationIfPermitted(context, notificationId, builder.build())
             InAppNotificationStore.getInstance(context).recordNotification(
                 type = NotificationItemType.CLASS_REMINDER,
                 title = "Upcoming class: $headerSubject",
@@ -445,7 +469,7 @@ object NotificationHelper {
             .addAction(R.drawable.ic_stat_notification, "Snooze 10m", snoozePendingIntent)
 
         try {
-            NotificationManagerCompat.from(context).notify(notificationId, builder.build())
+            postNotificationIfPermitted(context, notificationId, builder.build())
             val inAppTitle = if (isSnoozed) "Snoozed Class Alert: $headerSubject" else "Class Alert: $headerSubject"
             InAppNotificationStore.getInstance(context).recordNotification(
                 type = NotificationItemType.CLASS_ALARM,
@@ -524,7 +548,7 @@ object NotificationHelper {
             .setColor(Color.parseColor("#3B82F6"))
 
         try {
-            NotificationManagerCompat.from(context).notify(notificationId, builder.build())
+            postNotificationIfPermitted(context, notificationId, builder.build())
             Log.d(TAG, "Daily digest notification posted for $dayOfWeek with ${classes.size} classes")
             InAppNotificationStore.getInstance(context).recordNotification(
                 type = NotificationItemType.DAILY_DIGEST,
@@ -582,7 +606,7 @@ object NotificationHelper {
             .addAction(R.drawable.ic_stat_notification, "View Schedule", contentPendingIntent)
 
         try {
-            NotificationManagerCompat.from(context).notify(notificationId, builder.build())
+            postNotificationIfPermitted(context, notificationId, builder.build())
             Log.d(TAG, "Timetable update notification posted: $versionLabel")
             InAppNotificationStore.getInstance(context).recordNotification(
                 type = NotificationItemType.SYSTEM,
@@ -629,16 +653,16 @@ object NotificationHelper {
 
         val title = "New Update Available: v${updateInfo.versionName}"
         val content = if (updateInfo.releaseNotes.isNotBlank()) {
-            updateInfo.releaseNotes.lines().firstOrNull() ?: "Tap to download and install inside the app."
+            updateInfo.releaseNotes.lines().firstOrNull() ?: "Tap to view release notes and update."
         } else {
-            "Tap to download and install the new version inside the app."
+            "Tap to view release notes and get the latest version."
         }
         val detailedText = buildString {
             append("Version ${updateInfo.versionName} is ready.")
             if (updateInfo.releaseNotes.isNotBlank()) {
                 append("\n\n").append(updateInfo.releaseNotes)
             }
-            append("\n\nTap to download directly inside Lectures. All your notes, tasks, and settings are preserved.")
+            append("\n\nTap to review the update and open the official release page. All your notes, tasks, and settings are preserved.")
         }
 
         val builder = NotificationCompat.Builder(context, CHANNEL_TIMETABLE_UPDATES)
@@ -654,7 +678,7 @@ object NotificationHelper {
             .addAction(R.drawable.ic_stat_notification, "Update Now", contentPendingIntent)
 
         try {
-            NotificationManagerCompat.from(context).notify(notificationId, builder.build())
+            postNotificationIfPermitted(context, notificationId, builder.build())
             Log.d(TAG, "App update notification posted: v${updateInfo.versionName}")
             InAppNotificationStore.getInstance(context).recordNotification(
                 type = NotificationItemType.SYSTEM,

@@ -177,9 +177,10 @@ fun LectureDetailSheet(
 
             Spacer(modifier = Modifier.height(20.dp))
 
+            val accentColor = MaterialTheme.colorScheme.primary
             // Reminders
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Notifications, contentDescription = null, tint = PrimaryBlue, modifier = Modifier.size(18.dp))
+                Icon(Icons.Default.Notifications, contentDescription = null, tint = accentColor, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Class Alarm Reminder", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = textColor)
             }
@@ -196,10 +197,10 @@ fun LectureDetailSheet(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(20.dp))
-                            .background(if (isSelected) PrimaryBlue else Color.Transparent)
+                            .background(if (isSelected) accentColor else Color.Transparent)
                             .border(
                                 1.dp,
-                                if (isSelected) PrimaryBlue else (if (isDark) DarkBorderSubtle else Color(0xFFCBD5E1)),
+                                if (isSelected) accentColor else (if (isDark) DarkBorderSubtle else Color(0xFFCBD5E1)),
                                 RoundedCornerShape(20.dp)
                             )
                             .clickable {
@@ -222,10 +223,10 @@ fun LectureDetailSheet(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(20.dp))
-                        .background(if (isCustomReminder) PrimaryBlue else Color.Transparent)
+                        .background(if (isCustomReminder) accentColor else Color.Transparent)
                         .border(
                             1.dp,
-                            if (isCustomReminder) PrimaryBlue else (if (isDark) DarkBorderSubtle else Color(0xFFCBD5E1)),
+                            if (isCustomReminder) accentColor else (if (isDark) DarkBorderSubtle else Color(0xFFCBD5E1)),
                             RoundedCornerShape(20.dp)
                         )
                         .clickable {
@@ -280,7 +281,7 @@ fun LectureDetailSheet(
                     .height(100.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = PrimaryBlue,
+                    focusedBorderColor = accentColor,
                     unfocusedBorderColor = inputBorder,
                     focusedContainerColor = inputBg,
                     unfocusedContainerColor = inputBg,
@@ -309,7 +310,7 @@ fun LectureDetailSheet(
                     .fillMaxWidth()
                     .height(48.dp),
                 shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue, contentColor = Color.White)
+                colors = ButtonDefaults.buttonColors(containerColor = accentColor, contentColor = Color.White)
             ) {
                 Text(
                     text = if (effectiveMinutesToSave != null) "Save Note & Set ${effectiveMinutesToSave}m Alarm" else "Save Note",

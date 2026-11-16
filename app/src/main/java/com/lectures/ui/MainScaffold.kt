@@ -264,7 +264,7 @@ fun MainScaffold(
             val isDark = com.lectures.ui.LocalAppTheme.current.isDark
             val navBg = if (isDark) com.lectures.features.timetable.ui.DarkSurfaceCard else Color.White
             val navBorder = if (isDark) com.lectures.features.timetable.ui.DarkBorderSubtle else com.lectures.features.timetable.ui.BorderSubtleLight
-            val primaryBlue = com.lectures.features.timetable.ui.PrimaryBlue
+            val primaryBlue = MaterialTheme.colorScheme.primary
             val textMuted = if (isDark) Color(0xFF94A3B8) else com.lectures.features.timetable.ui.TextMutedLight
 
             val classAlarmScheduler = remember(context) { com.lectures.core.alarm.AlarmScheduler(context) }

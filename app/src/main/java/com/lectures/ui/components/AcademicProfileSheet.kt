@@ -65,7 +65,7 @@ fun AcademicProfileSheet(
 
     val savedProg by (repository?.programmePref ?: flowOf(null))
         .collectAsState(initial = repository?.getSavedProgramme() ?: repository?.getInitialProgramme())
-    val effectiveEnrolled = enrolledProgramme.ifBlank { savedProg ?: repository?.getInitialProgramme() ?: "EEE II" }
+    val effectiveEnrolled = enrolledProgramme.ifBlank { savedProg ?: repository?.getInitialProgramme() ?: "" }
     val effectiveProgramme = programme.ifBlank { effectiveEnrolled }
 
     val savedYear by (repository?.academicYearPref ?: flowOf("2026/2027"))
@@ -106,6 +106,7 @@ fun AcademicProfileSheet(
         }
     }
     val isDark = LocalAppTheme.current.isDark
+    val accentColor = MaterialTheme.colorScheme.primary
     val surfaceColor = if (isDark) DarkSurfaceCard else Color.White
     val textColor = if (isDark) Color.White else TextPrimaryLight
     val textSub = if (isDark) Color(0xFF94A3B8) else TextMutedLight
@@ -144,7 +145,7 @@ fun AcademicProfileSheet(
                         .size(56.dp)
                         .clip(CircleShape)
                         .background(Color.White)
-                        .border(1.5.dp, PrimaryBlue.copy(alpha = 0.5f), CircleShape),
+                        .border(1.5.dp, accentColor.copy(alpha = 0.5f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Image(
@@ -228,7 +229,7 @@ fun AcademicProfileSheet(
                             color = if (isDark) Color.White else Color(0xFF78350F)
                         )
                         Text(
-                            text = "Viewing temporarily. Your alarms remain set for $effectiveEnrolled.",
+                            text = if (effectiveEnrolled.isNotBlank()) "Viewing temporarily. Your alarms remain set for $effectiveEnrolled." else "Viewing temporarily.",
                             fontSize = 12.sp,
                             color = if (isDark) Color(0xFFFCD34D) else Color(0xFFB45309)
                         )
@@ -270,7 +271,7 @@ fun AcademicProfileSheet(
                             text = "ENROLLED PROGRAMME",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
-                            color = PrimaryBlue,
+                            color = accentColor,
                             letterSpacing = 0.5.sp
                         )
                         Box(
@@ -279,7 +280,7 @@ fun AcademicProfileSheet(
                                 .padding(horizontal = 8.dp, vertical = 3.dp)
                         ) {
                             Text(
-                                text = "Active",
+                                text = if (effectiveEnrolled.isNotBlank()) "Active" else "Unset",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = StatusGreenLive
@@ -294,7 +295,7 @@ fun AcademicProfileSheet(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "$effectiveEnrolled $effectiveAcademicYear",
+                            text = if (effectiveEnrolled.isNotBlank()) "$effectiveEnrolled $effectiveAcademicYear" else "No Programme Selected",
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Bold,
                             color = textColor
@@ -333,13 +334,13 @@ fun AcademicProfileSheet(
                     Box(
                         modifier = Modifier
                             .size(38.dp)
-                            .background(PrimaryBlue.copy(alpha = 0.12f), CircleShape),
+                            .background(accentColor.copy(alpha = 0.12f), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             Icons.Outlined.SwapHoriz,
                             contentDescription = null,
-                            tint = PrimaryBlue,
+                            tint = accentColor,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -359,13 +360,13 @@ fun AcademicProfileSheet(
                     }
                     Surface(
                         shape = RoundedCornerShape(8.dp),
-                        color = PrimaryBlue.copy(alpha = 0.12f)
+                        color = accentColor.copy(alpha = 0.12f)
                     ) {
                         Text(
                             text = "Switch",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
-                            color = PrimaryBlue,
+                            color = accentColor,
                             modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
                         )
                     }

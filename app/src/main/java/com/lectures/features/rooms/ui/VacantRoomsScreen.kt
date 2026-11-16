@@ -274,6 +274,7 @@ fun VacantRoomsScreen(
     val permanentCount = vacancyStatuses.count { it.room.isPermanentlyVacant && it.room.isStudyFriendly }
     val windowInfo = rememberLecturesWindow()
     val chunkedRooms = remember(filteredRooms) { filteredRooms.chunked(2) }
+    val accentColor = MaterialTheme.colorScheme.primary
 
     Scaffold(
         containerColor = bgColor,
@@ -319,7 +320,7 @@ fun VacantRoomsScreen(
                         // Prominent Day & Time / Live Now Pill - routes directly to Filter & Schedule Options
                         Surface(
                             shape = RoundedCornerShape(6.dp),
-                            color = if (isLiveNow) StatusGreenLive.copy(alpha = 0.12f) else PrimaryBlue.copy(alpha = 0.12f),
+                            color = if (isLiveNow) StatusGreenLive.copy(alpha = 0.12f) else accentColor.copy(alpha = 0.12f),
                             modifier = Modifier.clickable { showFilterSheet = true }
                         ) {
                             Row(
@@ -329,20 +330,20 @@ fun VacantRoomsScreen(
                                 Box(
                                     modifier = Modifier
                                         .size(6.dp)
-                                        .background(if (isLiveNow) StatusGreenLive else PrimaryBlue, CircleShape)
+                                        .background(if (isLiveNow) StatusGreenLive else accentColor, CircleShape)
                                 )
                                 Spacer(modifier = Modifier.width(5.dp))
                                 Text(
                                     text = if (isLiveNow) "Live Now · $queryDay $queryTime" else "$queryDay · $queryTime",
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.SemiBold,
-                                    color = if (isLiveNow) (if (isDark) Color(0xFF86EFAC) else Color(0xFF15803D)) else PrimaryBlue
+                                    color = if (isLiveNow) (if (isDark) Color(0xFF86EFAC) else Color(0xFF15803D)) else accentColor
                                 )
                                 Spacer(modifier = Modifier.width(3.dp))
                                 Icon(
                                     imageVector = Icons.Default.ArrowDropDown,
                                     contentDescription = "Open Filter and Schedule Options",
-                                    tint = if (isLiveNow) (if (isDark) Color(0xFF86EFAC) else Color(0xFF15803D)) else PrimaryBlue,
+                                    tint = if (isLiveNow) (if (isDark) Color(0xFF86EFAC) else Color(0xFF15803D)) else accentColor,
                                     modifier = Modifier.size(15.dp)
                                 )
                             }
@@ -362,7 +363,7 @@ fun VacantRoomsScreen(
                             Icon(
                                 imageVector = Icons.Outlined.RestartAlt,
                                 contentDescription = "Reset to current live time",
-                                tint = PrimaryBlue,
+                                tint = accentColor,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
@@ -371,14 +372,14 @@ fun VacantRoomsScreen(
                         BadgedBox(
                             badge = {
                                 if (!isLiveNow || minGapMinutes != 30 || selectedLevel != null || !studyFriendlyOnly || freeOnly) {
-                                    Badge(containerColor = PrimaryBlue)
+                                    Badge(containerColor = accentColor)
                                 }
                             }
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.Tune,
                                 contentDescription = "Filter & Schedule Options",
-                                tint = if (!isLiveNow || minGapMinutes != 30 || selectedLevel != null || freeOnly) PrimaryBlue else textPrimary
+                                tint = if (!isLiveNow || minGapMinutes != 30 || selectedLevel != null || freeOnly) accentColor else textPrimary
                             )
                         }
                     }
@@ -440,7 +441,7 @@ fun VacantRoomsScreen(
                                         color = textPrimary,
                                         fontWeight = FontWeight.Medium
                                     ),
-                                    cursorBrush = SolidColor(PrimaryBlue),
+                                    cursorBrush = SolidColor(accentColor),
                                     modifier = Modifier.fillMaxWidth()
                                 )
                             }
@@ -465,7 +466,7 @@ fun VacantRoomsScreen(
                         color = surfaceColor,
                         border = BorderStroke(
                             1.dp,
-                            if (selectedCampus != null || selectedBuilding != null) PrimaryBlue.copy(alpha = 0.45f) else borderSubtle
+                            if (selectedCampus != null || selectedBuilding != null) accentColor.copy(alpha = 0.45f) else borderSubtle
                         ),
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -491,13 +492,13 @@ fun VacantRoomsScreen(
                                     Box(
                                         modifier = Modifier
                                             .size(if (windowInfo.isNarrow) 22.dp else 26.dp)
-                                            .background(PrimaryBlue.copy(alpha = 0.12f), RoundedCornerShape(7.dp)),
+                                            .background(accentColor.copy(alpha = 0.12f), RoundedCornerShape(7.dp)),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(
                                             imageVector = Icons.Outlined.Place,
                                             contentDescription = null,
-                                            tint = PrimaryBlue,
+                                            tint = accentColor,
                                             modifier = Modifier.size(if (windowInfo.isNarrow) 13.dp else 15.dp)
                                         )
                                     }
@@ -521,7 +522,7 @@ fun VacantRoomsScreen(
                                             fontSize = 12.5.sp,
                                             lineHeight = 15.sp,
                                             fontWeight = if (selectedCampus != null) FontWeight.Bold else FontWeight.SemiBold,
-                                            color = if (selectedCampus != null) PrimaryBlue else textPrimary,
+                                            color = if (selectedCampus != null) accentColor else textPrimary,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
                                         )
@@ -557,25 +558,25 @@ fun VacantRoomsScreen(
                                                             text = campus.displayName,
                                                             fontSize = 13.sp,
                                                             fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
-                                                            color = if (isSelected) PrimaryBlue else textPrimary
+                                                            color = if (isSelected) accentColor else textPrimary
                                                         )
                                                         Text(
                                                             text = if (campus == Campus.KIHUMURO) "FAST, FCI · 3 Buildings" else "Medicine, Science, Business · 4 Buildings",
                                                             fontSize = 10.5.sp,
-                                                            color = if (isSelected) PrimaryBlue.copy(alpha = 0.8f) else textMuted
+                                                            color = if (isSelected) accentColor.copy(alpha = 0.8f) else textMuted
                                                         )
                                                     }
                                                     if (isDefault) {
                                                         Spacer(modifier = Modifier.width(6.dp))
                                                         Box(
                                                             modifier = Modifier
-                                                                .background(PrimaryBlue.copy(alpha = 0.12f), RoundedCornerShape(4.dp))
+                                                                .background(accentColor.copy(alpha = 0.12f), RoundedCornerShape(4.dp))
                                                                 .padding(horizontal = 5.dp, vertical = 2.dp)
                                                         ) {
                                                             Text(
                                                                 text = "Default",
                                                                 fontSize = 10.sp,
-                                                                color = PrimaryBlue,
+                                                                color = accentColor,
                                                                 fontWeight = FontWeight.Bold
                                                             )
                                                         }
@@ -601,7 +602,7 @@ fun VacantRoomsScreen(
                                                 text = "All Campuses",
                                                 fontSize = 13.sp,
                                                 fontWeight = if (isAllCampusesSelected) FontWeight.ExtraBold else FontWeight.Medium,
-                                                color = if (isAllCampusesSelected) PrimaryBlue else textPrimary
+                                                color = if (isAllCampusesSelected) accentColor else textPrimary
                                             )
                                         },
                                         onClick = {
@@ -635,13 +636,13 @@ fun VacantRoomsScreen(
                                     Box(
                                         modifier = Modifier
                                             .size(if (windowInfo.isNarrow) 22.dp else 26.dp)
-                                            .background(PrimaryBlue.copy(alpha = 0.12f), RoundedCornerShape(7.dp)),
+                                            .background(accentColor.copy(alpha = 0.12f), RoundedCornerShape(7.dp)),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(
                                             imageVector = Icons.Outlined.Business,
                                             contentDescription = null,
-                                            tint = PrimaryBlue,
+                                            tint = accentColor,
                                             modifier = Modifier.size(if (windowInfo.isNarrow) 13.dp else 15.dp)
                                         )
                                     }
@@ -664,7 +665,7 @@ fun VacantRoomsScreen(
                                             fontSize = 12.5.sp,
                                             lineHeight = 15.sp,
                                             fontWeight = if (selectedBuilding != null) FontWeight.Bold else FontWeight.SemiBold,
-                                            color = if (selectedBuilding != null) PrimaryBlue else textPrimary,
+                                            color = if (selectedBuilding != null) accentColor else textPrimary,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
                                         )
@@ -700,27 +701,27 @@ fun VacantRoomsScreen(
                                                             text = b.name,
                                                             fontSize = 13.sp,
                                                             fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
-                                                            color = if (isSelected) PrimaryBlue else textPrimary,
+                                                            color = if (isSelected) accentColor else textPrimary,
                                                             maxLines = 1,
                                                             overflow = TextOverflow.Ellipsis
                                                         )
                                                         Text(
                                                             text = "${b.totalRooms} rooms on catalog",
                                                             fontSize = 10.5.sp,
-                                                            color = if (isSelected) PrimaryBlue.copy(alpha = 0.8f) else textMuted
+                                                            color = if (isSelected) accentColor.copy(alpha = 0.8f) else textMuted
                                                         )
                                                     }
                                                     if (isMyFaculty) {
                                                         Spacer(modifier = Modifier.width(6.dp))
                                                         Box(
                                                             modifier = Modifier
-                                                                .background(PrimaryBlue.copy(alpha = 0.12f), RoundedCornerShape(4.dp))
+                                                                .background(accentColor.copy(alpha = 0.12f), RoundedCornerShape(4.dp))
                                                                 .padding(horizontal = 5.dp, vertical = 2.dp)
                                                         ) {
                                                             Text(
                                                                 text = "Faculty ★",
                                                                 fontSize = 10.sp,
-                                                                color = PrimaryBlue,
+                                                                color = accentColor,
                                                                 fontWeight = FontWeight.Bold
                                                             )
                                                         }
@@ -744,7 +745,7 @@ fun VacantRoomsScreen(
                                                 text = if (selectedCampus != null) "All ${selectedCampus} Buildings" else "All Buildings",
                                                 fontSize = 13.sp,
                                                 fontWeight = if (isAllBuildingsSelected) FontWeight.ExtraBold else FontWeight.Medium,
-                                                color = if (isAllBuildingsSelected) PrimaryBlue else textPrimary
+                                                color = if (isAllBuildingsSelected) accentColor else textPrimary
                                             )
                                         },
                                         onClick = {
@@ -812,13 +813,13 @@ fun VacantRoomsScreen(
                                 },
                                 shape = RoundedCornerShape(10.dp),
                                 colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = PrimaryBlue.copy(alpha = 0.15f),
-                                    selectedLabelColor = PrimaryBlue
+                                    selectedContainerColor = accentColor.copy(alpha = 0.15f),
+                                    selectedLabelColor = accentColor
                                 ),
                                 border = FilterChipDefaults.filterChipBorder(
                                     enabled = true,
                                     selected = isSelected,
-                                    borderColor = if (isSelected) PrimaryBlue else borderSubtle
+                                    borderColor = if (isSelected) accentColor else borderSubtle
                                 )
                             )
                         }
@@ -838,22 +839,22 @@ fun VacantRoomsScreen(
                                             text = "Reset Faculty (${defaultScope.buildingCode ?: "Default"})",
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.SemiBold,
-                                            color = PrimaryBlue
+                                            color = accentColor
                                         )
                                     },
                                     icon = {
                                         Icon(
                                             imageVector = Icons.Outlined.RestartAlt,
                                             contentDescription = null,
-                                            tint = PrimaryBlue,
+                                            tint = accentColor,
                                             modifier = Modifier.size(14.dp)
                                         )
                                     },
                                     shape = RoundedCornerShape(10.dp),
                                     colors = SuggestionChipDefaults.suggestionChipColors(
-                                        containerColor = PrimaryBlue.copy(alpha = 0.1f)
+                                        containerColor = accentColor.copy(alpha = 0.1f)
                                     ),
-                                    border = BorderStroke(1.dp, PrimaryBlue.copy(alpha = 0.3f))
+                                    border = BorderStroke(1.dp, accentColor.copy(alpha = 0.3f))
                                 )
                             }
                         }
@@ -1012,7 +1013,7 @@ fun VacantRoomsScreen(
                         Icon(
                             Icons.Outlined.Info,
                             contentDescription = null,
-                            tint = PrimaryBlue,
+                            tint = accentColor,
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(modifier = Modifier.width(10.dp))
@@ -1073,7 +1074,7 @@ fun VacantRoomsScreen(
                             selectedCategory = "All"
                         }
                     ) {
-                        Text("Reset All", color = PrimaryBlue, fontSize = 13.sp)
+                        Text("Reset All", color = accentColor, fontSize = 13.sp)
                     }
                 }
 
@@ -1249,7 +1250,7 @@ fun VacantRoomsScreen(
                     onClick = { showFilterSheet = false },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+                    colors = ButtonDefaults.buttonColors(containerColor = accentColor)
                 ) {
                     Text("Apply & View Rooms")
                 }
@@ -1402,6 +1403,7 @@ fun LocationDropdownSelector(
     menuAlignmentEnd: Boolean = false,
     menuContent: @Composable ColumnScope.() -> Unit
 ) {
+    val accentColor = MaterialTheme.colorScheme.primary
     val surfaceColor = if (isDark) DarkSurfaceCard else Color.White
     val textPrimary = if (isDark) Color.White else TextPrimaryLight
     val textMuted = if (isDark) Color(0xFF94A3B8) else TextMutedLight
@@ -1411,7 +1413,7 @@ fun LocationDropdownSelector(
         Surface(
             shape = RoundedCornerShape(12.dp),
             color = surfaceColor,
-            border = BorderStroke(1.2.dp, if (expanded) PrimaryBlue else borderSubtle),
+            border = BorderStroke(1.2.dp, if (expanded) accentColor else borderSubtle),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp)
@@ -1426,7 +1428,7 @@ fun LocationDropdownSelector(
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = PrimaryBlue,
+                    tint = accentColor,
                     modifier = Modifier.size(18.dp)
                 )
 
@@ -1450,14 +1452,14 @@ fun LocationDropdownSelector(
                         if (badgeText != null) {
                             Box(
                                 modifier = Modifier
-                                    .background(PrimaryBlue.copy(alpha = 0.12f), RoundedCornerShape(4.dp))
+                                    .background(accentColor.copy(alpha = 0.12f), RoundedCornerShape(4.dp))
                                     .padding(horizontal = 4.dp, vertical = 1.dp)
                             ) {
                                 Text(
                                     text = badgeText,
                                     fontSize = 8.5.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = PrimaryBlue
+                                    color = accentColor
                                 )
                             }
                         }
@@ -1734,12 +1736,13 @@ fun RoomScheduleDetailDialog(
                             fontSize = 12.5.sp,
                             color = textMuted
                         )
+                        val accentColor = MaterialTheme.colorScheme.primary
                         if (room.usedByFaculties.isNotEmpty()) {
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = "Used by: ${room.usedByFaculties.joinToString(", ")}",
                                 fontSize = 11.sp,
-                                color = PrimaryBlue,
+                                color = accentColor,
                                 fontWeight = FontWeight.Medium
                             )
                         }
@@ -1878,11 +1881,11 @@ fun RoomScheduleDetailDialog(
                                     }
                                     Surface(
                                         shape = RoundedCornerShape(8.dp),
-                                        color = PrimaryBlue.copy(alpha = 0.12f)
+                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
                                     ) {
                                         Text(
                                             text = room.level.displayName,
-                                            color = PrimaryBlue,
+                                            color = MaterialTheme.colorScheme.primary,
                                             fontSize = 11.5.sp,
                                             fontWeight = FontWeight.SemiBold,
                                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
@@ -1912,7 +1915,7 @@ fun RoomScheduleDetailDialog(
                                                 text = session.startTime,
                                                 fontWeight = FontWeight.Bold,
                                                 fontSize = 13.sp,
-                                                color = PrimaryBlue
+                                                color = MaterialTheme.colorScheme.primary
                                             )
                                             Text(
                                                 text = session.endTime,
@@ -1946,7 +1949,7 @@ fun RoomScheduleDetailDialog(
                                                 Text(
                                                     text = "Group: ${session.programmeGroup}",
                                                     fontSize = 11.sp,
-                                                    color = PrimaryBlue
+                                                    color = MaterialTheme.colorScheme.primary
                                                 )
                                             }
                                         }
@@ -1966,7 +1969,7 @@ fun RoomScheduleDetailDialog(
                         .fillMaxWidth()
                         .height(46.dp),
                     shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
                     Text("Close", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 }

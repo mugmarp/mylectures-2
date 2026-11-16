@@ -1171,7 +1171,7 @@ fun CalendarScreen(
 
     // Academic Profile Sheet
     if (showProfileSheet) {
-        val enrolledProg = repository.getInitialProgramme() ?: "EEE II"
+        val enrolledProg = repository.getInitialProgramme() ?: ""
         AcademicProfileSheet(
             programme = uiState.currentProgramme,
             enrolledProgramme = enrolledProg,

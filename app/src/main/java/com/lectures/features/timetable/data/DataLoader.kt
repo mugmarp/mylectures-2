@@ -59,7 +59,7 @@ class DataLoader(
                     val sampleNote = LectureNote(
                         naturalKey = "GEN101|University Studies|Monday|09:00|sample1",
                         title = "Welcome to Lectures - Semester Study Guide",
-                        content = "Keep track of your course schedules, lecture notes, revision tasks, and assignment deadlines all in one place.\n• Attach your notes to your scheduled timetable lectures.\n• Set customizable pre-class alerts so you never miss a lecture.\n• Use markdown formatting and attach key files or voice recordings.",
+                        content = "Keep track of your course schedules, lecture notes, revision tasks, and assignment deadlines all in one place.\n• Attach your notes to your scheduled timetable lectures.\n• Set customizable pre-class alerts so you never miss a lecture.\n• Use markdown formatting and attach key study files.",
                         updatedAt = System.currentTimeMillis() - 3600000L,
                         colourTag = "#2563EB",
                         alarmMinutes = 30,
@@ -207,7 +207,9 @@ class DataLoader(
                 val isExplicitFinal = if (obj.has("is_final")) obj.optBoolean("is_final") else null
                 val acadYear = obj.optString("academic_year", "2026/2027")
                 val semester = obj.optString("semester", "Semester 1")
-                val releaseNotes = obj.optString("release_notes", null)
+                val releaseNotes = if (obj.has("release_notes") && !obj.isNull("release_notes")) {
+                    obj.optString("release_notes").ifBlank { null }
+                } else null
                 val totalSessions = obj.optInt("total_sessions", 1304)
 
                 com.lectures.features.timetable.domain.TimetableVersionResolver.resolve(

@@ -24,15 +24,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationManagerCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.lectures.core.notification.InAppNotificationItem
 import com.lectures.core.notification.InAppNotificationStore
 import com.lectures.core.notification.NotificationHelper
 import com.lectures.core.notification.NotificationItemType
+import com.lectures.core.util.NotificationPermissionHelper
 import com.lectures.features.timetable.domain.Assignment
 import com.lectures.features.timetable.domain.LectureNote
 import com.lectures.features.timetable.ui.*
@@ -53,7 +58,9 @@ fun NotificationCenterSheet(
     onOpenSettings: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val isDark = LocalAppTheme.current.isDark
+    val accentColor = MaterialTheme.colorScheme.primary
     val surfaceColor = if (isDark) DarkSurfaceCard else Color.White
     val textColor = if (isDark) Color.White else TextPrimaryLight
     val textSub = if (isDark) Color(0xFF94A3B8) else TextMutedLight
@@ -66,8 +73,17 @@ fun NotificationCenterSheet(
     var selectedSection by remember { mutableIntStateOf(0) } // 0 = Scheduled Alarms, 1 = Notification History
     var testFeedback by remember { mutableStateOf<String?>(null) }
 
-    val areNotificationsEnabled = remember(context) {
-        NotificationManagerCompat.from(context).areNotificationsEnabled()
+    var areNotificationsEnabled by remember(context) {
+        mutableStateOf(NotificationManagerCompat.from(context).areNotificationsEnabled())
+    }
+    DisposableEffect(lifecycleOwner, context) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                areNotificationsEnabled = NotificationManagerCompat.from(context).areNotificationsEnabled()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     ModalBottomSheet(
@@ -101,13 +117,13 @@ fun NotificationCenterSheet(
                     Box(
                         modifier = Modifier
                             .size(44.dp)
-                            .background(PrimaryBlue.copy(alpha = 0.15f), CircleShape),
+                            .background(accentColor.copy(alpha = 0.15f), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Filled.NotificationsActive,
                             contentDescription = null,
-                            tint = PrimaryBlue,
+                            tint = accentColor,
                             modifier = Modifier.size(22.dp)
                         )
                     }
@@ -141,7 +157,14 @@ fun NotificationCenterSheet(
                         1.dp,
                         if (areNotificationsEnabled) Color(0xFF86EFAC) else Color(0xFFFDE68A)
                     ),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .clickable {
+                            NotificationPermissionHelper.openAppNotificationSettings(context)
+                            onOpenSettings()
+                        }
+                        .testTag("notification_status_card")
                 ) {
                     Row(
                         modifier = Modifier.padding(14.dp),
@@ -242,7 +265,7 @@ fun NotificationCenterSheet(
                                     testFeedback = "Posted Daily Class Digest!"
                                 },
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = PrimaryBlue,
+                                    containerColor = accentColor,
                                     contentColor = Color.White
                                 ),
                                 shape = RoundedCornerShape(10.dp),
@@ -291,7 +314,7 @@ fun NotificationCenterSheet(
                             text = "Active Alarms ($activeTotal)",
                             fontSize = 12.sp,
                             fontWeight = if (selectedSection == 0) FontWeight.Bold else FontWeight.Medium,
-                            color = if (selectedSection == 0) PrimaryBlue else textSub
+                            color = if (selectedSection == 0) accentColor else textSub
                         )
                     }
 
@@ -310,7 +333,7 @@ fun NotificationCenterSheet(
                                 text = "Alert History (${notificationHistory.size})",
                                 fontSize = 12.sp,
                                 fontWeight = if (selectedSection == 1) FontWeight.Bold else FontWeight.Medium,
-                                color = if (selectedSection == 1) PrimaryBlue else textSub
+                                color = if (selectedSection == 1) accentColor else textSub
                             )
                             if (unreadCount > 0) {
                                 Spacer(modifier = Modifier.width(6.dp))
@@ -370,7 +393,7 @@ fun NotificationCenterSheet(
                                 Icon(
                                     imageVector = Icons.Outlined.Alarm,
                                     contentDescription = null,
-                                    tint = PrimaryBlue,
+                                    tint = accentColor,
                                     modifier = Modifier.size(18.dp)
                                 )
                                 Spacer(modifier = Modifier.width(10.dp))
@@ -524,7 +547,7 @@ fun NotificationCenterSheet(
                         Surface(
                             shape = RoundedCornerShape(12.dp),
                             color = if (item.isRead) cardBg else surfaceColor,
-                            border = BorderStroke(1.dp, if (!item.isRead) PrimaryBlue.copy(alpha = 0.4f) else cardBorder),
+                            border = BorderStroke(1.dp, if (!item.isRead) accentColor.copy(alpha = 0.4f) else cardBorder),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {

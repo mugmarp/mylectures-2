@@ -964,7 +964,7 @@ fun TasksScreen(
     }
 
     if (showProfileSheet) {
-        val enrolledProg = savedProgramme ?: repository.getInitialProgramme() ?: "EEE II"
+        val enrolledProg = savedProgramme ?: repository.getInitialProgramme() ?: ""
         AcademicProfileSheet(
             programme = savedProgramme ?: "",
             enrolledProgramme = enrolledProg,

@@ -1,5 +1,7 @@
 package com.lectures
 
+import android.Manifest
+import android.app.Application
 import android.app.NotificationManager
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
@@ -92,6 +94,9 @@ class AlarmAndNotificationTest {
 
     @Test
     fun testNotificationDisplay() {
+        shadowOf(context.applicationContext as Application)
+            .grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
+
         NotificationHelper.showTaskReminderNotification(
             context = context,
             taskId = 101L,
@@ -108,5 +113,24 @@ class AlarmAndNotificationTest {
         assertTrue("Notification should be posted", notifications.isNotEmpty())
         val notification = notifications.first()
         assertEquals(NotificationHelper.CHANNEL_ACADEMIC_TASKS, notification.channelId)
+    }
+
+    @Test
+    fun testNotificationSkippedSafelyWhenPermissionDenied() {
+        shadowOf(context.applicationContext as Application)
+            .denyPermissions(Manifest.permission.POST_NOTIFICATIONS)
+
+        NotificationHelper.showTaskReminderNotification(
+            context = context,
+            taskId = 102L,
+            title = "Lab Quiz",
+            courseCode = "BCH2101",
+            dueDate = "Tomorrow • 12:00",
+            priority = "Medium"
+        )
+
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val notifications = shadowOf(notificationManager).allNotifications
+        assertTrue("OS notification should not post without POST_NOTIFICATIONS", notifications.isEmpty())
     }
 }

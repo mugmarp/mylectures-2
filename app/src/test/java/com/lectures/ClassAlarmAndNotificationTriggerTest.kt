@@ -1,6 +1,8 @@
 package com.lectures
 
+import android.Manifest
 import android.app.AlarmManager
+import android.app.Application
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
@@ -48,6 +50,8 @@ class ClassAlarmAndNotificationTriggerTest {
     @Before
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
+        shadowOf(context.applicationContext as Application)
+            .grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
         alarmScheduler = AlarmScheduler(context)
         notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         shadowNotificationManager = shadowOf(notificationManager)
