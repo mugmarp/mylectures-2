@@ -81,7 +81,8 @@ import kotlinx.coroutines.Dispatchers
 
 enum class SettingsSubScreen {
     MAIN,
-    APPEARANCE
+    APPEARANCE,
+    NOTIFICATIONS
 }
 
 @Composable
@@ -293,7 +294,11 @@ fun SettingsScreen(
                         Spacer(modifier = Modifier.width(10.dp))
                     }
                     Text(
-                        text = if (currentSubScreen == SettingsSubScreen.APPEARANCE) "Appearance & Theme" else "Settings",
+                        text = when (currentSubScreen) {
+                            SettingsSubScreen.APPEARANCE -> "Appearance & Theme"
+                            SettingsSubScreen.NOTIFICATIONS -> "Notifications & Alarms"
+                            SettingsSubScreen.MAIN -> "Settings"
+                        },
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onBackground
@@ -302,6 +307,22 @@ fun SettingsScreen(
             }
         }
     ) { padding ->
+        var areNotificationsAllowed by remember {
+            mutableStateOf(NotificationPermissionHelper.areNotificationsEnabled(context))
+        }
+        var canScheduleExactAlarms by remember {
+            mutableStateOf(NotificationPermissionHelper.canScheduleExactAlarms(context))
+        }
+        var blockedChannels by remember {
+            mutableStateOf(NotificationPermissionHelper.getBlockedReminderChannels(context))
+        }
+        LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+            areNotificationsAllowed = NotificationPermissionHelper.areNotificationsEnabled(context)
+            canScheduleExactAlarms = NotificationPermissionHelper.canScheduleExactAlarms(context)
+            blockedChannels = NotificationPermissionHelper.getBlockedReminderChannels(context)
+        }
+        var isPermissionBannerDismissed by rememberSaveable { mutableStateOf(false) }
+
         if (currentSubScreen == SettingsSubScreen.APPEARANCE) {
             AppearanceSettingsView(
                 modifier = Modifier
@@ -312,22 +333,36 @@ fun SettingsScreen(
                 onSelectThemeMode = onSelectThemeMode,
                 onSelectAccent = onSelectAccent
             )
+        } else if (currentSubScreen == SettingsSubScreen.NOTIFICATIONS) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentAlignment = Alignment.TopCenter
+            ) {
+                NotificationSettingsView(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .widthIn(max = 760.dp),
+                    context = context,
+                    uiState = uiState,
+                    isDark = isDark,
+                    areNotificationsAllowed = areNotificationsAllowed,
+                    canScheduleExactAlarms = canScheduleExactAlarms,
+                    blockedChannels = blockedChannels,
+                    isPermissionBannerDismissed = isPermissionBannerDismissed,
+                    onDismissPermissionBanner = { isPermissionBannerDismissed = true },
+                    onToggleNotifications = { viewModel.setNotificationsEnabled(it) },
+                    onSelectClassLeadMinutes = { viewModel.setClassAlarmLeadMinutes(it) },
+                    onOpenCustomLeadDialog = {
+                        customLeadInput = uiState.classAlarmLeadMinutes.toString()
+                        showCustomLeadDialog = true
+                    },
+                    onSelectTaskLeadHours = { viewModel.setTaskReminderLeadHours(it) },
+                    onToggleDailyDigest = { viewModel.setDailyDigestEnabled(it) }
+                )
+            }
         } else {
-            var areNotificationsAllowed by remember {
-                mutableStateOf(NotificationPermissionHelper.areNotificationsEnabled(context))
-            }
-            var canScheduleExactAlarms by remember {
-                mutableStateOf(NotificationPermissionHelper.canScheduleExactAlarms(context))
-            }
-            var blockedChannels by remember {
-                mutableStateOf(NotificationPermissionHelper.getBlockedReminderChannels(context))
-            }
-            LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
-                areNotificationsAllowed = NotificationPermissionHelper.areNotificationsEnabled(context)
-                canScheduleExactAlarms = NotificationPermissionHelper.canScheduleExactAlarms(context)
-                blockedChannels = NotificationPermissionHelper.getBlockedReminderChannels(context)
-            }
-            var isPermissionBannerDismissed by rememberSaveable { mutableStateOf(false) }
 
             Box(
                 modifier = Modifier
@@ -416,7 +451,8 @@ fun SettingsScreen(
                             .clickable(onClick = onReconfigureAcademicProfile),
                         shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
                         Row(
                             modifier = Modifier
@@ -456,15 +492,7 @@ fun SettingsScreen(
                         isPermissionBannerDismissed = isPermissionBannerDismissed,
                         onDismissPermissionBanner = { isPermissionBannerDismissed = true },
                         onToggleNotifications = { viewModel.setNotificationsEnabled(it) },
-                        onSelectClassLeadMinutes = { viewModel.setClassAlarmLeadMinutes(it) },
-                        onOpenCustomLeadDialog = {
-                            customLeadInput = uiState.classAlarmLeadMinutes.toString()
-                            showCustomLeadDialog = true
-                        },
-                        onSelectTaskLeadHours = { viewModel.setTaskReminderLeadHours(it) },
-                        onToggleVibration = { viewModel.setAlarmVibration(it) },
-                        onSendTestAlert = { viewModel.sendTestNotification(context) },
-                        onReArmAllAlarms = { viewModel.rescheduleAllAlarms() }
+                        onOpenNotificationPreferences = { currentSubScreen = SettingsSubScreen.NOTIFICATIONS }
                     )
 
                     Spacer(modifier = Modifier.height(24.dp))

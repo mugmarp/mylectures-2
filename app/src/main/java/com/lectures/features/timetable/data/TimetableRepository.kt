@@ -171,6 +171,7 @@ class TimetableRepository(
     val classAlarmLeadPref: Flow<Int> = etagStore.classAlarmLeadPref
     val taskReminderLeadPref: Flow<Int> = etagStore.taskReminderLeadPref
     val alarmVibrationPref: Flow<Boolean> = etagStore.alarmVibrationPref
+    val dailyDigestEnabledPref: Flow<Boolean> = etagStore.dailyDigestEnabledPref
     val lastSyncPref: Flow<String?> = etagStore.lastSyncPref
     val academicYearPref: Flow<String> = etagStore.academicYearPref
     val semesterPref: Flow<String> = etagStore.semesterPref
@@ -179,6 +180,7 @@ class TimetableRepository(
     fun getClassAlarmLeadMinutes(): Int = etagStore.getClassAlarmLeadMinutes()
     fun getTaskReminderLeadHours(): Int = etagStore.getTaskReminderLeadHours()
     fun isAlarmVibrationEnabled(): Boolean = etagStore.isAlarmVibrationEnabled()
+    fun isDailyDigestEnabled(): Boolean = etagStore.isDailyDigestEnabled()
     fun getAcademicYear(): String = etagStore.getAcademicYear()
     fun getSemester(): String = etagStore.getSemester()
 
@@ -217,6 +219,10 @@ class TimetableRepository(
 
     suspend fun setAlarmVibration(vibrate: Boolean) {
         etagStore.setAlarmVibration(vibrate)
+    }
+
+    suspend fun setDailyDigestEnabled(enabled: Boolean) {
+        etagStore.setDailyDigestEnabled(enabled)
     }
 
     suspend fun setLastSyncTime(timeStr: String) {

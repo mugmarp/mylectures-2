@@ -324,4 +324,27 @@ class NotesAndSettingsFixesTest {
         assertTrue(resetDone)
         assertFalse("All attachment files must be deleted on note reset", dummyFile.exists())
     }
+
+    @Test
+    fun settingsViewModel_dailyDigestTogglePersistsAndSyncs() = runTest(testDispatcher) {
+        val vm = SettingsViewModel(
+            repository = repository,
+            dataLoader = DataLoader(context, db),
+            alarmScheduler = TaskAlarmScheduler(context),
+            ioDispatcher = testDispatcher,
+            application = app
+        )
+
+        assertTrue(vm.uiState.value.dailyDigestEnabled)
+        vm.setDailyDigestEnabled(false)
+        testScheduler.advanceUntilIdle()
+
+        assertFalse(repository.dailyDigestEnabledPref.first())
+        assertFalse(vm.uiState.value.dailyDigestEnabled)
+
+        vm.setDailyDigestEnabled(true)
+        testScheduler.advanceUntilIdle()
+        assertTrue(repository.dailyDigestEnabledPref.first())
+        assertTrue(vm.uiState.value.dailyDigestEnabled)
+    }
 }

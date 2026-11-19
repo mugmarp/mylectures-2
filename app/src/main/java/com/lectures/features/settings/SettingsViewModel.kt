@@ -41,6 +41,7 @@ data class SettingsUiState(
     val classAlarmLeadMinutes: Int = 30,
     val taskReminderLeadHours: Int = 2,
     val alarmVibration: Boolean = true,
+    val dailyDigestEnabled: Boolean = true,
     val selectedAccent: Int = 0,
     val lastSyncTime: String = "Up to date",
     val timetableVersion: String = "Final Timetable",
@@ -147,6 +148,13 @@ class SettingsViewModel(
         viewModelScope.launch {
             repository.alarmVibrationPref.collect { vib ->
                 _uiState.value = _uiState.value.copy(alarmVibration = vib)
+            }
+        }
+
+        // Collect daily morning digest toggle
+        viewModelScope.launch {
+            repository.dailyDigestEnabledPref.collect { digest ->
+                _uiState.value = _uiState.value.copy(dailyDigestEnabled = digest)
             }
         }
 
@@ -329,7 +337,8 @@ class SettingsViewModel(
                 _uiState.value = _uiState.value.copy(
                     successMessage = if (summary.notificationsEnabled) {
                         val eventPart = if (summary.customEventCount > 0) ", ${summary.customEventCount} activity alarms" else ""
-                        "Reminders active. ${summary.enrolledClassCount} class reminders, ${summary.taskCount} task alerts, ${summary.customNoteCount} custom alarms$eventPart, and daily digest enabled."
+                        val digestPart = if (_uiState.value.dailyDigestEnabled) ", and daily digest enabled" else ""
+                        "Reminders active. ${summary.enrolledClassCount} class reminders, ${summary.taskCount} task alerts, ${summary.customNoteCount} custom alarms$eventPart$digestPart."
                     } else {
                         "All alarms and reminders paused (quiet mode)."
                     }
@@ -403,6 +412,29 @@ class SettingsViewModel(
                 )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(errorMessage = "Failed to update vibration setting: ${e.message}")
+            }
+        }
+    }
+
+    fun setDailyDigestEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            try {
+                repository.setDailyDigestEnabled(enabled)
+                _uiState.value = _uiState.value.copy(dailyDigestEnabled = enabled)
+                if (enabled && _uiState.value.notificationsEnabled) {
+                    (reminderScheduler ?: ReminderScheduler(application)).scheduleDailyReminder()
+                } else {
+                    (reminderScheduler ?: ReminderScheduler(application)).cancelDailyReminder()
+                }
+                _uiState.value = _uiState.value.copy(
+                    successMessage = when {
+                        !_uiState.value.notificationsEnabled -> "Morning digest preference saved (Quiet Mode active)."
+                        enabled -> "Morning schedule digest active (7:30 AM daily)."
+                        else -> "Morning schedule digest turned off."
+                    }
+                )
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(errorMessage = "Failed to update morning digest: ${e.message}")
             }
         }
     }

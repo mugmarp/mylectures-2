@@ -15,6 +15,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
@@ -22,11 +23,13 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import com.lectures.features.notes.CourseOption
 import com.lectures.features.notes.NoteEditorScreen
+import com.lectures.features.settings.SettingsScreen
 import com.lectures.features.tasks.TasksScreen
 import com.lectures.features.timetable.domain.Assignment
 import com.lectures.ui.AppTheme
 import com.lectures.ui.MainScaffold
 import com.lectures.ui.ThemeMode
+import com.lectures.ui.components.NotificationCenterSheet
 import com.lectures.ui.rememberLecturesWindow
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -220,6 +223,51 @@ class Phase5UiAndAdaptiveTabletTest {
         composeRule.waitForIdle()
 
         composeRule.onNodeWithText("Concurrency Patterns").assertIsDisplayed()
+    }
+
+    @Test
+    fun settingsNotificationsUsesCompactSummaryAndSubScreenWithoutTestButtons() {
+        org.robolectric.Shadows.shadowOf(app).grantPermissions(android.Manifest.permission.POST_NOTIFICATIONS)
+        composeRule.setContent {
+            val config = configuredCopy(widthDp = 360, heightDp = 800)
+            CompositionLocalProvider(LocalConfiguration provides config) {
+                AppTheme(themeMode = ThemeMode.LIGHT) {
+                    SettingsScreen(currentProgramme = "BCS I")
+                }
+            }
+        }
+        composeRule.waitForIdle()
+
+        // No warning banner clutter when notifications and exact alarms are healthy
+        assertEquals(0, composeRule.onAllNodesWithText("Exact Alarm Timing Granted").fetchSemanticsNodes().size)
+        composeRule.onNodeWithTag("settings_notifications_switch").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("settings_notifications_configure_row").performScrollTo().assertIsDisplayed()
+        assertEquals(0, composeRule.onAllNodesWithText("Test Alert").fetchSemanticsNodes().size)
+        assertEquals(0, composeRule.onAllNodesWithText("Re-Arm All").fetchSemanticsNodes().size)
+        assertEquals(0, composeRule.onAllNodesWithText("OS Channels").fetchSemanticsNodes().size)
+
+        composeRule.onNodeWithTag("settings_notifications_configure_row").performClick()
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithText("Morning Schedule Digest").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Sounds, Vibration & Banners").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("settings_daily_digest_switch").performScrollTo().assertIsDisplayed()
+        assertEquals(0, composeRule.onAllNodesWithText("Test Alert").fetchSemanticsNodes().size)
+        assertEquals(0, composeRule.onAllNodesWithText("Re-Arm All").fetchSemanticsNodes().size)
+    }
+
+    @Test
+    fun notificationCenterSheetHidesDeveloperTestAlarmCard() {
+        composeRule.setContent {
+            AppTheme(themeMode = ThemeMode.LIGHT) {
+                NotificationCenterSheet(onDismiss = {})
+            }
+        }
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithTag("notification_center_settings_btn").assertIsDisplayed()
+        assertEquals(0, composeRule.onAllNodesWithText("Test Alarm & Alert").fetchSemanticsNodes().size)
+        assertEquals(0, composeRule.onAllNodesWithText("Class Alert").fetchSemanticsNodes().size)
     }
 }
 

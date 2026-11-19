@@ -42,11 +42,12 @@ object AlarmSyncCoordinator {
     ): AlarmResyncSummary = withContext(Dispatchers.IO) {
         syncMutex.withLock {
             val enabled = repository.etagStore.isNotificationsEnabled()
+            val dailyDigestEnabled = repository.etagStore.isDailyDigestEnabled()
             val prog = repository.etagStore.getSavedProgramme()?.trim()
                 ?: repository.getInitialProgramme()?.trim()
                 ?: ""
             val leadMinutes = repository.etagStore.getClassAlarmLeadMinutes()
-            val signature = "$enabled|$prog|$leadMinutes"
+            val signature = "$enabled|$dailyDigestEnabled|$prog|$leadMinutes"
 
             val nowNano = System.nanoTime()
             if (!force && signature == lastSignature && (nowNano - lastCompletedNano) in 0L..COALESCE_WINDOW_NS) {
@@ -84,7 +85,11 @@ object AlarmSyncCoordinator {
             }
 
             // 1. Daily Morning Digest
-            reminderScheduler.scheduleDailyReminder()
+            if (dailyDigestEnabled) {
+                reminderScheduler.scheduleDailyReminder()
+            } else {
+                reminderScheduler.cancelDailyReminder()
+            }
 
             // 2. Academic Task Reminders (never trigger catch-up 5s spam on bulk resync)
             var taskCount = 0

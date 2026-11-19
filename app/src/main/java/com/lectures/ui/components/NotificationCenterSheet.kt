@@ -70,8 +70,6 @@ fun NotificationCenterSheet(
     val notificationHistory by notifStore.notifications.collectAsState()
 
     var selectedSection by remember { mutableIntStateOf(0) } // 0 = Scheduled Alarms, 1 = Notification History
-    var testFeedback by remember { mutableStateOf<String?>(null) }
-    var testFeedbackIsError by remember { mutableStateOf(false) }
 
     var areNotificationsEnabled by remember(context) {
         mutableStateOf(NotificationPermissionHelper.areNotificationsEnabled(context))
@@ -149,183 +147,76 @@ fun NotificationCenterSheet(
                             color = textSub
                         )
                     }
-                }
-            }
-
-            // Notification Status Card
-            item {
-                val isFullyHealthy = areNotificationsEnabled && canExactAlarms && blockedChannels.isEmpty()
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = if (isFullyHealthy) {
-                        if (isDark) Color(0xFF064E3B).copy(alpha = 0.3f) else Color(0xFFF0FDF4)
-                    } else {
-                        if (isDark) Color(0xFF78350F).copy(alpha = 0.3f) else Color(0xFFFEF3C7)
-                    },
-                    border = BorderStroke(
-                        1.dp,
-                        if (isFullyHealthy) Color(0xFF86EFAC) else Color(0xFFFDE68A)
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(14.dp))
-                        .clickable {
-                            when {
-                                !areNotificationsEnabled -> NotificationPermissionHelper.openAppNotificationSettings(context)
-                                blockedChannels.isNotEmpty() -> NotificationPermissionHelper.openChannelSettings(context, blockedChannels.first())
-                                !canExactAlarms -> NotificationPermissionHelper.openExactAlarmSettings(context)
-                                else -> {
-                                    onDismiss()
-                                    onOpenSettings()
-                                }
-                            }
-                        }
-                        .testTag("notification_status_card")
-                ) {
-                    Row(
-                        modifier = Modifier.padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                    IconButton(
+                        onClick = {
+                            onDismiss()
+                            onOpenSettings()
+                        },
+                        modifier = Modifier.testTag("notification_center_settings_btn")
                     ) {
                         Icon(
-                            imageVector = if (isFullyHealthy) Icons.Filled.CheckCircle else Icons.Outlined.Warning,
-                            contentDescription = null,
-                            tint = if (isFullyHealthy) Color(0xFF16A34A) else Color(0xFFD97706),
-                            modifier = Modifier.size(20.dp)
+                            imageVector = Icons.Outlined.Settings,
+                            contentDescription = "Notification settings",
+                            tint = textSub
                         )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = when {
-                                    !areNotificationsEnabled -> "Notifications Paused"
-                                    blockedChannels.isNotEmpty() -> "${blockedChannels.size} Alert Channel(s) Muted"
-                                    !canExactAlarms -> "Exact Alarm Timing Restricted"
-                                    else -> "Notifications & Exact Alarms Active"
-                                },
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp,
-                                color = if (isFullyHealthy) {
-                                    if (isDark) Color(0xFF86EFAC) else Color(0xFF166534)
-                                } else {
-                                    if (isDark) Color(0xFFFDE68A) else Color(0xFF92400E)
-                                }
-                            )
-                            Text(
-                                text = when {
-                                    !areNotificationsEnabled -> "Tap to enable notification permissions in Android Settings"
-                                    blockedChannels.isNotEmpty() -> "Tap to unmute alert channels in Android Settings"
-                                    !canExactAlarms -> "Tap to allow exact alarms so reminders fire on time"
-                                    else -> "Tap to customize lead times & quiet mode"
-                                },
-                                fontSize = 11.sp,
-                                color = if (isDark) Color(0xFFCBD5E1) else Color(0xFF475569)
-                            )
-                        }
                     }
                 }
             }
 
-            // Test Alarm Quick Action
-            item {
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = cardBg,
-                    border = BorderStroke(1.dp, cardBorder),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically
+            // Show system alert health warning ONLY when action is needed
+            val isFullyHealthy = areNotificationsEnabled && canExactAlarms && blockedChannels.isEmpty()
+            if (!isFullyHealthy) {
+                item {
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = if (isDark) Color(0xFF78350F).copy(alpha = 0.3f) else Color(0xFFFEF3C7),
+                        border = BorderStroke(1.dp, Color(0xFFFDE68A)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .clickable {
+                                when {
+                                    !areNotificationsEnabled -> NotificationPermissionHelper.openAppNotificationSettings(context)
+                                    blockedChannels.isNotEmpty() -> NotificationPermissionHelper.openChannelSettings(context, blockedChannels.first())
+                                    !canExactAlarms -> NotificationPermissionHelper.openExactAlarmSettings(context)
+                                }
+                            }
+                            .testTag("notification_status_card")
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .background(Color(0xFF8B5CF6).copy(alpha = 0.12f), CircleShape),
-                            contentAlignment = Alignment.Center
+                        Row(
+                            modifier = Modifier.padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Alarm,
+                                imageVector = Icons.Outlined.Warning,
                                 contentDescription = null,
-                                tint = Color(0xFF8B5CF6),
-                                modifier = Modifier.size(18.dp)
+                                tint = Color(0xFFD97706),
+                                modifier = Modifier.size(20.dp)
                             )
-                        }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Test Alarm & Alert",
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 13.sp,
-                                color = textColor
-                            )
-                            Text(
-                                text = "Trigger alert to verify sound & banner",
-                                fontSize = 11.sp,
-                                color = textSub
-                            )
-                        }
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Button(
-                                onClick = {
-                                    if (!NotificationPermissionHelper.areNotificationsEnabled(context)) {
-                                        testFeedbackIsError = true
-                                        testFeedback = "Enable notification permissions in Android Settings first."
-                                    } else {
-                                        val posted = NotificationHelper.showClassAlarmNotification(
-                                            context = context,
-                                            courseCode = "SWE2101",
-                                            courseTitle = "Object Oriented Programming",
-                                            room = "SFL01 (Computer Lab)",
-                                            startTime = "10:00 AM"
-                                        )
-                                        testFeedbackIsError = !posted
-                                        testFeedback = if (posted) {
-                                            "Triggered test Class Alert!"
-                                        } else {
-                                            "Notification blocked — check Android channel settings."
-                                        }
-                                    }
-                                },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFFEF4444),
-                                    contentColor = Color.White
-                                ),
-                                shape = RoundedCornerShape(10.dp),
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
-                            ) {
-                                Text("Class Alert", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            }
-
-                            Button(
-                                onClick = {
-                                    if (!NotificationPermissionHelper.areNotificationsEnabled(context)) {
-                                        testFeedbackIsError = true
-                                        testFeedback = "Enable notification permissions in Android Settings first."
-                                    } else {
-                                        com.lectures.core.alarm.ReminderScheduler(context).triggerTestDailyDigest()
-                                        testFeedbackIsError = false
-                                        testFeedback = "Posted Daily Class Digest!"
-                                    }
-                                },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = accentColor,
-                                    contentColor = Color.White
-                                ),
-                                shape = RoundedCornerShape(10.dp),
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
-                            ) {
-                                Text("Daily Digest", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = when {
+                                        !areNotificationsEnabled -> "Notifications Paused"
+                                        blockedChannels.isNotEmpty() -> "${blockedChannels.size} Alert Category Muted"
+                                        else -> "Exact Alarm Timing Restricted"
+                                    },
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    color = if (isDark) Color(0xFFFDE68A) else Color(0xFF92400E)
+                                )
+                                Text(
+                                    text = when {
+                                        !areNotificationsEnabled -> "Tap to enable notifications in Android Settings"
+                                        blockedChannels.isNotEmpty() -> "Tap to unmute alert categories in Android Settings"
+                                        else -> "Tap to allow exact alarms so reminders ring on time"
+                                    },
+                                    fontSize = 11.sp,
+                                    color = if (isDark) Color(0xFFCBD5E1) else Color(0xFF475569)
+                                )
                             }
                         }
                     }
-                }
-                if (testFeedback != null) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = testFeedback!!,
-                        fontSize = 12.sp,
-                        color = if (testFeedbackIsError) Color(0xFFEF4444) else Color(0xFF10B981),
-                        fontWeight = FontWeight.Medium
-                    )
                 }
             }
 

@@ -29,6 +29,7 @@ class ETagStore(context: Context, prefsName: String = "mustime_settings") {
     private val CLASS_ALARM_LEAD_KEY = "class_alarm_lead_minutes"
     private val TASK_REMINDER_LEAD_KEY = "task_reminder_lead_hours"
     private val ALARM_VIBRATION_KEY = "alarm_vibration"
+    private val DAILY_DIGEST_ENABLED_KEY = "daily_digest_enabled"
 
     private val _timetableVersionPref = MutableStateFlow(prefs.getString(TIMETABLE_VERSION_KEY, "Final Timetable") ?: "Final Timetable")
     val timetableVersionPref: Flow<String> = _timetableVersionPref.asStateFlow()
@@ -68,6 +69,11 @@ class ETagStore(context: Context, prefsName: String = "mustime_settings") {
     val alarmVibrationPref: Flow<Boolean> = _alarmVibrationPref.asStateFlow()
 
     fun isAlarmVibrationEnabled(): Boolean = prefs.getBoolean(ALARM_VIBRATION_KEY, true)
+
+    private val _dailyDigestEnabledPref = MutableStateFlow(prefs.getBoolean(DAILY_DIGEST_ENABLED_KEY, true))
+    val dailyDigestEnabledPref: Flow<Boolean> = _dailyDigestEnabledPref.asStateFlow()
+
+    fun isDailyDigestEnabled(): Boolean = prefs.getBoolean(DAILY_DIGEST_ENABLED_KEY, true)
 
     fun getAcademicYear(): String = prefs.getString(ACADEMIC_YEAR_KEY, "2026/2027") ?: "2026/2027"
     fun getSemester(): String = prefs.getString(SEMESTER_KEY, "Semester 1") ?: "Semester 1"
@@ -167,6 +173,11 @@ class ETagStore(context: Context, prefsName: String = "mustime_settings") {
     suspend fun setAlarmVibration(vibrate: Boolean) {
         prefs.edit().putBoolean(ALARM_VIBRATION_KEY, vibrate).apply()
         _alarmVibrationPref.value = vibrate
+    }
+
+    suspend fun setDailyDigestEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(DAILY_DIGEST_ENABLED_KEY, enabled).apply()
+        _dailyDigestEnabledPref.value = enabled
     }
 
     suspend fun setLastSyncTime(timeStr: String) {

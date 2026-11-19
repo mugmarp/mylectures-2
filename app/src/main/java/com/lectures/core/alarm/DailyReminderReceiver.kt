@@ -38,8 +38,9 @@ class DailyReminderReceiver : BroadcastReceiver() {
             try {
                 withTimeout(8_500L) {
                     val notificationsEnabled = etagStore.isNotificationsEnabled()
-                    if (!notificationsEnabled && !isTest) {
-                        Log.d(TAG, "Notifications disabled; skipping daily digest and cancelling future schedule")
+                    val digestEnabled = etagStore.isDailyDigestEnabled()
+                    if ((!notificationsEnabled || !digestEnabled) && !isTest) {
+                        Log.d(TAG, "Daily digest disabled (notifications=$notificationsEnabled, digest=$digestEnabled); cancelling schedule")
                         ReminderScheduler(context).cancelDailyReminder()
                         return@withTimeout
                     }
