@@ -180,13 +180,9 @@ object TaskDateTimeParser {
                     cal.add(Calendar.DAY_OF_YEAR, -daysBefore)
                     cal.timeInMillis
                 }
-                reminderMinutes >= 60 -> {
-                    // Lead hours before end of academic day (17:00)
-                    cal.set(Calendar.HOUR_OF_DAY, 17)
-                    cal.timeInMillis - (reminderMinutes * 60 * 1000L)
-                }
                 else -> {
-                    // Minutes before 09:00 AM
+                    // Unified academic evening deadline anchor (21:00): keeps 30m..12h strictly monotonic [09:00..20:30]
+                    cal.set(Calendar.HOUR_OF_DAY, 21)
                     cal.timeInMillis - (reminderMinutes * 60 * 1000L)
                 }
             }

@@ -331,6 +331,7 @@ class SettingsViewModel(
                     context = application,
                     repository = repository,
                     force = true,
+                    dispatcher = ioDispatcher,
                     reason = "settings_toggle_$enabled"
                 )
 
@@ -353,26 +354,19 @@ class SettingsViewModel(
         viewModelScope.launch {
             try {
                 repository.setClassAlarmLeadMinutes(minutes)
-                val prog = _uiState.value.currentProgramme.ifBlank { repository.getInitialProgramme() ?: "" }
-                var reArmedCount = 0
-                if (prog.isNotEmpty() && _uiState.value.notificationsEnabled) {
-                    reArmedCount = withContext(ioDispatcher) {
-                        val enrolledClasses = repository.getLocalScheduleSync(prog)
-                        val customNoteMap = repository.getNotesWithAlarms()
-                            .mapNotNull { note -> note.alarmMinutes?.let { note.naturalKey to it } }
-                            .toMap()
-                        classAlarmScheduler?.scheduleAllEnrolledClassAlarms(
-                            classes = enrolledClasses,
-                            leadMinutes = minutes,
-                            isAlarm = false,
-                            customAlarmNotes = customNoteMap
-                        ) ?: 0
-                    }
-                }
+                val summary = com.lectures.core.alarm.AlarmSyncCoordinator.resyncAll(
+                    context = application,
+                    repository = repository,
+                    force = true,
+                    preserveImminentExisting = false,
+                    dispatcher = ioDispatcher,
+                    reason = "settings_class_lead_$minutes"
+                )
+                val reArmedCount = summary.enrolledClassCount
                 _uiState.value = _uiState.value.copy(
                     classAlarmLeadMinutes = minutes,
                     successMessage = when {
-                        !_uiState.value.notificationsEnabled -> "Default class reminder set to ${minutes}m before (Quiet Mode active — alerts paused)."
+                        !summary.notificationsEnabled -> "Default class reminder set to ${minutes}m before (Quiet Mode active — alerts paused)."
                         reArmedCount > 0 -> "Lecture reminders updated to $minutes minutes before ($reArmedCount classes armed)."
                         else -> "Lecture reminder updated to $minutes minutes before."
                     }
@@ -421,14 +415,24 @@ class SettingsViewModel(
             try {
                 repository.setDailyDigestEnabled(enabled)
                 _uiState.value = _uiState.value.copy(dailyDigestEnabled = enabled)
-                if (enabled && _uiState.value.notificationsEnabled) {
-                    (reminderScheduler ?: ReminderScheduler(application)).scheduleDailyReminder()
-                } else {
-                    (reminderScheduler ?: ReminderScheduler(application)).cancelDailyReminder()
+                val summary = com.lectures.core.alarm.AlarmSyncCoordinator.resyncAll(
+                    context = application,
+                    repository = repository,
+                    force = true,
+                    preserveImminentExisting = true,
+                    dispatcher = ioDispatcher,
+                    reason = "settings_daily_digest_$enabled"
+                )
+                if (reminderScheduler != null) {
+                    if (enabled && summary.notificationsEnabled) {
+                        reminderScheduler.scheduleDailyReminder()
+                    } else {
+                        reminderScheduler.cancelDailyReminder()
+                    }
                 }
                 _uiState.value = _uiState.value.copy(
                     successMessage = when {
-                        !_uiState.value.notificationsEnabled -> "Morning digest preference saved (Quiet Mode active)."
+                        !summary.notificationsEnabled -> "Morning digest preference saved (Quiet Mode active)."
                         enabled -> "Morning schedule digest active (7:30 AM daily)."
                         else -> "Morning schedule digest turned off."
                     }
@@ -490,6 +494,7 @@ class SettingsViewModel(
                     context = application,
                     repository = repository,
                     force = true,
+                    dispatcher = ioDispatcher,
                     reason = "settings_rearm_all"
                 )
 
@@ -637,7 +642,9 @@ class SettingsViewModel(
                     val remoteMeta = repository.syncRepository?.fetchRemoteTimetableMetadata()
                     if (remoteMeta != null) {
                         val syncedEntries = repository.syncRepository.syncRemoteTimetableEntries()
-                        val resolvedMeta = if (syncedEntries > 0) {
+                        val resolvedMeta = if (remoteMeta.totalSessions > 0) {
+                            remoteMeta.copy(lastUpdated = System.currentTimeMillis())
+                        } else if (syncedEntries > 0) {
                             remoteMeta.copy(lastUpdated = System.currentTimeMillis(), totalSessions = syncedEntries)
                         } else {
                             remoteMeta.copy(lastUpdated = System.currentTimeMillis())
@@ -648,6 +655,8 @@ class SettingsViewModel(
                                 context = getApplication(),
                                 repository = repository,
                                 force = true,
+                                preserveImminentExisting = true,
+                                dispatcher = ioDispatcher,
                                 reason = "manual_settings_sync"
                             )
                         }
@@ -699,6 +708,14 @@ class SettingsViewModel(
                     AttachmentStore.deleteAll(getApplication())
                     repository.deleteAllNotes()
                 }
+                com.lectures.core.alarm.AlarmSyncCoordinator.resyncAll(
+                    context = getApplication(),
+                    repository = repository,
+                    force = true,
+                    preserveImminentExisting = true,
+                    dispatcher = ioDispatcher,
+                    reason = "settings_reset_notes"
+                )
                 _uiState.value = _uiState.value.copy(
                     isResetting = false,
                     successMessage = "All lecture notes, attachments, and note alerts have been reset."
@@ -722,6 +739,14 @@ class SettingsViewModel(
                     alarmScheduler?.cancelAllTaskReminders(tasks)
                     repository.deleteAllAssignments()
                 }
+                com.lectures.core.alarm.AlarmSyncCoordinator.resyncAll(
+                    context = getApplication(),
+                    repository = repository,
+                    force = true,
+                    preserveImminentExisting = true,
+                    dispatcher = ioDispatcher,
+                    reason = "settings_reset_tasks"
+                )
                 _uiState.value = _uiState.value.copy(
                     isResetting = false,
                     successMessage = "All academic tasks and alarms have been cleared."

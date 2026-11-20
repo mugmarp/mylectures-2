@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.test.core.app.ApplicationProvider
 import com.lectures.core.alarm.AlarmScheduler
+import com.lectures.core.alarm.AlarmSyncCoordinator
 import com.lectures.core.alarm.BootReceiver
 import com.lectures.core.alarm.ClassAlarmReceiver
 import com.lectures.core.alarm.DailyReminderReceiver
@@ -727,5 +728,286 @@ class Phase3AlarmAndNotificationTest {
         assertTrue("Morning 08:00 must sort before afternoon 14:00", bigText.indexOf("CSC302") < bigText.indexOf("CSC301"))
         assertTrue("Digest should include today's custom event", bigText.contains("Mentor Meeting"))
         assertTrue("Digest should include task due today", bigText.contains("Capstone Proposal"))
+    }
+
+    @Test
+    fun imminentClassAlertIsPreservedDuringBackgroundResyncAndExactMinuteFiresToday() {
+        val scheduler = AlarmScheduler(app)
+
+        // 1. Deterministic 07:29:15 -> 08:00 (30m lead = 07:30:00): minLeadMs=0L schedules TODAY, minLeadMs=60_000L rolls +7d
+        val tue072915 = Calendar.getInstance().apply {
+            set(2026, Calendar.OCTOBER, 6, 7, 29, 15)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        val todayAt0730 = AlarmScheduler.calculateNextTriggerMillis(
+            targetDow = Calendar.TUESDAY,
+            hour = 8,
+            minute = 0,
+            minutesBefore = 30,
+            nowMillis = tue072915,
+            minLeadMs = 0L
+        )
+        assertEquals(45_000L, todayAt0730 - tue072915)
+
+        val nextWeekAt0730 = AlarmScheduler.calculateNextTriggerMillis(
+            targetDow = Calendar.TUESDAY,
+            hour = 8,
+            minute = 0,
+            minutesBefore = 30,
+            nowMillis = tue072915,
+            minLeadMs = 60_000L
+        )
+        assertEquals(7L * 24 * 60 * 60_000L + 45_000L, nextWeekAt0730 - tue072915)
+
+        // 2. Preserve an existing imminent alarm instead of shifting it +7d on foreground/digest resync
+        val classStartCal = Calendar.getInstance().apply {
+            add(Calendar.MINUTE, 30)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val dayName = java.text.SimpleDateFormat("EEEE", java.util.Locale.US).format(classStartCal.time)
+        val startTimeStr = java.text.SimpleDateFormat("HH:mm", java.util.Locale.US).format(classStartCal.time)
+        val entry = TimetableEntry(
+            natural_key = "BCS I|CSC3501|$dayName|$startTimeStr|LT1",
+            program_group = "BCS I",
+            day = dayName,
+            time_slot = "$startTimeStr - 10:00",
+            start_time = startTimeStr,
+            end_time = "10:00",
+            course_code = "CSC3501",
+            course_title = "Real-Time Systems",
+            session_type = "Lecture",
+            lecturer = "Dr. Grace",
+            room = "LT1"
+        )
+
+        // Arm existing PendingIntent 1 minute ahead (29m lead) so today's 30m lead falls in [now-60s..now]
+        assertTrue(scheduler.scheduleClassAlarm(entry, minutesBefore = 29, isAlarm = false))
+        val initialTrigger = shadowAlarmManager.scheduledAlarms.single().triggerAtTime
+
+        // Morning digest / foreground resync with preserveImminentExisting=true keeps initialTrigger intact
+        assertTrue(
+            scheduler.scheduleClassAlarm(
+                entry = entry,
+                minutesBefore = 30,
+                isAlarm = false,
+                preserveImminentExisting = true
+            )
+        )
+        assertEquals(
+            "Imminent pending alert must be preserved rather than jumped +7 days",
+            initialTrigger,
+            shadowAlarmManager.scheduledAlarms.single().triggerAtTime
+        )
+    }
+
+    @Test
+    fun urgentAlarmsUseSetAlarmClockWhenPermittedAndFallbackWhenDenied() {
+        val scheduler = AlarmScheduler(app)
+        val entry = TimetableEntry(
+            natural_key = "BCS I|CSC3601|Friday|09:00|Lab 4",
+            program_group = "BCS I",
+            day = "Friday",
+            time_slot = "09:00 - 11:00",
+            start_time = "09:00",
+            end_time = "11:00",
+            course_code = "CSC3601",
+            course_title = "Network Security",
+            session_type = "Lecture",
+            lecturer = "Dr. Paul",
+            room = "Lab 4"
+        )
+
+        ShadowAlarmManager.setCanScheduleExactAlarms(true)
+        assertTrue(scheduler.scheduleClassAlarm(entry, minutesBefore = 15, isAlarm = true))
+        assertNotNull("Urgent class alarm must register AlarmClockInfo", alarmManager.nextAlarmClock)
+
+        shadowAlarmManager.scheduledAlarms.clear()
+        val event = CustomEvent(
+            id = 88L,
+            title = "Capstone Demo",
+            category = "Presentation",
+            dayOfWeek = "Friday",
+            startTime = "14:00",
+            endTime = "15:00",
+            location = "Auditoria",
+            alarmMinutes = 15,
+            repeatWeekly = true
+        )
+        assertTrue(scheduler.scheduleCustomEventAlarm(event))
+        assertNotNull("Custom event alarm must register AlarmClockInfo", alarmManager.nextAlarmClock)
+
+        shadowAlarmManager.scheduledAlarms.clear()
+        scheduler.scheduleSnoozeAlarm(
+            courseCode = "CSC3601",
+            courseTitle = "Network Security",
+            room = "Lab 4",
+            startTime = "09:00",
+            snoozeMinutes = 10,
+            naturalKey = entry.naturalKey,
+            dayOfWeek = entry.dayOfWeek
+        )
+        assertNotNull("Snooze alarm must register AlarmClockInfo", alarmManager.nextAlarmClock)
+
+        // When exact alarm permission is revoked, fall back gracefully without crashing
+        ShadowAlarmManager.setCanScheduleExactAlarms(false)
+        try {
+            shadowAlarmManager.scheduledAlarms.clear()
+            assertTrue(scheduler.scheduleClassAlarm(entry, minutesBefore = 15, isAlarm = true))
+            assertNull(alarmManager.nextAlarmClock)
+            assertEquals(1, shadowAlarmManager.scheduledAlarms.size)
+        } finally {
+            ShadowAlarmManager.setCanScheduleExactAlarms(true)
+        }
+    }
+
+    @Test
+    fun programmeSwitchPrunesStaleTrackedClassAlarmsViaCoordinator() = runBlocking {
+        val entryBcs1 = TimetableEntry(
+            natural_key = "BCS I|CSC1101|Monday|08:00|Hall A",
+            program_group = "BCS I",
+            day = "Monday",
+            time_slot = "08:00 - 10:00",
+            start_time = "08:00",
+            end_time = "10:00",
+            course_code = "CSC1101",
+            course_title = "Computing Basics",
+            session_type = "Lecture",
+            lecturer = "Dr. A",
+            room = "Hall A"
+        )
+        val entryBcs2 = TimetableEntry(
+            natural_key = "BCS II|CSC2201|Tuesday|10:00|Hall B",
+            program_group = "BCS II",
+            day = "Tuesday",
+            time_slot = "10:00 - 12:00",
+            start_time = "10:00",
+            end_time = "12:00",
+            course_code = "CSC2201",
+            course_title = "Data Structures",
+            session_type = "Lecture",
+            lecturer = "Dr. B",
+            room = "Hall B"
+        )
+        app.database.timetableDao().upsertEntries(listOf(entryBcs1, entryBcs2))
+        app.etagStore.setProgrammePref("BCS I")
+        AlarmSyncCoordinator.resyncAll(app, app.repository, force = true, reason = "test_bcs1")
+
+        val scheduler = AlarmScheduler(app)
+        assertTrue(scheduler.getTrackedClassKeys().contains(entryBcs1.naturalKey))
+
+        // Switch programme to BCS II -> BCS I alarm must be pruned from both AlarmManager and tracked set
+        app.etagStore.setProgrammePref("BCS II")
+        AlarmSyncCoordinator.resyncAll(app, app.repository, force = true, reason = "test_bcs2")
+
+        val trackedAfter = scheduler.getTrackedClassKeys()
+        assertFalse("Old programme alarm must be pruned", trackedAfter.contains(entryBcs1.naturalKey))
+        assertTrue("New programme alarm must be tracked", trackedAfter.contains(entryBcs2.naturalKey))
+        val armedNaturalKeys = shadowAlarmManager.scheduledAlarms.mapNotNull {
+            shadowOf(it.operation).savedIntent.getStringExtra("NATURAL_KEY")
+        }
+        assertFalse(armedNaturalKeys.contains(entryBcs1.naturalKey))
+        assertTrue(armedNaturalKeys.contains(entryBcs2.naturalKey))
+    }
+
+    @Test
+    fun classAlarmReceiverSuppressesOrphanedCohortAlarmAndDisarmsOneTimeCustomEvent() = runBlocking {
+        // 1. Orphaned class alarm after cohort change (and no custom LectureNote)
+        val entry = TimetableEntry(
+            natural_key = "BCS I|CSC1999|Monday|09:00|Hall C",
+            program_group = "BCS I",
+            day = "Monday",
+            time_slot = "09:00 - 11:00",
+            start_time = "09:00",
+            end_time = "11:00",
+            course_code = "CSC1999",
+            course_title = "Orphaned Course",
+            session_type = "Lecture",
+            lecturer = "Dr. C",
+            room = "Hall C"
+        )
+        app.database.timetableDao().upsertEntries(listOf(entry))
+        app.etagStore.setProgrammePref("BCS II") // User switched away from BCS I
+
+        val scheduler = AlarmScheduler(app)
+        assertTrue(scheduler.scheduleClassAlarm(entry, 30, isAlarm = false))
+        val orphanedIntent = shadowOf(shadowAlarmManager.scheduledAlarms.single().operation).savedIntent
+
+        ClassAlarmReceiver().onReceive(app, orphanedIntent)
+        Thread.sleep(350)
+
+        assertTrue("Orphaned cohort alarm must be suppressed", shadowNotificationManager.allNotifications.isEmpty())
+        assertTrue("Orphaned cohort alarm must cancel itself", shadowAlarmManager.scheduledAlarms.isEmpty())
+
+        // 2. Non-repeating custom event fires once, clears alarmMinutes, and does NOT re-arm next week
+        val oneTimeId = app.database.customEventDao().upsert(
+            CustomEvent(
+                title = "One-Time Seminar",
+                category = "Study",
+                dayOfWeek = "Wednesday",
+                startTime = "15:00",
+                endTime = "16:00",
+                location = "Hall D",
+                alarmMinutes = 15,
+                repeatWeekly = false
+            )
+        )
+        val oneTimeEvent = app.database.customEventDao().getById(oneTimeId)!!
+        assertTrue(scheduler.scheduleCustomEventAlarm(oneTimeEvent))
+        val oneTimeIntent = shadowOf(shadowAlarmManager.scheduledAlarms.single().operation).savedIntent
+
+        shadowAlarmManager.scheduledAlarms.clear()
+        ClassAlarmReceiver().onReceive(app, oneTimeIntent)
+        Thread.sleep(350)
+
+        assertEquals(1, shadowNotificationManager.allNotifications.size)
+        assertTrue("Non-repeating custom event must NOT re-arm for next week", shadowAlarmManager.scheduledAlarms.isEmpty())
+        assertNull(
+            "One-time event alarmMinutes must be cleared in Room after firing",
+            app.database.customEventDao().getById(oneTimeId)?.alarmMinutes
+        )
+    }
+
+    @Test
+    fun taskDateTimeParserDateOnlyAnchorsAreStrictlyMonotonic() {
+        val triggers = listOf(720, 360, 120, 60, 30).map { mins ->
+            mins to TaskDateTimeParser.calculateTriggerTimeMillis("Tomorrow", mins, allowImmediateCatchup = false)
+        }
+        triggers.forEach { (mins, value) ->
+            assertNotNull("Trigger for ${mins}m before tomorrow must not be null", value)
+        }
+        val times = triggers.map { it.second!! }
+        for (i in 0 until times.size - 1) {
+            assertTrue(
+                "Larger lead time must fire strictly earlier (${triggers[i].first}m=${times[i]} vs ${triggers[i + 1].first}m=${times[i + 1]})",
+                times[i] < times[i + 1]
+            )
+        }
+    }
+
+    @Test
+    fun blockedReminderChannelsRespectsDailyDigestToggle() = runBlocking {
+        NotificationHelper.createNotificationChannels(app)
+        val digestChannel = notificationManager.getNotificationChannel(NotificationHelper.CHANNEL_DAILY_DIGEST)!!
+        val originalImportance = digestChannel.importance
+        try {
+            digestChannel.importance = NotificationManager.IMPORTANCE_NONE
+            app.etagStore.setDailyDigestEnabled(true)
+            assertTrue(
+                "Muted Daily Digest channel must be flagged when digest toggle is enabled",
+                com.lectures.core.util.NotificationPermissionHelper.getBlockedReminderChannels(app)
+                    .contains(NotificationHelper.CHANNEL_DAILY_DIGEST)
+            )
+
+            app.etagStore.setDailyDigestEnabled(false)
+            assertFalse(
+                "Muted Daily Digest channel must NOT trigger blocked-channel banner when digest toggle is disabled",
+                com.lectures.core.util.NotificationPermissionHelper.getBlockedReminderChannels(app)
+                    .contains(NotificationHelper.CHANNEL_DAILY_DIGEST)
+            )
+        } finally {
+            digestChannel.importance = originalImportance
+            app.etagStore.setDailyDigestEnabled(true)
+        }
     }
 }

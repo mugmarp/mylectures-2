@@ -96,6 +96,10 @@ class ClassAlarmReceiver : BroadcastReceiver() {
             receiverScope.launch {
                 try {
                     withTimeout(5_000L) {
+                        if (!etagStore.isNotificationsEnabled()) {
+                            AlarmScheduler(context).cancelCustomEventAlarm(customEventId)
+                            return@withTimeout
+                        }
                         val event = app.repository.getCustomEventByIdSync(customEventId)
                         if (event == null || event.isDeleted || (!isSnoozed && event.alarmMinutes == null)) {
                             Log.d("ClassAlarmReceiver", "Suppressing stale/deleted custom event alert #$customEventId")
@@ -117,12 +121,127 @@ class ClassAlarmReceiver : BroadcastReceiver() {
                             isCustomEvent = true,
                             customEventId = event.id
                         )
+                        val scheduler = AlarmScheduler(context)
                         if (isRecurring && !isSnoozed && event.repeatWeekly) {
-                            AlarmScheduler(context).scheduleCustomEventAlarm(event)
+                            scheduler.scheduleCustomEventAlarm(event, minLeadMs = 60_000L)
+                        } else if (!event.repeatWeekly && !isSnoozed) {
+                            // One-time activity fired: disarm alarmMinutes in Room so reboot/resync won't re-arm it
+                            app.database.customEventDao().upsert(
+                                event.copy(
+                                    alarmMinutes = null,
+                                    updatedAt = System.currentTimeMillis()
+                                )
+                            )
+                            scheduler.cancelCustomEventAlarm(customEventId)
                         }
                     }
                 } catch (e: Exception) {
                     Log.e("ClassAlarmReceiver", "Error handling custom event alarm #$customEventId: ${e.message}", e)
+                } finally {
+                    receiverScope.cancel()
+                    pendingResult?.finish()
+                }
+            }
+            return
+        }
+
+        // Scheduled Class & Note Alarms: validate against current enrolled programme and note overrides in Room
+        if (!isTest && !isCustomEvent && !naturalKey.isNullOrBlank() && app != null) {
+            val pendingResult = goAsync()
+            val receiverScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+            receiverScope.launch {
+                try {
+                    withTimeout(5_000L) {
+                        val scheduler = AlarmScheduler(context)
+                        if (!etagStore.isNotificationsEnabled()) {
+                            scheduler.cancelClassAlarm(naturalKey)
+                            return@withTimeout
+                        }
+
+                        val note = app.database.timetableDao().getNoteDirect(naturalKey)
+                        val hasNoteAlarm = note?.alarmMinutes != null
+                        val savedProg = etagStore.getSavedProgramme()?.trim()
+                            ?: app.repository.getInitialProgramme()?.trim()
+                            ?: ""
+                        val enrolledEntry = if (savedProg.isNotBlank()) {
+                            app.repository.getLocalScheduleSync(savedProg).firstOrNull { it.naturalKey == naturalKey }
+                        } else {
+                            null
+                        }
+
+                        val isValid = if (isSnoozed) {
+                            enrolledEntry != null || note != null
+                        } else {
+                            enrolledEntry != null || hasNoteAlarm
+                        }
+                        if (!isValid) {
+                            Log.d("ClassAlarmReceiver", "Suppressing orphaned/stale class alert for key '$naturalKey' (prog='$savedProg')")
+                            scheduler.cancelClassAlarm(naturalKey)
+                            return@withTimeout
+                        }
+
+                        val resolvedCode = enrolledEntry?.courseCode ?: courseCode
+                        val resolvedTitle = enrolledEntry?.courseTitle ?: note?.title?.takeIf { it.isNotBlank() } ?: courseTitle
+                        val resolvedRoom = enrolledEntry?.room ?: room
+                        val resolvedStart = enrolledEntry?.startTime ?: startTime
+                        val resolvedLecturer = enrolledEntry?.lecturer ?: lecturer
+                        val resolvedDay = enrolledEntry?.dayOfWeek ?: dayOfWeek
+                        val resolvedLead = note?.alarmMinutes ?: minutesBefore
+                        val resolvedIsAlarm = if (!isSnoozed && hasNoteAlarm) true else isAlarm
+
+                        if (resolvedIsAlarm) {
+                            NotificationHelper.showClassAlarmNotification(
+                                context = context,
+                                courseCode = resolvedCode,
+                                courseTitle = resolvedTitle,
+                                room = resolvedRoom,
+                                startTime = resolvedStart,
+                                minutesBefore = resolvedLead,
+                                lecturer = resolvedLecturer,
+                                naturalKey = naturalKey,
+                                dayOfWeek = resolvedDay,
+                                isSnoozed = isSnoozed,
+                                isCustomEvent = false,
+                                customEventId = customEventId
+                            )
+                        } else {
+                            NotificationHelper.showClassReminderNotification(
+                                context = context,
+                                courseCode = resolvedCode,
+                                courseTitle = resolvedTitle,
+                                room = resolvedRoom,
+                                startTime = resolvedStart,
+                                minutesBefore = resolvedLead,
+                                lecturer = resolvedLecturer,
+                                naturalKey = naturalKey,
+                                dayOfWeek = resolvedDay
+                            )
+                        }
+
+                        if (isRecurring && !isSnoozed && !resolvedDay.isNullOrBlank()) {
+                            val entryToRearm = enrolledEntry ?: TimetableEntry(
+                                natural_key = naturalKey,
+                                program_group = savedProg,
+                                day = resolvedDay,
+                                time_slot = resolvedStart,
+                                start_time = resolvedStart,
+                                end_time = null,
+                                course_code = resolvedCode,
+                                course_title = resolvedTitle,
+                                session_type = null,
+                                lecturer = resolvedLecturer,
+                                room = resolvedRoom
+                            )
+                            scheduler.scheduleClassAlarm(
+                                entry = entryToRearm,
+                                minutesBefore = resolvedLead,
+                                isAlarm = resolvedIsAlarm,
+                                minLeadMs = 60_000L
+                            )
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("ClassAlarmReceiver", "Error validating/posting class alarm '$naturalKey': ${e.message}", e)
                 } finally {
                     receiverScope.cancel()
                     pendingResult?.finish()
@@ -178,7 +297,7 @@ class ClassAlarmReceiver : BroadcastReceiver() {
                     lecturer = lecturer,
                     room = room
                 )
-                AlarmScheduler(context).scheduleClassAlarm(syntheticEntry, minutesBefore, isAlarm)
+                AlarmScheduler(context).scheduleClassAlarm(syntheticEntry, minutesBefore, isAlarm, minLeadMs = 60_000L)
                 Log.d("ClassAlarmReceiver", "Successfully re-armed weekly class alert for $courseCode on next $dayOfWeek (isAlarm=$isAlarm)")
             } catch (e: Exception) {
                 Log.e("ClassAlarmReceiver", "Failed to reschedule weekly class alarm: ${e.message}")

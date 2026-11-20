@@ -65,12 +65,6 @@ object NotificationHelper {
         return 1_000_000 + (positive % 199_000_000)
     }
 
-    private fun isVibrationEnabled(context: Context): Boolean {
-        return context.applicationContext
-            .getSharedPreferences("mustime_settings", Context.MODE_PRIVATE)
-            .getBoolean("alarm_vibration", true)
-    }
-
     private fun ensureNotificationChannels(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
@@ -91,7 +85,6 @@ object NotificationHelper {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
                 ?: return
-            val vibrateEnabled = isVibrationEnabled(context)
 
             // Channel 1: Academic Tasks & Coursework Deadlines
             val taskChannel = NotificationChannel(
@@ -102,10 +95,8 @@ object NotificationHelper {
                 description = "Notifies you of upcoming assignments, coursework deadlines, tests, and academic tasks."
                 enableLights(true)
                 lightColor = Color.parseColor("#2563EB")
-                enableVibration(vibrateEnabled)
-                if (vibrateEnabled) {
-                    vibrationPattern = longArrayOf(0, 350, 200, 350)
-                }
+                enableVibration(true)
+                vibrationPattern = longArrayOf(0, 350, 200, 350)
                 setShowBadge(true)
                 lockscreenVisibility = NotificationCompat.VISIBILITY_PUBLIC
             }
@@ -119,10 +110,8 @@ object NotificationHelper {
                 description = "Reminders before scheduled lectures, practical labs, and tutorials."
                 enableLights(true)
                 lightColor = Color.parseColor("#10B981")
-                enableVibration(vibrateEnabled)
-                if (vibrateEnabled) {
-                    vibrationPattern = longArrayOf(0, 250, 150, 250)
-                }
+                enableVibration(true)
+                vibrationPattern = longArrayOf(0, 250, 150, 250)
                 setShowBadge(true)
                 lockscreenVisibility = NotificationCompat.VISIBILITY_PUBLIC
             }
@@ -136,10 +125,8 @@ object NotificationHelper {
                 description = "Immediate alerts and sound alarms for upcoming lectures."
                 enableLights(true)
                 lightColor = Color.parseColor("#EF4444")
-                enableVibration(vibrateEnabled)
-                if (vibrateEnabled) {
-                    vibrationPattern = longArrayOf(0, 500, 200, 500, 200, 500)
-                }
+                enableVibration(true)
+                vibrationPattern = longArrayOf(0, 500, 200, 500, 200, 500)
                 val alarmAttrs = android.media.AudioAttributes.Builder()
                     .setUsage(android.media.AudioAttributes.USAGE_ALARM)
                     .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
@@ -196,11 +183,12 @@ object NotificationHelper {
         ensureNotificationChannels(context)
 
         val notificationId = taskNotificationId(taskId)
-        val vibrateEnabled = isVibrationEnabled(context)
 
         // 1. Content Intent: Launch app into Tasks tab
         val openAppIntent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                Intent.FLAG_ACTIVITY_SINGLE_TOP
             data = Uri.parse("lectures://nav/task/$taskId")
             putExtra("EXTRA_NAV_TAB", 3) // Tasks tab
             putExtra("EXTRA_TASK_ID", taskId)
@@ -260,9 +248,6 @@ object NotificationHelper {
             .setAutoCancel(true)
             .setContentIntent(contentPendingIntent)
             .setColor(Color.parseColor("#2563EB"))
-            .apply {
-                if (!vibrateEnabled) setVibrate(longArrayOf(0L))
-            }
             .addAction(R.drawable.ic_stat_notification, "Mark Done", markDonePendingIntent)
             .addAction(R.drawable.ic_stat_notification, "Dismiss", dismissPendingIntent)
             .addAction(R.drawable.ic_stat_notification, "View Tasks", contentPendingIntent)
@@ -276,7 +261,8 @@ object NotificationHelper {
                     title = "Due Soon: $title",
                     message = "$courseCode • Due: $dueDate ($priorityText Priority)",
                     relatedKey = taskId.toString(),
-                    navTab = 3
+                    navTab = 3,
+                    emitForegroundBanner = false
                 )
             }
             posted
@@ -308,10 +294,11 @@ object NotificationHelper {
 
         val idSeed = "reminder_${naturalKey ?: "$courseCode|$room|$startTime|${dayOfWeek.orEmpty()}"}"
         val notificationId = stablePositiveId(idSeed)
-        val vibrateEnabled = isVibrationEnabled(context)
 
         val openAppIntent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                Intent.FLAG_ACTIVITY_SINGLE_TOP
             data = Uri.parse("lectures://nav/class_reminder/$notificationId")
             putExtra("EXTRA_NAV_TAB", 0) // Timetable tab
         }
@@ -359,9 +346,6 @@ object NotificationHelper {
             .setAutoCancel(true)
             .setContentIntent(contentPendingIntent)
             .setColor(Color.parseColor("#10B981"))
-            .apply {
-                if (!vibrateEnabled) setVibrate(longArrayOf(0L))
-            }
             .addAction(R.drawable.ic_stat_notification, "Dismiss", dismissPendingIntent)
             .addAction(R.drawable.ic_stat_notification, "View Class", contentPendingIntent)
 
@@ -373,7 +357,8 @@ object NotificationHelper {
                     title = "Upcoming class: $headerSubject",
                     message = subtitle,
                     relatedKey = courseCode,
-                    navTab = 0
+                    navTab = 0,
+                    emitForegroundBanner = false
                 )
             }
             posted
@@ -404,10 +389,11 @@ object NotificationHelper {
 
         val idSeed = "alarm_${naturalKey ?: "$courseCode|$room|$startTime|${dayOfWeek.orEmpty()}"}"
         val notificationId = stablePositiveId(idSeed)
-        val vibrateEnabled = isVibrationEnabled(context)
 
         val openAppIntent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                Intent.FLAG_ACTIVITY_SINGLE_TOP
             data = Uri.parse("lectures://nav/class_alarm/$notificationId")
             putExtra("EXTRA_NAV_TAB", 0) // Timetable tab
         }
@@ -481,9 +467,6 @@ object NotificationHelper {
             .setAutoCancel(true)
             .setContentIntent(contentPendingIntent)
             .setColor(Color.parseColor("#EF4444"))
-            .apply {
-                if (!vibrateEnabled) setVibrate(longArrayOf(0L))
-            }
             .addAction(R.drawable.ic_stat_notification, "Dismiss", dismissPendingIntent)
             .addAction(R.drawable.ic_stat_notification, "Snooze 10m", snoozePendingIntent)
 
@@ -496,7 +479,8 @@ object NotificationHelper {
                     title = inAppTitle,
                     message = "$startsAtText $venueText".trim(),
                     relatedKey = courseCode,
-                    navTab = 0
+                    navTab = 0,
+                    emitForegroundBanner = false
                 )
             }
             posted
@@ -522,7 +506,9 @@ object NotificationHelper {
         val notificationId = 88002
 
         val openAppIntent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                Intent.FLAG_ACTIVITY_SINGLE_TOP
             data = Uri.parse("lectures://nav/daily_digest")
             putExtra("EXTRA_NAV_TAB", 0) // Timetable tab
         }
@@ -615,7 +601,8 @@ object NotificationHelper {
                     type = NotificationItemType.DAILY_DIGEST,
                     title = title,
                     message = snippet,
-                    navTab = 0
+                    navTab = 0,
+                    emitForegroundBanner = false
                 )
             }
             posted
@@ -638,7 +625,9 @@ object NotificationHelper {
         val notificationId = 998877
 
         val openAppIntent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                Intent.FLAG_ACTIVITY_SINGLE_TOP
             data = Uri.parse("lectures://nav/timetable_update/${Uri.encode(versionLabel)}")
             putExtra("EXTRA_NAV_TAB", 0) // Timetable tab
         }
@@ -678,7 +667,8 @@ object NotificationHelper {
                     title = "Timetable Updated: $versionLabel",
                     message = releaseNotes ?: "New timetable version published. Class schedules synchronized.",
                     relatedKey = versionLabel,
-                    navTab = 0
+                    navTab = 0,
+                    emitForegroundBanner = false
                 )
             }
             posted
@@ -701,7 +691,9 @@ object NotificationHelper {
         val notificationId = 998899
 
         val openAppIntent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                Intent.FLAG_ACTIVITY_SINGLE_TOP
             data = Uri.parse("lectures://nav/app_update/${updateInfo.versionCode}")
             putExtra("EXTRA_SHOW_UPDATE_DIALOG", true)
             putExtra("EXTRA_UPDATE_VERSION_CODE", updateInfo.versionCode)
@@ -754,7 +746,8 @@ object NotificationHelper {
                     title = title,
                     message = updateInfo.releaseNotes.ifBlank { "New version v${updateInfo.versionName} available." },
                     relatedKey = "app_update_${updateInfo.versionCode}",
-                    navTab = 0
+                    navTab = 0,
+                    emitForegroundBanner = false
                 )
             }
             posted

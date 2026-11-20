@@ -162,4 +162,27 @@ class SyncConflictResolverTest {
         assertEquals(45, resolved.classAlarmLeadMinutes)
         assertFalse(shouldPush)
     }
+
+    @Test
+    fun testSettingsRoundTripIncludesDailyDigestAndFreshDeviceAdoptsCloud() {
+        val freshLocal = UserSettingsSyncPayload(
+            dailyDigestEnabled = true,
+            updatedAt = 0L
+        )
+        val remote = UserSettingsSyncPayload.fromMap(
+            UserSettingsSyncPayload(
+                programme = "BSE II",
+                classAlarmLeadMinutes = 15,
+                dailyDigestEnabled = false,
+                updatedAt = 1_750_000_000_000L
+            ).toMap()
+        )
+
+        assertFalse(remote.dailyDigestEnabled)
+        val (resolved, shouldPush) = SyncConflictResolver.mergeSettings(freshLocal, remote)
+        assertFalse("Fresh device (updatedAt=0L) must adopt remote settings without pushing defaults", shouldPush)
+        assertEquals("BSE II", resolved.programme)
+        assertEquals(15, resolved.classAlarmLeadMinutes)
+        assertFalse(resolved.dailyDigestEnabled)
+    }
 }

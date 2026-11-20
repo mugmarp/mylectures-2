@@ -54,11 +54,15 @@ object NotificationPermissionHelper {
         if (!areNotificationsEnabled(context) || Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
             return emptyList()
         }
-        return listOf(
-            NotificationHelper.CHANNEL_CLASS_ALARMS,
-            NotificationHelper.CHANNEL_CLASSES,
-            NotificationHelper.CHANNEL_ACADEMIC_TASKS
-        ).filter { isChannelBlocked(context, it) }
+        val channels = buildList {
+            add(NotificationHelper.CHANNEL_CLASS_ALARMS)
+            add(NotificationHelper.CHANNEL_CLASSES)
+            add(NotificationHelper.CHANNEL_ACADEMIC_TASKS)
+            if (com.lectures.features.timetable.data.ETagStore(context).isDailyDigestEnabled()) {
+                add(NotificationHelper.CHANNEL_DAILY_DIGEST)
+            }
+        }
+        return channels.filter { isChannelBlocked(context, it) }
     }
 
     fun hasPromptedNotificationPermission(context: Context): Boolean {

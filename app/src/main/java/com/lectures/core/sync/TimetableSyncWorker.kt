@@ -66,60 +66,84 @@ class TimetableSyncWorker(
                     remoteMeta = app.syncRepository.fetchRemoteTimetableMetadata()
                 }
 
-                if (remoteMeta == null) {
-                    Log.d(TAG, "No remote timetable metadata could be fetched at this time")
-                    return@withContext Result.success()
-                }
+                if (remoteMeta != null) {
+                    // 2. Compare semantic release attributes rather than synthetic System.currentTimeMillis()
+                    val isNewer = isNewerVersion(localMeta, remoteMeta)
 
-                // 2. Compare semantic release attributes rather than synthetic System.currentTimeMillis()
-                val isNewer = isNewerVersion(localMeta, remoteMeta)
+                    if (isNewer) {
+                        Log.i(TAG, "New timetable version detected! Local: '${localMeta?.versionLabel}', Remote: '${remoteMeta.versionLabel}'")
 
-                if (isNewer) {
-                    Log.i(TAG, "New timetable version detected! Local: '${localMeta?.versionLabel}', Remote: '${remoteMeta.versionLabel}'")
+                        // 3. Download and atomically apply actual timetable entries BEFORE claiming schedules updated
+                        var syncedCount = 0
+                        if (fromHttp) {
+                            syncedCount = syncEntriesFromHttp(appContext, app)
+                        }
+                        if (syncedCount == 0) {
+                            syncedCount = app.syncRepository.syncRemoteTimetableEntries()
+                        }
 
-                    // 3. Download and atomically apply actual timetable entries BEFORE claiming schedules updated
-                    var syncedCount = 0
-                    if (fromHttp) {
-                        syncedCount = syncEntriesFromHttp(appContext, app)
-                    }
-                    if (syncedCount == 0) {
-                        syncedCount = app.syncRepository.syncRemoteTimetableEntries()
-                    }
+                        if (syncedCount > 0) {
+                            val resolvedTotalSessions = if (remoteMeta.totalSessions > 0) {
+                                remoteMeta.totalSessions
+                            } else {
+                                syncedCount
+                            }
+                            val syncedMeta = remoteMeta.copy(
+                                lastUpdated = System.currentTimeMillis(),
+                                totalSessions = resolvedTotalSessions
+                            )
+                            db.timetableDao().upsertTimetableMetadata(syncedMeta)
+                            app.etagStore.setTimetableVersion(syncedMeta.versionLabel, syncedMeta.status)
 
-                    if (syncedCount > 0) {
-                        val syncedMeta = remoteMeta.copy(
-                            lastUpdated = System.currentTimeMillis(),
-                            totalSessions = syncedCount
-                        )
-                        db.timetableDao().upsertTimetableMetadata(syncedMeta)
+                            val nowStr = java.text.SimpleDateFormat("h:mm a, MMM d", java.util.Locale.getDefault())
+                                .format(java.util.Date())
+                            app.etagStore.setLastSyncTime("Synced at $nowStr")
 
-                        val nowStr = java.text.SimpleDateFormat("h:mm a, MMM d", java.util.Locale.getDefault())
-                            .format(java.util.Date())
-                        app.etagStore.setLastSyncTime("Synced at $nowStr")
-
-                        // Re-arm enrolled class alarms and daily digest for updated schedule
-                        com.lectures.core.alarm.AlarmSyncCoordinator.resyncAll(
-                            context = appContext,
-                            repository = app.repository,
-                            force = true,
-                            reason = "timetable_sync_worker"
-                        )
-
-                        if (app.etagStore.isNotificationsEnabled()) {
-                            NotificationHelper.showTimetableUpdatedNotification(
+                            // Re-arm enrolled class alarms and daily digest for updated schedule
+                            com.lectures.core.alarm.AlarmSyncCoordinator.resyncAll(
                                 context = appContext,
-                                versionLabel = syncedMeta.versionLabel,
-                                releaseNotes = syncedMeta.releaseNotes
+                                repository = app.repository,
+                                force = true,
+                                preserveImminentExisting = true,
+                                reason = "timetable_sync_worker"
+                            )
+
+                            if (app.etagStore.isNotificationsEnabled()) {
+                                NotificationHelper.showTimetableUpdatedNotification(
+                                    context = appContext,
+                                    versionLabel = syncedMeta.versionLabel,
+                                    releaseNotes = syncedMeta.releaseNotes
+                                )
+                            }
+                        } else {
+                            Log.w(
+                                TAG,
+                                "Remote version '${remoteMeta.versionLabel}' detected, but timetable entries could not be fetched yet; skipping false update notification."
                             )
                         }
                     } else {
-                        Log.w(
-                            TAG,
-                            "Remote version '${remoteMeta.versionLabel}' detected, but timetable entries could not be fetched yet; skipping false update notification."
-                        )
+                        Log.d(TAG, "Timetable is up to date (${localMeta?.versionLabel})")
+                        if (app.repository.checkIsOnboardingCompleted()) {
+                            com.lectures.core.alarm.AlarmSyncCoordinator.resyncAll(
+                                context = appContext,
+                                repository = app.repository,
+                                force = false,
+                                preserveImminentExisting = true,
+                                reason = "periodic_worker_heal"
+                            )
+                        }
                     }
                 } else {
-                    Log.d(TAG, "Timetable is up to date (${localMeta?.versionLabel})")
+                    Log.d(TAG, "No remote timetable metadata could be fetched at this time; running local alarm heal")
+                    if (app.repository.checkIsOnboardingCompleted()) {
+                        com.lectures.core.alarm.AlarmSyncCoordinator.resyncAll(
+                            context = appContext,
+                            repository = app.repository,
+                            force = false,
+                            preserveImminentExisting = true,
+                            reason = "periodic_worker_offline_heal"
+                        )
+                    }
                 }
 
                 // 4. Also check for new App Releases (sideload update check)
@@ -155,7 +179,11 @@ class TimetableSyncWorker(
                     }
                 }
 
-                Result.success()
+                if (remoteMeta == null) {
+                    if (runAttemptCount < 2) Result.retry() else Result.failure()
+                } else {
+                    Result.success()
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Error executing TimetableSyncWorker: ${e.message}", e)
                 if (runAttemptCount < 3) Result.retry() else Result.failure()

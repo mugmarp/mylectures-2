@@ -488,6 +488,14 @@ class SyncRepository(
         stopUserSync()
     }
 
+    internal fun hasActiveTimetableListeners(): Boolean = synchronized(listenerLock) {
+        timetableListeners.isNotEmpty()
+    }
+
+    internal fun hasActiveUserListeners(): Boolean = synchronized(listenerLock) {
+        userListeners.isNotEmpty()
+    }
+
     suspend fun pushNoteToCloud(note: LectureNote, userId: String): Result<Unit> {
         val store = firestore ?: return Result.failure(IllegalStateException("Firestore unavailable"))
         val noteMap = mapOf(

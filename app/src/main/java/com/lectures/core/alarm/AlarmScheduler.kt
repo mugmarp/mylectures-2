@@ -21,6 +21,11 @@ class AlarmScheduler(private val context: Context) {
         const val ACTION_TRIGGER_TEST_CLASS_ALARM = "com.lectures.ACTION_TRIGGER_TEST_CLASS_ALARM"
         const val ACTION_TRIGGER_SNOOZE_CLASS_ALARM = "com.lectures.ACTION_TRIGGER_SNOOZE_CLASS_ALARM"
 
+        private const val PREFS_ARMED_ALARMS = "mustime_armed_alarms"
+        private const val KEY_ARMED_CLASS_KEYS = "armed_class_keys"
+        private const val KEY_ARMED_EVENT_IDS = "armed_custom_event_ids"
+        private const val IMMINENT_GRACE_WINDOW_MS = 120_000L
+
         fun classAlarmUri(naturalKey: String): Uri =
             Uri.parse("lectures://alarm/class/${Uri.encode(naturalKey)}")
 
@@ -44,13 +49,17 @@ class AlarmScheduler(private val context: Context) {
          * Advances to the target day-of-week FIRST before subtracting [minutesBefore], ensuring
          * early-morning classes whose lead time crosses midnight (e.g. Monday 00:15 - 30m = Sunday 23:45)
          * advance strictly into the future instead of firing in the past.
+         *
+         * [minLeadMs] defaults to 0L for normal/resync scheduling so alarms < 60s away still fire today;
+         * receiver self-rearming passes 60_000L to avoid re-firing in the same trigger minute.
          */
         fun calculateNextTriggerMillis(
             targetDow: Int,
             hour: Int,
             minute: Int,
             minutesBefore: Int,
-            nowMillis: Long = System.currentTimeMillis()
+            nowMillis: Long = System.currentTimeMillis(),
+            minLeadMs: Long = 0L
         ): Long {
             val nowCal = Calendar.getInstance().apply { timeInMillis = nowMillis }
             val currentDow = nowCal.get(Calendar.DAY_OF_WEEK)
@@ -66,10 +75,91 @@ class AlarmScheduler(private val context: Context) {
                 add(Calendar.MINUTE, -minutesBefore)
             }
 
-            while (triggerCal.timeInMillis <= nowMillis + 60_000L) {
+            while (triggerCal.timeInMillis <= nowMillis + minLeadMs) {
                 triggerCal.add(Calendar.DAY_OF_YEAR, 7)
             }
             return triggerCal.timeInMillis
+        }
+
+        private fun thisWeekTriggerMillis(
+            targetDow: Int,
+            hour: Int,
+            minute: Int,
+            minutesBefore: Int,
+            nowMillis: Long
+        ): Long {
+            val nowCal = Calendar.getInstance().apply { timeInMillis = nowMillis }
+            val currentDow = nowCal.get(Calendar.DAY_OF_WEEK)
+            val daysDiff = (targetDow - currentDow + 7) % 7
+            return Calendar.getInstance().apply {
+                timeInMillis = nowMillis
+                add(Calendar.DAY_OF_YEAR, daysDiff)
+                set(Calendar.HOUR_OF_DAY, hour)
+                set(Calendar.MINUTE, minute)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+                add(Calendar.MINUTE, -minutesBefore)
+            }.timeInMillis
+        }
+    }
+
+    private val armedPrefs by lazy {
+        context.applicationContext.getSharedPreferences(PREFS_ARMED_ALARMS, Context.MODE_PRIVATE)
+    }
+    private val trackedKeysLock = Any()
+
+    fun getTrackedClassKeys(): Set<String> = synchronized(trackedKeysLock) {
+        armedPrefs.getStringSet(KEY_ARMED_CLASS_KEYS, emptySet())?.toSet() ?: emptySet()
+    }
+
+    fun getTrackedCustomEventIds(): Set<Long> = synchronized(trackedKeysLock) {
+        armedPrefs.getStringSet(KEY_ARMED_EVENT_IDS, emptySet())
+            ?.mapNotNull { it.toLongOrNull() }
+            ?.toSet()
+            ?: emptySet()
+    }
+
+    private fun trackClassKey(naturalKey: String) {
+        if (naturalKey.isBlank()) return
+        synchronized(trackedKeysLock) {
+            val updated = (armedPrefs.getStringSet(KEY_ARMED_CLASS_KEYS, emptySet()) ?: emptySet()).toMutableSet()
+            if (updated.add(naturalKey)) {
+                armedPrefs.edit().putStringSet(KEY_ARMED_CLASS_KEYS, updated).apply()
+            }
+        }
+    }
+
+    private fun untrackClassKey(naturalKey: String) {
+        if (naturalKey.isBlank()) return
+        synchronized(trackedKeysLock) {
+            val current = armedPrefs.getStringSet(KEY_ARMED_CLASS_KEYS, emptySet()) ?: return
+            if (naturalKey in current) {
+                val updated = current.toMutableSet().apply { remove(naturalKey) }
+                armedPrefs.edit().putStringSet(KEY_ARMED_CLASS_KEYS, updated).apply()
+            }
+        }
+    }
+
+    private fun trackCustomEventId(eventId: Long) {
+        if (eventId <= 0L) return
+        synchronized(trackedKeysLock) {
+            val key = eventId.toString()
+            val updated = (armedPrefs.getStringSet(KEY_ARMED_EVENT_IDS, emptySet()) ?: emptySet()).toMutableSet()
+            if (updated.add(key)) {
+                armedPrefs.edit().putStringSet(KEY_ARMED_EVENT_IDS, updated).apply()
+            }
+        }
+    }
+
+    private fun untrackCustomEventId(eventId: Long) {
+        if (eventId <= 0L) return
+        synchronized(trackedKeysLock) {
+            val key = eventId.toString()
+            val current = armedPrefs.getStringSet(KEY_ARMED_EVENT_IDS, emptySet()) ?: return
+            if (key in current) {
+                val updated = current.toMutableSet().apply { remove(key) }
+                armedPrefs.edit().putStringSet(KEY_ARMED_EVENT_IDS, updated).apply()
+            }
         }
     }
 
@@ -88,7 +178,13 @@ class AlarmScheduler(private val context: Context) {
         return Pair(hour, minute)
     }
 
-    fun scheduleClassAlarm(entry: TimetableEntry, minutesBefore: Int, isAlarm: Boolean = true): Boolean {
+    fun scheduleClassAlarm(
+        entry: TimetableEntry,
+        minutesBefore: Int,
+        isAlarm: Boolean = true,
+        minLeadMs: Long = 0L,
+        preserveImminentExisting: Boolean = false
+    ): Boolean {
         if (alarmManager == null) {
             Log.e(TAG, "AlarmManager service not available")
             return false
@@ -115,16 +211,40 @@ class AlarmScheduler(private val context: Context) {
             return false
         }
         val (hour, minute) = time
+        val nowMillis = System.currentTimeMillis()
+
+        val baseIntent = Intent(context, ClassAlarmReceiver::class.java).apply {
+            action = ACTION_TRIGGER_CLASS_ALARM
+            data = classAlarmUri(entry.naturalKey)
+        }
+        val requestCode = stableRequestCode("class_${entry.naturalKey}")
+
+        if (preserveImminentExisting) {
+            val todayTrigger = thisWeekTriggerMillis(targetDow, hour, minute, minutesBefore, nowMillis)
+            if (todayTrigger in (nowMillis - IMMINENT_GRACE_WINDOW_MS)..nowMillis) {
+                val existing = PendingIntent.getBroadcast(
+                    context,
+                    requestCode,
+                    baseIntent,
+                    PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+                )
+                if (existing != null) {
+                    trackClassKey(entry.naturalKey)
+                    Log.d(TAG, "Preserving imminent pending alert for ${entry.courseCode} scheduled around $todayTrigger")
+                    return true
+                }
+            }
+        }
 
         val triggerMillis = calculateNextTriggerMillis(
             targetDow = targetDow,
             hour = hour,
             minute = minute,
-            minutesBefore = minutesBefore
+            minutesBefore = minutesBefore,
+            nowMillis = nowMillis,
+            minLeadMs = minLeadMs
         )
-        val intent = Intent(context, ClassAlarmReceiver::class.java).apply {
-            action = ACTION_TRIGGER_CLASS_ALARM
-            data = classAlarmUri(entry.naturalKey)
+        val intent = baseIntent.apply {
             putExtra("NATURAL_KEY", entry.naturalKey)
             putExtra("DAY_OF_WEEK", entry.dayOfWeek)
             putExtra("COURSE_CODE", entry.courseCode)
@@ -140,54 +260,86 @@ class AlarmScheduler(private val context: Context) {
 
         val pendingIntent = PendingIntent.getBroadcast(
             context,
-            stableRequestCode("class_${entry.naturalKey}"),
+            requestCode,
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        return scheduleRtcWakeupWithFallback(
+        val scheduled = scheduleRtcWakeupWithFallback(
             triggerMillis = triggerMillis,
             pendingIntent = pendingIntent,
-            label = "class alarm for ${entry.courseCode}"
+            label = "class alarm for ${entry.courseCode}",
+            useAlarmClock = isAlarm
         )
+        if (scheduled) {
+            trackClassKey(entry.naturalKey)
+        }
+        return scheduled
     }
 
     private fun scheduleRtcWakeupWithFallback(
         triggerMillis: Long,
         pendingIntent: PendingIntent,
-        label: String
+        label: String,
+        useAlarmClock: Boolean = false
     ): Boolean {
         val manager = alarmManager ?: return false
         return try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                if (manager.canScheduleExactAlarms()) {
+            val canExact = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                manager.canScheduleExactAlarms()
+            } else {
+                true
+            }
+            when {
+                useAlarmClock && canExact -> {
+                    val showIntent = PendingIntent.getActivity(
+                        context,
+                        stableRequestCode("alarm_clock_show"),
+                        Intent(context, com.lectures.MainActivity::class.java).apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                                Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                                Intent.FLAG_ACTIVITY_SINGLE_TOP
+                        },
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    )
+                    manager.setAlarmClock(
+                        AlarmManager.AlarmClockInfo(triggerMillis, showIntent),
+                        pendingIntent
+                    )
+                    Log.d(TAG, "Scheduled AlarmClock $label at $triggerMillis")
+                }
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+                    if (canExact) {
+                        manager.setExactAndAllowWhileIdle(
+                            AlarmManager.RTC_WAKEUP,
+                            triggerMillis,
+                            pendingIntent
+                        )
+                        Log.d(TAG, "Scheduled exact $label at $triggerMillis")
+                    } else {
+                        manager.setAndAllowWhileIdle(
+                            AlarmManager.RTC_WAKEUP,
+                            triggerMillis,
+                            pendingIntent
+                        )
+                        Log.d(TAG, "Scheduled inexact $label at $triggerMillis")
+                    }
+                }
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.M -> {
                     manager.setExactAndAllowWhileIdle(
                         AlarmManager.RTC_WAKEUP,
                         triggerMillis,
                         pendingIntent
                     )
-                    Log.d(TAG, "Scheduled exact $label at $triggerMillis")
-                } else {
-                    manager.setAndAllowWhileIdle(
+                    Log.d(TAG, "Scheduled M exact $label at $triggerMillis")
+                }
+                else -> {
+                    manager.set(
                         AlarmManager.RTC_WAKEUP,
                         triggerMillis,
                         pendingIntent
                     )
-                    Log.d(TAG, "Scheduled inexact $label at $triggerMillis")
                 }
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                manager.setExactAndAllowWhileIdle(
-                    AlarmManager.RTC_WAKEUP,
-                    triggerMillis,
-                    pendingIntent
-                )
-                Log.d(TAG, "Scheduled M exact $label at $triggerMillis")
-            } else {
-                manager.set(
-                    AlarmManager.RTC_WAKEUP,
-                    triggerMillis,
-                    pendingIntent
-                )
             }
             true
         } catch (e: SecurityException) {
@@ -214,7 +366,11 @@ class AlarmScheduler(private val context: Context) {
      * Supports both timetable-keyed notes (`CODE|Title|Day|Time|Room`) and
      * standalone notes that have an `attachedClass` (`CODE: Title · Day, HH:mm – HH:mm`).
      */
-    fun scheduleClassAlarmFromNote(note: com.lectures.features.timetable.domain.LectureNote, minutesBefore: Int): Boolean {
+    fun scheduleClassAlarmFromNote(
+        note: com.lectures.features.timetable.domain.LectureNote,
+        minutesBefore: Int,
+        preserveImminentExisting: Boolean = false
+    ): Boolean {
         val parts = note.naturalKey.split("|")
         val code = parts.getOrNull(0)?.trim()?.ifBlank { null } ?: (note.title?.take(10) ?: "Lecture")
         val title = note.title?.ifBlank { null } ?: parts.getOrNull(1)?.trim() ?: code
@@ -266,7 +422,12 @@ class AlarmScheduler(private val context: Context) {
             lecturer = null,
             room = room
         )
-        return scheduleClassAlarm(syntheticEntry, minutesBefore)
+        return scheduleClassAlarm(
+            entry = syntheticEntry,
+            minutesBefore = minutesBefore,
+            isAlarm = true,
+            preserveImminentExisting = preserveImminentExisting
+        )
     }
 
     private fun parseDayPrefix(rawDay: String): Int? = when (rawDay.trim().lowercase(java.util.Locale.ROOT).take(3)) {
@@ -312,7 +473,11 @@ class AlarmScheduler(private val context: Context) {
         )
     }
 
-    fun scheduleCustomEventAlarm(event: CustomEvent): Boolean {
+    fun scheduleCustomEventAlarm(
+        event: CustomEvent,
+        minLeadMs: Long = 0L,
+        preserveImminentExisting: Boolean = false
+    ): Boolean {
         if (alarmManager == null) {
             Log.e(TAG, "AlarmManager service not available")
             return false
@@ -332,17 +497,41 @@ class AlarmScheduler(private val context: Context) {
             return false
         }
 
+        val naturalKey = "custom_event_${event.id}"
+        val requestCode = stableRequestCode(naturalKey)
+        val baseIntent = Intent(context, ClassAlarmReceiver::class.java).apply {
+            action = ACTION_TRIGGER_CUSTOM_EVENT_ALARM
+            data = customEventAlarmUri(event.id)
+        }
+        val nowMillis = System.currentTimeMillis()
+
+        if (preserveImminentExisting) {
+            val todayTrigger = thisWeekTriggerMillis(targetDow, hour, minute, minutesBefore, nowMillis)
+            if (todayTrigger in (nowMillis - IMMINENT_GRACE_WINDOW_MS)..nowMillis) {
+                val existing = PendingIntent.getBroadcast(
+                    context,
+                    requestCode,
+                    baseIntent,
+                    PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+                )
+                if (existing != null) {
+                    trackCustomEventId(event.id)
+                    Log.d(TAG, "Preserving imminent custom activity alert for ${event.title} around $todayTrigger")
+                    return true
+                }
+            }
+        }
+
         val triggerMillis = calculateNextTriggerMillis(
             targetDow = targetDow,
             hour = hour,
             minute = minute,
-            minutesBefore = minutesBefore
+            minutesBefore = minutesBefore,
+            nowMillis = nowMillis,
+            minLeadMs = minLeadMs
         )
 
-        val naturalKey = "custom_event_${event.id}"
-        val intent = Intent(context, ClassAlarmReceiver::class.java).apply {
-            action = ACTION_TRIGGER_CUSTOM_EVENT_ALARM
-            data = customEventAlarmUri(event.id)
+        val intent = baseIntent.apply {
             putExtra("NATURAL_KEY", naturalKey)
             putExtra("CUSTOM_EVENT_ID", event.id)
             putExtra("DAY_OF_WEEK", event.dayOfWeek)
@@ -360,20 +549,26 @@ class AlarmScheduler(private val context: Context) {
 
         val pendingIntent = PendingIntent.getBroadcast(
             context,
-            stableRequestCode(naturalKey),
+            requestCode,
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        return scheduleRtcWakeupWithFallback(
+        val scheduled = scheduleRtcWakeupWithFallback(
             triggerMillis = triggerMillis,
             pendingIntent = pendingIntent,
-            label = "custom activity alarm for ${event.title}"
+            label = "custom activity alarm for ${event.title}",
+            useAlarmClock = true
         )
+        if (scheduled) {
+            trackCustomEventId(event.id)
+        }
+        return scheduled
     }
 
     fun cancelCustomEventAlarm(eventId: Long) {
         if (eventId <= 0L) return
+        untrackCustomEventId(eventId)
         val manager = alarmManager ?: return
         val naturalKey = "custom_event_$eventId"
         val intent = Intent(context, ClassAlarmReceiver::class.java).apply {
@@ -395,7 +590,7 @@ class AlarmScheduler(private val context: Context) {
     }
 
     fun cancelAllCustomEventAlarms(events: List<CustomEvent>) {
-        if (alarmManager == null || events.isEmpty()) return
+        if (events.isEmpty()) return
         events.forEach { cancelCustomEventAlarm(it.id) }
     }
 
@@ -419,6 +614,7 @@ class AlarmScheduler(private val context: Context) {
     }
 
     fun cancelClassAlarm(naturalKey: String) {
+        untrackClassKey(naturalKey)
         val manager = alarmManager ?: return
         val intent = Intent(context, ClassAlarmReceiver::class.java).apply {
             action = ACTION_TRIGGER_CLASS_ALARM
@@ -447,7 +643,8 @@ class AlarmScheduler(private val context: Context) {
         classes: List<TimetableEntry>,
         leadMinutes: Int,
         isAlarm: Boolean = false,
-        customAlarmNotes: Map<String, Int> = emptyMap()
+        customAlarmNotes: Map<String, Int> = emptyMap(),
+        preserveImminentExisting: Boolean = false
     ): Int {
         if (alarmManager == null || classes.isEmpty()) return 0
         val uniqueClasses = classes.distinctBy {
@@ -458,7 +655,12 @@ class AlarmScheduler(private val context: Context) {
             val customLead = customAlarmNotes[entry.naturalKey]
             val effectiveLead = customLead ?: leadMinutes
             val effectiveIsAlarm = if (customLead != null) true else isAlarm
-            val ok = scheduleClassAlarm(entry, effectiveLead, effectiveIsAlarm)
+            val ok = scheduleClassAlarm(
+                entry = entry,
+                minutesBefore = effectiveLead,
+                isAlarm = effectiveIsAlarm,
+                preserveImminentExisting = preserveImminentExisting
+            )
             if (ok) scheduledCount++
         }
         Log.d(TAG, "Scheduled $scheduledCount enrolled class alerts (lead = ${leadMinutes}m, preservedNotes = ${customAlarmNotes.size}) out of ${uniqueClasses.size} unique lectures")
@@ -469,7 +671,7 @@ class AlarmScheduler(private val context: Context) {
      * Cancels alarms for all given timetable entries (e.g. on programme switch or quiet mode).
      */
     fun cancelAllEnrolledClassAlarms(classes: List<TimetableEntry>) {
-        if (alarmManager == null || classes.isEmpty()) return
+        if (classes.isEmpty()) return
         classes.distinctBy {
             if (it.naturalKey.isNotBlank()) it.naturalKey else "${it.courseCode}|${it.dayOfWeek}|${it.startTime}"
         }.forEach {
@@ -522,7 +724,8 @@ class AlarmScheduler(private val context: Context) {
         scheduleRtcWakeupWithFallback(
             triggerMillis = triggerMillis,
             pendingIntent = pendingIntent,
-            label = "snooze alarm for $courseCode"
+            label = "snooze alarm for $courseCode",
+            useAlarmClock = true
         )
     }
 }

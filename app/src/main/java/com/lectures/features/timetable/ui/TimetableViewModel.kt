@@ -1,5 +1,6 @@
 package com.lectures.features.timetable.ui
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -36,7 +37,8 @@ data class TimetableUiState(
 class TimetableViewModel(
     private val repository: TimetableRepository,
     private val alarmScheduler: TaskAlarmScheduler? = null,
-    private val classAlarmScheduler: AlarmScheduler? = null
+    private val classAlarmScheduler: AlarmScheduler? = null,
+    private val appContext: Context? = null
 ) : ViewModel() {
 
     private val initialProg = repository.getInitialProgramme()?.trim() ?: ""
@@ -142,7 +144,7 @@ class TimetableViewModel(
                 )
                 // Reconcile enrolled class reminders off the main thread only when the active schedule,
                 // lead preference, or note overrides actually change (avoids main-thread AlarmManager IPC churn).
-                if (!_uiState.value.isPeeking && entries.isNotEmpty() && classAlarmScheduler != null) {
+                if (!_uiState.value.isPeeking && entries.isNotEmpty() && (appContext != null || classAlarmScheduler != null)) {
                     withContext(Dispatchers.IO) {
                         if (!repository.etagStore.isNotificationsEnabled()) return@withContext
                         val leadMinutes = repository.etagStore.getClassAlarmLeadMinutes()
@@ -159,12 +161,23 @@ class TimetableViewModel(
                             }
                         }
                         if (signature != lastArmedScheduleSignature) {
-                            classAlarmScheduler.scheduleAllEnrolledClassAlarms(
-                                classes = entries,
-                                leadMinutes = leadMinutes,
-                                isAlarm = false,
-                                customAlarmNotes = customNoteMap
-                            )
+                            if (appContext != null) {
+                                com.lectures.core.alarm.AlarmSyncCoordinator.resyncAll(
+                                    context = appContext,
+                                    repository = repository,
+                                    force = false,
+                                    preserveImminentExisting = true,
+                                    reason = "timetable_schedule_loaded"
+                                )
+                            } else {
+                                classAlarmScheduler?.scheduleAllEnrolledClassAlarms(
+                                    classes = entries,
+                                    leadMinutes = leadMinutes,
+                                    isAlarm = false,
+                                    customAlarmNotes = customNoteMap,
+                                    preserveImminentExisting = true
+                                )
+                            }
                             lastArmedScheduleSignature = signature
                         }
                     }
@@ -232,6 +245,15 @@ class TimetableViewModel(
                 }
             }
             repository.setProgrammePref(clean)
+            if (appContext != null) {
+                com.lectures.core.alarm.AlarmSyncCoordinator.resyncAll(
+                    context = appContext,
+                    repository = repository,
+                    force = true,
+                    preserveImminentExisting = false,
+                    reason = "programme_switched"
+                )
+            }
             _uiState.value = _uiState.value.copy(
                 enrolledProgramme = clean,
                 viewingProgramme = clean,
@@ -365,12 +387,18 @@ class TimetableViewModel(
         fun provideFactory(
             repository: TimetableRepository,
             alarmScheduler: TaskAlarmScheduler? = null,
-            classAlarmScheduler: AlarmScheduler? = null
+            classAlarmScheduler: AlarmScheduler? = null,
+            appContext: Context? = null
         ): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                    return TimetableViewModel(repository, alarmScheduler, classAlarmScheduler) as T
+                    return TimetableViewModel(
+                        repository = repository,
+                        alarmScheduler = alarmScheduler,
+                        classAlarmScheduler = classAlarmScheduler,
+                        appContext = appContext?.applicationContext
+                    ) as T
                 }
             }
     }

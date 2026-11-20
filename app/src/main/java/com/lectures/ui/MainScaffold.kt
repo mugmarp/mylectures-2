@@ -148,16 +148,6 @@ fun MainScaffold(
     var isNotesEditing by rememberSaveable { mutableStateOf(false) }
     var pendingHighlightTaskId by rememberSaveable { mutableStateOf<Long?>(null) }
 
-    // Handle notification deep-link intents.
-    LaunchedEffect(notificationIntentFlow) {
-        notificationIntentFlow?.collect { (tab, taskId) ->
-            if (navState is AppNavState.MainApp) {
-                selectedTab = tab
-                pendingHighlightTaskId = taskId
-            }
-        }
-    }
-
     // First app launch resolution via DataStore / Preferences
     LaunchedEffect(onboardingCompleted) {
         if (onboardingCompleted && (navState is AppNavState.Welcome || navState is AppNavState.FacultySelection)) {
@@ -230,6 +220,15 @@ fun MainScaffold(
         is AppNavState.MainApp -> {
             var currentDestination by rememberSaveable { mutableStateOf(MainScreenDestination.TABS) }
 
+            // Handle notification deep-link intents even when user is inside Settings, Account, or Vacant Rooms.
+            LaunchedEffect(notificationIntentFlow) {
+                notificationIntentFlow?.collect { (tab, taskId) ->
+                    currentDestination = MainScreenDestination.TABS
+                    selectedTab = tab
+                    pendingHighlightTaskId = taskId
+                }
+            }
+
             val inAppStore = remember(context) { InAppNotificationStore.getInstance(context) }
             var activeForegroundAlert by remember { mutableStateOf<InAppNotificationItem?>(null) }
 
@@ -270,7 +269,12 @@ fun MainScaffold(
             val classAlarmScheduler = remember(context) { com.lectures.core.alarm.AlarmScheduler(context) }
             val taskAlarmScheduler = remember(context) { com.lectures.core.alarm.TaskAlarmScheduler(context) }
             val timetableViewModel: com.lectures.features.timetable.ui.TimetableViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                factory = com.lectures.features.timetable.ui.TimetableViewModel.provideFactory(repository, taskAlarmScheduler, classAlarmScheduler)
+                factory = com.lectures.features.timetable.ui.TimetableViewModel.provideFactory(
+                    repository = repository,
+                    alarmScheduler = taskAlarmScheduler,
+                    classAlarmScheduler = classAlarmScheduler,
+                    appContext = context.applicationContext
+                )
             )
 
             val onPeekProgrammeAndGoToTimetable: (String) -> Unit = { group ->

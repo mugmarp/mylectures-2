@@ -35,6 +35,7 @@ class InAppNotificationStore(private val context: Context) {
 
     private val prefs: SharedPreferences =
         context.applicationContext.getSharedPreferences("mustime_inapp_notifications", Context.MODE_PRIVATE)
+    private val storeLock = Any()
 
     private val _notifications = MutableStateFlow<List<InAppNotificationItem>>(loadSavedNotifications())
     val notifications = _notifications.asStateFlow()
@@ -73,7 +74,7 @@ class InAppNotificationStore(private val context: Context) {
         }
     }
 
-    private fun persist(list: List<InAppNotificationItem>) {
+    private fun persistLocked(list: List<InAppNotificationItem>) {
         val limited = list.take(100) // Keep latest 100 entries
         _notifications.value = limited
         try {
@@ -102,68 +103,80 @@ class InAppNotificationStore(private val context: Context) {
         title: String,
         message: String,
         relatedKey: String? = null,
-        navTab: Int? = null
+        navTab: Int? = null,
+        emitForegroundBanner: Boolean = true
     ): InAppNotificationItem {
-        val now = System.currentTimeMillis()
-        val current = _notifications.value.toMutableList()
+        val recordedItem = synchronized(storeLock) {
+            val now = System.currentTimeMillis()
+            val current = _notifications.value.toMutableList()
 
-        // Deduplicate rapid repeat notifications (same type & non-null relatedKey within 2 minutes)
-        if (!relatedKey.isNullOrBlank()) {
-            val existingIndex = current.indexOfFirst {
-                it.type == type && it.relatedKey == relatedKey && (now - it.timestamp) < 120_000L
+            // Deduplicate rapid repeat notifications (same type & non-null relatedKey within 2 minutes)
+            if (!relatedKey.isNullOrBlank()) {
+                val existingIndex = current.indexOfFirst {
+                    it.type == type && it.relatedKey == relatedKey && (now - it.timestamp) < 120_000L
+                }
+                if (existingIndex >= 0) {
+                    val updatedItem = current[existingIndex].copy(
+                        title = title,
+                        message = message,
+                        timestamp = now,
+                        isRead = false,
+                        navTab = navTab ?: current[existingIndex].navTab
+                    )
+                    current.removeAt(existingIndex)
+                    current.add(0, updatedItem)
+                    persistLocked(current)
+                    return@synchronized updatedItem
+                }
             }
-            if (existingIndex >= 0) {
-                val updatedItem = current[existingIndex].copy(
-                    title = title,
-                    message = message,
-                    timestamp = now,
-                    isRead = false,
-                    navTab = navTab ?: current[existingIndex].navTab
-                )
-                current.removeAt(existingIndex)
-                current.add(0, updatedItem)
-                persist(current)
-                _foregroundAlertFlow.tryEmit(updatedItem)
-                return updatedItem
-            }
+
+            val item = InAppNotificationItem(
+                type = type,
+                title = title,
+                message = message,
+                timestamp = now,
+                isRead = false,
+                relatedKey = relatedKey,
+                navTab = navTab
+            )
+            current.add(0, item)
+            persistLocked(current)
+            item
         }
 
-        val item = InAppNotificationItem(
-            type = type,
-            title = title,
-            message = message,
-            timestamp = now,
-            isRead = false,
-            relatedKey = relatedKey,
-            navTab = navTab
-        )
-        current.add(0, item)
-        persist(current)
-
-        // Also emit for real-time in-app foreground banner
-        _foregroundAlertFlow.tryEmit(item)
-        return item
+        if (emitForegroundBanner) {
+            _foregroundAlertFlow.tryEmit(recordedItem)
+        }
+        return recordedItem
     }
 
     fun markAsRead(id: String) {
-        val updated = _notifications.value.map {
-            if (it.id == id) it.copy(isRead = true) else it
+        synchronized(storeLock) {
+            val updated = _notifications.value.map {
+                if (it.id == id) it.copy(isRead = true) else it
+            }
+            persistLocked(updated)
         }
-        persist(updated)
     }
 
     fun markAllAsRead() {
-        val updated = _notifications.value.map { it.copy(isRead = true) }
-        persist(updated)
+        synchronized(storeLock) {
+            val updated = _notifications.value.map { it.copy(isRead = true) }
+            persistLocked(updated)
+        }
     }
 
     fun deleteNotification(id: String) {
-        val updated = _notifications.value.filter { it.id != id }
-        persist(updated)
+        synchronized(storeLock) {
+            val updated = _notifications.value.filter { it.id != id }
+            persistLocked(updated)
+        }
     }
 
     fun clearAll() {
-        persist(emptyList())
+        synchronized(storeLock) {
+            persistLocked(emptyList())
+        }
     }
 
     companion object {

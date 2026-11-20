@@ -107,7 +107,8 @@ class DailyReminderReceiver : BroadcastReceiver() {
                         AlarmSyncCoordinator.resyncAll(
                             context = context,
                             repository = repository,
-                            force = true,
+                            force = false,
+                            preserveImminentExisting = true,
                             reason = "daily_digest_safety_net"
                         )
                     }

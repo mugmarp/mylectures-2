@@ -14,6 +14,46 @@ class TaskAlarmScheduler(private val context: Context) {
     private val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
     private val TAG = "TaskAlarmScheduler"
 
+    private val armedPrefs by lazy {
+        context.applicationContext.getSharedPreferences(PREFS_ARMED_ALARMS, Context.MODE_PRIVATE)
+    }
+    private val trackedLock = Any()
+
+    companion object {
+        private const val PREFS_ARMED_ALARMS = "mustime_armed_alarms"
+        private const val KEY_ARMED_TASK_IDS = "armed_task_ids"
+    }
+
+    fun getTrackedTaskIds(): Set<Long> = synchronized(trackedLock) {
+        armedPrefs.getStringSet(KEY_ARMED_TASK_IDS, emptySet())
+            ?.mapNotNull { it.toLongOrNull() }
+            ?.toSet()
+            ?: emptySet()
+    }
+
+    private fun trackTaskId(taskId: Long) {
+        if (taskId <= 0L) return
+        synchronized(trackedLock) {
+            val key = taskId.toString()
+            val updated = (armedPrefs.getStringSet(KEY_ARMED_TASK_IDS, emptySet()) ?: emptySet()).toMutableSet()
+            if (updated.add(key)) {
+                armedPrefs.edit().putStringSet(KEY_ARMED_TASK_IDS, updated).apply()
+            }
+        }
+    }
+
+    private fun untrackTaskId(taskId: Long) {
+        if (taskId <= 0L) return
+        synchronized(trackedLock) {
+            val key = taskId.toString()
+            val current = armedPrefs.getStringSet(KEY_ARMED_TASK_IDS, emptySet()) ?: return
+            if (key in current) {
+                val updated = current.toMutableSet().apply { remove(key) }
+                armedPrefs.edit().putStringSet(KEY_ARMED_TASK_IDS, updated).apply()
+            }
+        }
+    }
+
     private fun taskAlarmUri(taskId: Long, isTest: Boolean): Uri =
         Uri.parse(if (isTest) "lectures://alarm/task_test/$taskId" else "lectures://alarm/task/$taskId")
 
@@ -49,7 +89,11 @@ class TaskAlarmScheduler(private val context: Context) {
         }
 
         val pendingIntent = createReminderPendingIntent(task, isTest = false)
-        return scheduleTaskAlarmInternal(triggerAtMillis, pendingIntent, "task ${task.id}")
+        val scheduled = scheduleTaskAlarmInternal(triggerAtMillis, pendingIntent, "task ${task.id}")
+        if (scheduled) {
+            trackTaskId(task.id)
+        }
+        return scheduled
     }
 
     /**
@@ -129,6 +173,7 @@ class TaskAlarmScheduler(private val context: Context) {
      * Cancels any scheduled AlarmManager alarm for the given task.
      */
     fun cancelTaskReminder(taskId: Long) {
+        untrackTaskId(taskId)
         val manager = alarmManager ?: return
 
         val intent = Intent(context, TaskReminderReceiver::class.java).apply {

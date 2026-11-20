@@ -1,6 +1,8 @@
 package com.lectures
 
+import android.app.Activity
 import android.app.Application
+import android.os.Bundle
 import androidx.room.Room
 import com.lectures.core.database.AppDatabase
 import com.lectures.core.network.FirebaseFactory
@@ -12,6 +14,11 @@ import com.lectures.features.timetable.data.TimetableRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 
@@ -24,8 +31,14 @@ class TimetableApplication : Application() {
     lateinit var dataLoader: DataLoader
     lateinit var feedbackManager: com.lectures.features.feedback.FeedbackManager
     lateinit var analyticsManager: com.lectures.core.analytics.AnalyticsManager
-    
+
     val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    private val _isAppInForeground = MutableStateFlow(false)
+    val isAppInForeground: StateFlow<Boolean> = _isAppInForeground.asStateFlow()
+
+    @Volatile
+    private var startedActivitiesCount = 0
 
     override fun onCreate() {
         super.onCreate()
@@ -52,7 +65,7 @@ class TimetableApplication : Application() {
 
         // Initialize Android NotificationChannels for academic task reminders and class alarms
         com.lectures.core.notification.NotificationHelper.createNotificationChannels(this)
-        
+
         database = Room.databaseBuilder(
             this,
             AppDatabase::class.java,
@@ -79,11 +92,11 @@ class TimetableApplication : Application() {
         // Only allow destructive reset for pre-release prototype version 1.
         .fallbackToDestructiveMigrationFrom(true, 1)
         .build()
-        
+
         etagStore = ETagStore(this)
         onboardingDataStore = OnboardingDataStore(this)
         dataLoader = DataLoader(this, database)
-        
+
         syncRepository = SyncRepository(database)
         repository = TimetableRepository(
             dao = database.timetableDao(),
@@ -96,53 +109,115 @@ class TimetableApplication : Application() {
 
         feedbackManager = com.lectures.features.feedback.FeedbackManager(this, etagStore)
         analyticsManager = com.lectures.core.analytics.AnalyticsManager(this)
-        
+
         schedulePeriodicTimetableSync()
 
-        // Initial load, sync, and telemetry heartbeat
+        // Ensure pre-packaged / asset database is hydrated locally without attaching network listeners
         applicationScope.launch {
             dataLoader.loadInitialDataIfNeeded()
-            syncRepository.startTimetableSync(this)
-            feedbackManager.flushPendingSubmissions()
-            val prog = etagStore.getSavedProgramme() ?: ""
-            analyticsManager.recordAppLaunch(prog, this)
-            if (repository.checkIsOnboardingCompleted()) {
-                resyncLocalAlarmsFromSettings()
-            }
         }
 
         syncRepository.onRemoteSettingsPulled = {
             if (repository.checkIsOnboardingCompleted()) {
-                resyncLocalAlarmsFromSettings(force = true, reason = "remote_settings")
+                resyncLocalAlarmsFromSettings(
+                    force = true,
+                    preserveImminentExisting = true,
+                    reason = "remote_settings"
+                )
             }
         }
 
         syncRepository.onUserScheduleDataSynced = {
             if (repository.checkIsOnboardingCompleted()) {
-                resyncLocalAlarmsFromSettings(force = true, reason = "remote_user_data")
+                resyncLocalAlarmsFromSettings(
+                    force = true,
+                    preserveImminentExisting = true,
+                    reason = "remote_user_data"
+                )
             }
         }
 
-        // Keep authenticated cloud sync listeners bound strictly to the active signed-in user
+        // Bind live Firestore listeners strictly while a UI Activity is in the foreground
         applicationScope.launch {
-            com.lectures.core.auth.AuthRepository.getInstance().currentUser.collect { user ->
-                if (user != null) {
-                    syncRepository.startAllSync(user.uid, applicationScope)
-                } else {
-                    syncRepository.stopUserSync()
+            combine(
+                isAppInForeground,
+                com.lectures.core.auth.AuthRepository.getInstance().currentUser
+            ) { inForeground, user ->
+                inForeground to user
+            }
+                .distinctUntilChanged()
+                .collect { (inForeground, user) ->
+                    if (inForeground) {
+                        syncRepository.startTimetableSync(applicationScope)
+                        if (user != null) {
+                            syncRepository.startAllSync(user.uid, applicationScope)
+                        } else {
+                            syncRepository.stopUserSync()
+                        }
+                    } else {
+                        syncRepository.stopAllSync()
+                    }
                 }
+        }
+
+        registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
+            override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
+
+            override fun onActivityStarted(activity: Activity) {
+                val wasBackgrounded = startedActivitiesCount == 0
+                startedActivitiesCount++
+                if (wasBackgrounded && !_isAppInForeground.value) {
+                    _isAppInForeground.value = true
+                    onForegroundEntered()
+                }
+            }
+
+            override fun onActivityResumed(activity: Activity) {}
+            override fun onActivityPaused(activity: Activity) {}
+
+            override fun onActivityStopped(activity: Activity) {
+                startedActivitiesCount = (startedActivitiesCount - 1).coerceAtLeast(0)
+                if (startedActivitiesCount == 0 && !activity.isChangingConfigurations) {
+                    _isAppInForeground.value = false
+                    onForegroundExited()
+                }
+            }
+
+            override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
+            override fun onActivityDestroyed(activity: Activity) {}
+        })
+    }
+
+    private fun onForegroundEntered() {
+        applicationScope.launch {
+            dataLoader.loadInitialDataIfNeeded()
+            feedbackManager.flushPendingSubmissions()
+            val prog = etagStore.getSavedProgramme() ?: ""
+            analyticsManager.recordAppLaunch(prog, this)
+            if (repository.checkIsOnboardingCompleted()) {
+                resyncLocalAlarmsFromSettings(
+                    force = false,
+                    preserveImminentExisting = true,
+                    reason = "app_foreground"
+                )
             }
         }
     }
 
+    private fun onForegroundExited() {
+        syncRepository.stopAllSync()
+    }
+
     suspend fun resyncLocalAlarmsFromSettings(
         force: Boolean = false,
+        preserveImminentExisting: Boolean = false,
         reason: String = "app_launch"
     ) {
         com.lectures.core.alarm.AlarmSyncCoordinator.resyncAll(
             context = this,
             repository = repository,
             force = force,
+            preserveImminentExisting = preserveImminentExisting,
             reason = reason
         )
     }

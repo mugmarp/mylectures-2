@@ -23,9 +23,10 @@ class UserSettingsSyncManager(
             classAlarmLeadMinutes = etagStore.getClassAlarmLeadMinutes(),
             taskReminderLeadHours = etagStore.taskReminderLeadPref.firstOrNull() ?: 2,
             alarmVibration = etagStore.alarmVibrationPref.firstOrNull() ?: true,
+            dailyDigestEnabled = etagStore.isDailyDigestEnabled(),
             academicYear = etagStore.getAcademicYear(),
             semester = etagStore.getSemester(),
-            updatedAt = System.currentTimeMillis()
+            updatedAt = etagStore.getSettingsUpdatedAt()
         )
     }
 
@@ -45,6 +46,8 @@ class UserSettingsSyncManager(
         etagStore.setClassAlarmLeadMinutes(payload.classAlarmLeadMinutes)
         etagStore.setTaskReminderLeadHours(payload.taskReminderLeadHours)
         etagStore.setAlarmVibration(payload.alarmVibration)
+        etagStore.setDailyDigestEnabled(payload.dailyDigestEnabled)
         etagStore.setAcademicSession(payload.academicYear, payload.semester)
+        etagStore.setSettingsUpdatedAt(payload.updatedAt)
     }
 }

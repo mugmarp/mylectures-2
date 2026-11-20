@@ -30,6 +30,13 @@ class ETagStore(context: Context, prefsName: String = "mustime_settings") {
     private val TASK_REMINDER_LEAD_KEY = "task_reminder_lead_hours"
     private val ALARM_VIBRATION_KEY = "alarm_vibration"
     private val DAILY_DIGEST_ENABLED_KEY = "daily_digest_enabled"
+    private val SETTINGS_UPDATED_AT_KEY = "settings_updated_at"
+
+    fun getSettingsUpdatedAt(): Long = prefs.getLong(SETTINGS_UPDATED_AT_KEY, 0L)
+
+    fun setSettingsUpdatedAt(timestamp: Long) {
+        prefs.edit().putLong(SETTINGS_UPDATED_AT_KEY, timestamp).apply()
+    }
 
     private val _timetableVersionPref = MutableStateFlow(prefs.getString(TIMETABLE_VERSION_KEY, "Final Timetable") ?: "Final Timetable")
     val timetableVersionPref: Flow<String> = _timetableVersionPref.asStateFlow()
@@ -82,6 +89,7 @@ class ETagStore(context: Context, prefsName: String = "mustime_settings") {
         prefs.edit()
             .putString(ACADEMIC_YEAR_KEY, academicYear)
             .putString(SEMESTER_KEY, semester)
+            .putLong(SETTINGS_UPDATED_AT_KEY, System.currentTimeMillis())
             .apply()
         _academicYearPref.value = academicYear
         _semesterPref.value = semester
@@ -126,7 +134,10 @@ class ETagStore(context: Context, prefsName: String = "mustime_settings") {
     val lastSyncPref: Flow<String?> = _lastSyncPref.asStateFlow()
 
     suspend fun setProgrammePref(programme: String) {
-        prefs.edit().putString(PROGRAMME_KEY, programme).commit()
+        prefs.edit()
+            .putString(PROGRAMME_KEY, programme)
+            .putLong(SETTINGS_UPDATED_AT_KEY, System.currentTimeMillis())
+            .commit()
         _programmePref.value = programme
     }
 
@@ -135,6 +146,7 @@ class ETagStore(context: Context, prefsName: String = "mustime_settings") {
         prefs.edit()
             .putString(THEME_MODE_KEY, mode)
             .putBoolean(THEME_DARK_KEY, isDark)
+            .putLong(SETTINGS_UPDATED_AT_KEY, System.currentTimeMillis())
             .apply()
         _themeModePref.value = mode
         _themeDarkPref.value = isDark
@@ -145,38 +157,57 @@ class ETagStore(context: Context, prefsName: String = "mustime_settings") {
         prefs.edit()
             .putString(THEME_MODE_KEY, mode)
             .putBoolean(THEME_DARK_KEY, dark)
+            .putLong(SETTINGS_UPDATED_AT_KEY, System.currentTimeMillis())
             .apply()
         _themeDarkPref.value = dark
         _themeModePref.value = mode
     }
 
     suspend fun setThemeAccent(accent: Int) {
-        prefs.edit().putInt(THEME_ACCENT_KEY, accent).apply()
+        prefs.edit()
+            .putInt(THEME_ACCENT_KEY, accent)
+            .putLong(SETTINGS_UPDATED_AT_KEY, System.currentTimeMillis())
+            .apply()
         _themeAccentPref.value = accent
     }
 
     suspend fun setNotificationsEnabled(enabled: Boolean) {
-        prefs.edit().putBoolean(NOTIFICATIONS_ENABLED_KEY, enabled).apply()
+        prefs.edit()
+            .putBoolean(NOTIFICATIONS_ENABLED_KEY, enabled)
+            .putLong(SETTINGS_UPDATED_AT_KEY, System.currentTimeMillis())
+            .apply()
         _notificationsEnabledPref.value = enabled
     }
 
     suspend fun setClassAlarmLeadMinutes(minutes: Int) {
-        prefs.edit().putInt(CLASS_ALARM_LEAD_KEY, minutes).apply()
+        prefs.edit()
+            .putInt(CLASS_ALARM_LEAD_KEY, minutes)
+            .putLong(SETTINGS_UPDATED_AT_KEY, System.currentTimeMillis())
+            .apply()
         _classAlarmLeadPref.value = minutes
     }
 
     suspend fun setTaskReminderLeadHours(hours: Int) {
-        prefs.edit().putInt(TASK_REMINDER_LEAD_KEY, hours).apply()
+        prefs.edit()
+            .putInt(TASK_REMINDER_LEAD_KEY, hours)
+            .putLong(SETTINGS_UPDATED_AT_KEY, System.currentTimeMillis())
+            .apply()
         _taskReminderLeadPref.value = hours
     }
 
     suspend fun setAlarmVibration(vibrate: Boolean) {
-        prefs.edit().putBoolean(ALARM_VIBRATION_KEY, vibrate).apply()
+        prefs.edit()
+            .putBoolean(ALARM_VIBRATION_KEY, vibrate)
+            .putLong(SETTINGS_UPDATED_AT_KEY, System.currentTimeMillis())
+            .apply()
         _alarmVibrationPref.value = vibrate
     }
 
     suspend fun setDailyDigestEnabled(enabled: Boolean) {
-        prefs.edit().putBoolean(DAILY_DIGEST_ENABLED_KEY, enabled).apply()
+        prefs.edit()
+            .putBoolean(DAILY_DIGEST_ENABLED_KEY, enabled)
+            .putLong(SETTINGS_UPDATED_AT_KEY, System.currentTimeMillis())
+            .apply()
         _dailyDigestEnabledPref.value = enabled
     }
 
