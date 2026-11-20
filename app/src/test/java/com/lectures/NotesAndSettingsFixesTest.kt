@@ -321,7 +321,10 @@ class NotesAndSettingsFixesTest {
         var resetDone = false
         vm.resetAllNotes { resetDone = true }
         awaitCondition(testScheduler) { resetDone }
-        assertTrue(resetDone)
+        assertTrue(
+            "Expected resetDone=true (isResetting=${vm.uiState.value.isResetting}, err=${vm.uiState.value.errorMessage}, msg=${vm.uiState.value.successMessage})",
+            resetDone
+        )
         assertFalse("All attachment files must be deleted on note reset", dummyFile.exists())
     }
 
