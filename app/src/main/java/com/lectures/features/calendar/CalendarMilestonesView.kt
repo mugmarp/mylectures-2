@@ -12,8 +12,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lectures.ui.components.desktopHoverable
 import java.util.Locale
 
 @Composable
@@ -22,12 +24,14 @@ internal fun AcademicMilestoneCard(
     isLiveNow: Boolean,
     isSelectedDate: Boolean,
     modifier: Modifier = Modifier,
+    outerPadding: PaddingValues = PaddingValues(horizontal = 20.dp, vertical = 6.dp),
     onClick: () -> Unit
 ) {
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 6.dp)
+            .padding(outerPadding)
+            .desktopHoverable()
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(

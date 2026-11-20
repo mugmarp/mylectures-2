@@ -37,6 +37,8 @@ import com.lectures.features.timetable.ui.DarkSurfaceCard
 import com.lectures.features.timetable.ui.StatusGreenLive
 import com.lectures.features.timetable.ui.TextMutedLight
 import com.lectures.features.timetable.ui.TextPrimaryLight
+import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.rememberLecturesWindow
 
 @Composable
 internal fun VacantRoomsSearchAndFilters(
@@ -146,6 +148,7 @@ internal fun VacantRoomsSearchAndFilters(
                     modifier = Modifier
                         .weight(1f)
                         .clip(RoundedCornerShape(12.dp))
+                        .desktopHandCursor()
                         .clickable { onCampusDropdownExpandedChange(true) }
                         .padding(horizontal = if (isNarrow) 4.dp else 8.dp, vertical = 2.dp)
                 ) {
@@ -285,6 +288,7 @@ internal fun VacantRoomsSearchAndFilters(
                     modifier = Modifier
                         .weight(1f)
                         .clip(RoundedCornerShape(12.dp))
+                        .desktopHandCursor()
                         .clickable { onBuildingDropdownExpandedChange(true) }
                         .padding(horizontal = if (isNarrow) 4.dp else 8.dp, vertical = 2.dp)
                 ) {
@@ -416,13 +420,17 @@ internal fun VacantRoomsSearchAndFilters(
             }
         }
 
-        // 3. Horizontal Chip Row for Quick Status Attributes
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            item(key = "chip_free_only") {
+        val windowInfo = rememberLecturesWindow()
+        val isAwayFromDefaults = !isDefaultResetDismissed && (defaultScope.campus != selectedCampus ||
+            (defaultScope.buildingCode != null && selectedBuilding != defaultScope.buildingCode))
+
+        if (windowInfo.isTablet) {
+            @OptIn(ExperimentalLayoutApi::class)
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 FilterChip(
                     selected = freeOnly,
                     onClick = onToggleFreeOnly,
@@ -446,44 +454,42 @@ internal fun VacantRoomsSearchAndFilters(
                         enabled = true,
                         selected = freeOnly,
                         borderColor = if (freeOnly) StatusGreenLive else borderSubtle
-                    )
-                )
-            }
-
-            items(categories) { cat ->
-                val isSelected = selectedCategory == cat
-                FilterChip(
-                    selected = isSelected,
-                    onClick = { onCategorySelected(cat) },
-                    label = {
-                        Text(
-                            text = when (cat) {
-                                "Room" -> "Lecture Room"
-                                "Lab" -> "Lab"
-                                "Library" -> "Library"
-                                else -> "All Spaces"
-                            },
-                            fontSize = 11.5.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                        )
-                    },
-                    shape = RoundedCornerShape(10.dp),
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = accentColor.copy(alpha = 0.15f),
-                        selectedLabelColor = accentColor
                     ),
-                    border = FilterChipDefaults.filterChipBorder(
-                        enabled = true,
-                        selected = isSelected,
-                        borderColor = if (isSelected) accentColor else borderSubtle
-                    )
+                    modifier = Modifier.desktopHandCursor()
                 )
-            }
 
-            val isAwayFromDefaults = !isDefaultResetDismissed && (defaultScope.campus != selectedCampus ||
-                (defaultScope.buildingCode != null && selectedBuilding != defaultScope.buildingCode))
-            if (isAwayFromDefaults) {
-                item(key = "chip_reset_faculty") {
+                categories.forEach { cat ->
+                    val isSelected = selectedCategory == cat
+                    FilterChip(
+                        selected = isSelected,
+                        onClick = { onCategorySelected(cat) },
+                        label = {
+                            Text(
+                                text = when (cat) {
+                                    "Room" -> "Lecture Room"
+                                    "Lab" -> "Lab"
+                                    "Library" -> "Library"
+                                    else -> "All Spaces"
+                                },
+                                fontSize = 11.5.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                            )
+                        },
+                        shape = RoundedCornerShape(10.dp),
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = accentColor.copy(alpha = 0.15f),
+                            selectedLabelColor = accentColor
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            enabled = true,
+                            selected = isSelected,
+                            borderColor = if (isSelected) accentColor else borderSubtle
+                        ),
+                        modifier = Modifier.desktopHandCursor()
+                    )
+                }
+
+                if (isAwayFromDefaults) {
                     SuggestionChip(
                         onClick = onResetToDefaultScope,
                         label = {
@@ -506,8 +512,103 @@ internal fun VacantRoomsSearchAndFilters(
                         colors = SuggestionChipDefaults.suggestionChipColors(
                             containerColor = accentColor.copy(alpha = 0.1f)
                         ),
-                        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.3f))
+                        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.3f)),
+                        modifier = Modifier.desktopHandCursor()
                     )
+                }
+            }
+        } else {
+            // 3. Horizontal Chip Row for Quick Status Attributes
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                item(key = "chip_free_only") {
+                    FilterChip(
+                        selected = freeOnly,
+                        onClick = onToggleFreeOnly,
+                        label = {
+                            Text(
+                                text = "Free now",
+                                fontSize = 11.5.sp,
+                                fontWeight = if (freeOnly) FontWeight.Bold else FontWeight.Medium
+                            )
+                        },
+                        leadingIcon = if (freeOnly) {
+                            { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(13.dp)) }
+                        } else null,
+                        shape = RoundedCornerShape(10.dp),
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = StatusGreenLive.copy(alpha = 0.15f),
+                            selectedLabelColor = if (isDark) Color(0xFF86EFAC) else Color(0xFF15803D),
+                            selectedLeadingIconColor = if (isDark) Color(0xFF86EFAC) else Color(0xFF15803D)
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            enabled = true,
+                            selected = freeOnly,
+                            borderColor = if (freeOnly) StatusGreenLive else borderSubtle
+                        )
+                    )
+                }
+
+                items(categories) { cat ->
+                    val isSelected = selectedCategory == cat
+                    FilterChip(
+                        selected = isSelected,
+                        onClick = { onCategorySelected(cat) },
+                        label = {
+                            Text(
+                                text = when (cat) {
+                                    "Room" -> "Lecture Room"
+                                    "Lab" -> "Lab"
+                                    "Library" -> "Library"
+                                    else -> "All Spaces"
+                                },
+                                fontSize = 11.5.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                            )
+                        },
+                        shape = RoundedCornerShape(10.dp),
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = accentColor.copy(alpha = 0.15f),
+                            selectedLabelColor = accentColor
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            enabled = true,
+                            selected = isSelected,
+                            borderColor = if (isSelected) accentColor else borderSubtle
+                        )
+                    )
+                }
+
+                if (isAwayFromDefaults) {
+                    item(key = "chip_reset_faculty") {
+                        SuggestionChip(
+                            onClick = onResetToDefaultScope,
+                            label = {
+                                Text(
+                                    text = "Reset Faculty (${defaultScope.buildingCode ?: "Default"})",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = accentColor
+                                )
+                            },
+                            icon = {
+                                Icon(
+                                    imageVector = Icons.Outlined.RestartAlt,
+                                    contentDescription = null,
+                                    tint = accentColor,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            },
+                            shape = RoundedCornerShape(10.dp),
+                            colors = SuggestionChipDefaults.suggestionChipColors(
+                                containerColor = accentColor.copy(alpha = 0.1f)
+                            ),
+                            border = BorderStroke(1.dp, accentColor.copy(alpha = 0.3f))
+                        )
+                    }
                 }
             }
         }

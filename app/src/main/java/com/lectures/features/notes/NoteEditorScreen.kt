@@ -81,9 +81,17 @@ import com.lectures.TimetableApplication
 import com.lectures.core.storage.AttachmentStore
 import com.lectures.features.timetable.domain.LectureNote
 import com.lectures.features.timetable.domain.TimetableEntry
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import com.lectures.ui.Chrome
 import com.lectures.ui.LocalAppTheme
+import com.lectures.ui.LocalExtendedColors
 import com.lectures.ui.components.AcademicProfileSheet
+import com.lectures.ui.components.desktopHandCursor
 import com.lectures.ui.rememberLecturesWindow
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -99,7 +107,14 @@ private val WEEKDAY_IN_KEY_REGEX = Regex("(Mon|Tue|Wed|Thu|Fri|Sat|Sun)", RegexO
 
 enum class NoteEditorTab {
     WRITE,
+    SPLIT,
     PREVIEW
+}
+
+private enum class DesktopInspectorDrawer {
+    DETAILS,
+    TEMPLATES,
+    GUIDE
 }
 
 private fun continueMarkdownListOnNewline(oldText: String, newVal: TextFieldValue): TextFieldValue {
@@ -224,12 +239,16 @@ fun NoteEditorScreen(
     var lecturer by rememberSaveable(noteKey) { mutableStateOf(initialLecturer) }
     var attachmentName by rememberSaveable(noteKey) { mutableStateOf(initialAttachment) }
     var attachmentPath by rememberSaveable(noteKey) { mutableStateOf(initialAttachmentPath) }
-    var currentTab by rememberSaveable(noteKey, initialTab) { mutableStateOf(initialTab) }
+    val windowInfo = rememberLecturesWindow()
+    val useDesktopSplitWorkspace = windowInfo.widthDp >= 1000
+    var currentTab by rememberSaveable(noteKey, initialTab) {
+        mutableStateOf(if (useDesktopSplitWorkspace) NoteEditorTab.SPLIT else initialTab)
+    }
+    var desktopDrawer by rememberSaveable(noteKey) { mutableStateOf(DesktopInspectorDrawer.DETAILS) }
 
     val context = LocalContext.current
     val isDark = LocalAppTheme.current.isDark
     val primaryColor = MaterialTheme.colorScheme.primary
-    val windowInfo = rememberLecturesWindow()
     val coroutineScope = rememberCoroutineScope()
     var isCopyingAttachment by remember { mutableStateOf(false) }
     val stagedNewPaths = remember(noteKey) { mutableStateListOf<String>() }
@@ -483,9 +502,51 @@ fun NoteEditorScreen(
         )
     }
 
+    val saveNoteAction: () -> Unit = {
+        if (!isCopyingAttachment) {
+            focusManager.clearFocus()
+            keyboardController?.hide()
+            val finalAttachmentPath = attachmentPath
+            onSave(
+                initialNote?.naturalKey,
+                selectedCourse,
+                title.ifBlank { "Academic Note: $selectedCourse" },
+                contentValue.text,
+                if (canScheduleClassAlert) selectedAlarmMinutes else null,
+                tag,
+                attachedClassText,
+                attachmentName,
+                finalAttachmentPath
+            )
+            cleanupOrphanedAttachments(finalAttachmentPath)
+        }
+    }
+
+    val effectiveTab = if (!useDesktopSplitWorkspace && currentTab == NoteEditorTab.SPLIT) NoteEditorTab.WRITE else currentTab
+
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         containerColor = MaterialTheme.colorScheme.background,
+        modifier = Modifier.onPreviewKeyEvent { event ->
+            if (event.type == KeyEventType.KeyDown) {
+                when {
+                    event.isCtrlPressed && event.key == Key.S -> {
+                        saveNoteAction()
+                        true
+                    }
+                    event.key == Key.Escape -> {
+                        if (useDesktopSplitWorkspace && desktopDrawer != DesktopInspectorDrawer.DETAILS) {
+                            desktopDrawer = DesktopInspectorDrawer.DETAILS
+                            true
+                        } else if (!showTemplatesSheet && !showHelpSheet && !showCoursePickerModal && !showTagPicker && !showClassPicker && !showCustomReminderDialog && !showDiscardConfirmDialog) {
+                            handleBackPress()
+                            true
+                        } else false
+                    }
+                    else -> false
+                }
+            } else false
+        },
         topBar = {
             Surface(
                 color = MaterialTheme.colorScheme.surface.copy(alpha = Chrome.TopBarGlassAlpha),
@@ -506,7 +567,7 @@ fun NoteEditorScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.weight(1f, fill = false)
                         ) {
-                            IconButton(onClick = handleBackPress) {
+                            IconButton(onClick = handleBackPress, modifier = Modifier.desktopHandCursor()) {
                                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onSurface)
                             }
                             Spacer(modifier = Modifier.width(2.dp))
@@ -533,23 +594,47 @@ fun NoteEditorScreen(
                                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                             ) {
                                 Row(modifier = Modifier.padding(2.dp)) {
+                                    if (useDesktopSplitWorkspace) {
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(10.dp))
+                                                .background(if (effectiveTab == NoteEditorTab.SPLIT) MaterialTheme.colorScheme.primary else Color.Transparent)
+                                                .desktopHandCursor()
+                                                .clickable { currentTab = NoteEditorTab.SPLIT }
+                                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                                                .testTag("note_editor_split_tab"),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                "Split",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (effectiveTab == NoteEditorTab.SPLIT) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+
                                     Box(
                                         modifier = Modifier
                                             .clip(RoundedCornerShape(10.dp))
-                                            .background(if (currentTab == NoteEditorTab.WRITE) MaterialTheme.colorScheme.primary else Color.Transparent)
+                                            .background(if (effectiveTab == NoteEditorTab.WRITE) MaterialTheme.colorScheme.primary else Color.Transparent)
+                                            .desktopHandCursor()
                                             .clickable {
-                                                focusManager.clearFocus()
-                                                keyboardController?.hide()
+                                                if (!useDesktopSplitWorkspace) {
+                                                    focusManager.clearFocus()
+                                                    keyboardController?.hide()
+                                                }
                                                 currentTab = NoteEditorTab.WRITE
                                             }
-                                            .padding(horizontal = if (isCompactToggle) 8.dp else 10.dp, vertical = 4.dp),
+                                            .padding(horizontal = if (isCompactToggle) 8.dp else 10.dp, vertical = 4.dp)
+                                            .testTag("note_editor_write_tab"),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             Icon(
                                                 Icons.Default.Edit,
                                                 contentDescription = "Write",
-                                                tint = if (currentTab == NoteEditorTab.WRITE) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                tint = if (effectiveTab == NoteEditorTab.WRITE) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                                                 modifier = Modifier.size(13.dp)
                                             )
                                             if (!isCompactToggle) {
@@ -558,7 +643,7 @@ fun NoteEditorScreen(
                                                     "Write",
                                                     fontSize = 11.sp,
                                                     fontWeight = FontWeight.Bold,
-                                                    color = if (currentTab == NoteEditorTab.WRITE) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                                    color = if (effectiveTab == NoteEditorTab.WRITE) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                             }
                                         }
@@ -567,20 +652,22 @@ fun NoteEditorScreen(
                                     Box(
                                         modifier = Modifier
                                             .clip(RoundedCornerShape(10.dp))
-                                            .background(if (currentTab == NoteEditorTab.PREVIEW) MaterialTheme.colorScheme.primary else Color.Transparent)
+                                            .background(if (effectiveTab == NoteEditorTab.PREVIEW) MaterialTheme.colorScheme.primary else Color.Transparent)
+                                            .desktopHandCursor()
                                             .clickable {
                                                 focusManager.clearFocus()
                                                 keyboardController?.hide()
                                                 currentTab = NoteEditorTab.PREVIEW
                                             }
-                                            .padding(horizontal = if (isCompactToggle) 8.dp else 10.dp, vertical = 4.dp),
+                                            .padding(horizontal = if (isCompactToggle) 8.dp else 10.dp, vertical = 4.dp)
+                                            .testTag("note_editor_preview_tab"),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             Icon(
                                                 Icons.Default.Visibility,
                                                 contentDescription = "Preview",
-                                                tint = if (currentTab == NoteEditorTab.PREVIEW) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                tint = if (effectiveTab == NoteEditorTab.PREVIEW) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                                                 modifier = Modifier.size(13.dp)
                                             )
                                             if (!isCompactToggle) {
@@ -589,7 +676,7 @@ fun NoteEditorScreen(
                                                     "Preview",
                                                     fontSize = 11.sp,
                                                     fontWeight = FontWeight.Bold,
-                                                    color = if (currentTab == NoteEditorTab.PREVIEW) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                                    color = if (effectiveTab == NoteEditorTab.PREVIEW) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                             }
                                         }
@@ -598,23 +685,7 @@ fun NoteEditorScreen(
                             }
 
                             Button(
-                                onClick = {
-                                    focusManager.clearFocus()
-                                    keyboardController?.hide()
-                                    val finalAttachmentPath = attachmentPath
-                                    onSave(
-                                        initialNote?.naturalKey,
-                                        selectedCourse,
-                                        title.ifBlank { "Academic Note: $selectedCourse" },
-                                        contentValue.text,
-                                        if (canScheduleClassAlert) selectedAlarmMinutes else null,
-                                        tag,
-                                        attachedClassText,
-                                        attachmentName,
-                                        finalAttachmentPath
-                                    )
-                                    cleanupOrphanedAttachments(finalAttachmentPath)
-                                },
+                                onClick = saveNoteAction,
                                 enabled = !isCopyingAttachment,
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = MaterialTheme.colorScheme.primary,
@@ -622,7 +693,7 @@ fun NoteEditorScreen(
                                 ),
                                 shape = RoundedCornerShape(14.dp),
                                 contentPadding = PaddingValues(horizontal = if (windowInfo.isNarrow) 10.dp else 14.dp, vertical = 6.dp),
-                                modifier = Modifier.testTag("note_save_button")
+                                modifier = Modifier.desktopHandCursor().testTag("note_save_button")
                             ) {
                                 Text("Save ✓", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                             }
@@ -634,6 +705,379 @@ fun NoteEditorScreen(
             }
         }
     ) { innerPadding ->
+        if (useDesktopSplitWorkspace) {
+            val openUrlAction: (String) -> Unit = { rawUrl ->
+                val safeUrl = if (rawUrl.startsWith("http://", ignoreCase = true) || rawUrl.startsWith("https://", ignoreCase = true)) {
+                    rawUrl
+                } else {
+                    "https://$rawUrl"
+                }
+                try {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(safeUrl)))
+                } catch (_: Exception) {
+                    onAttachmentError?.invoke("Unable to open link")
+                }
+            }
+            val openAttachmentAction: () -> Unit = {
+                val path = attachmentPath
+                val uri = if (path != null) AttachmentStore.contentUriFor(context, path) else null
+                if (uri == null) {
+                    onAttachmentError?.invoke("Attachment file is missing")
+                } else {
+                    val intent = Intent(Intent.ACTION_VIEW).apply {
+                        setDataAndType(uri, context.contentResolver.getType(uri) ?: "*/*")
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    try {
+                        context.startActivity(intent)
+                    } catch (_: Exception) {
+                        onAttachmentError?.invoke("No app can open this file")
+                    }
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background)
+                    .padding(innerPadding)
+                    .navigationBarsPadding(),
+                contentAlignment = Alignment.TopCenter
+            ) {
+                Row(
+                    modifier = Modifier
+                        .widthIn(max = 1520.dp)
+                        .fillMaxSize()
+                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    // LEFT/CENTER EDITOR PANE
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                    ) {
+                        BasicTextField(
+                            value = title,
+                            onValueChange = { title = it },
+                            textStyle = TextStyle(fontSize = 22.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface),
+                            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            decorationBox = { innerTextField ->
+                                if (title.isEmpty()) {
+                                    Text(
+                                        "Enter note title or lecture topic...",
+                                        fontSize = 22.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
+                                    )
+                                }
+                                innerTextField()
+                            }
+                        )
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        LazyRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            item {
+                                AssistChip(
+                                    onClick = { showCoursePickerModal = true },
+                                    label = { Text(if (selectedCourse.isNotBlank()) "📚 $selectedCourse" else "📚 Select Course", fontWeight = FontWeight.SemiBold, fontSize = 12.sp) },
+                                    trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                            }
+                            item {
+                                AssistChip(
+                                    onClick = { showTagPicker = true },
+                                    label = { Text("🏷️ $tag", fontSize = 12.sp, fontWeight = FontWeight.Medium) },
+                                    trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(14.dp)) },
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                            }
+                            item {
+                                AssistChip(
+                                    onClick = {
+                                        desktopDrawer = if (desktopDrawer == DesktopInspectorDrawer.TEMPLATES) DesktopInspectorDrawer.DETAILS else DesktopInspectorDrawer.TEMPLATES
+                                    },
+                                    leadingIcon = { Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(15.dp)) },
+                                    label = { Text("Templates", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary) },
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                            }
+                            item {
+                                AssistChip(
+                                    onClick = {
+                                        desktopDrawer = if (desktopDrawer == DesktopInspectorDrawer.GUIDE) DesktopInspectorDrawer.DETAILS else DesktopInspectorDrawer.GUIDE
+                                    },
+                                    leadingIcon = { Icon(Icons.AutoMirrored.Outlined.HelpOutline, contentDescription = null, modifier = Modifier.size(14.dp)) },
+                                    label = { Text("Guide", fontSize = 12.sp, fontWeight = FontWeight.Medium) },
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                            }
+                            item {
+                                AssistChip(
+                                    onClick = { showClassPicker = true },
+                                    label = {
+                                        Text(
+                                            if (attachedClassText.isNotBlank()) "📍 ${attachedClassText.substringBefore(" · ").take(18)}" else "📍 Attach Class",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    },
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Card(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth(),
+                            shape = RoundedCornerShape(18.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
+                        ) {
+                            Column(modifier = Modifier.fillMaxSize().padding(14.dp)) {
+                                if (effectiveTab != NoteEditorTab.PREVIEW) {
+                                    MarkdownFormattingToolbar(
+                                        isDark = isDark,
+                                        applyMarkdown = applyMarkdown,
+                                        insertLinePrefix = insertLinePrefix,
+                                        insertSnippet = insertSnippet,
+                                        insertDateStamp = insertDateStamp
+                                    )
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                }
+
+                                val liveTransformation = remember(isDark, primaryColor) {
+                                    MarkdownLiveVisualTransformation(isDark, primaryColor)
+                                }
+
+                                Row(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                                ) {
+                                    if (effectiveTab == NoteEditorTab.WRITE || effectiveTab == NoteEditorTab.SPLIT) {
+                                        Box(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .fillMaxHeight()
+                                                .verticalScroll(rememberScrollState())
+                                        ) {
+                                            BasicTextField(
+                                                value = contentValue,
+                                                onValueChange = { contentValue = continueMarkdownListOnNewline(contentValue.text, it) },
+                                                visualTransformation = liveTransformation,
+                                                textStyle = TextStyle(fontSize = 15.sp, lineHeight = 24.sp, color = MaterialTheme.colorScheme.onSurface),
+                                                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .heightIn(min = 320.dp)
+                                                    .testTag("note_content_editor"),
+                                                decorationBox = { innerTextField ->
+                                                    if (contentValue.text.isEmpty()) {
+                                                        Text(
+                                                            "Start taking lecture notes, revision points, or checklists...\n• Live Markdown highlighting & live right preview\n• Ctrl+S to save quickly",
+                                                            fontSize = 14.sp,
+                                                            lineHeight = 22.sp,
+                                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                                        )
+                                                    }
+                                                    innerTextField()
+                                                }
+                                            )
+                                        }
+                                    }
+
+                                    if (effectiveTab == NoteEditorTab.SPLIT) {
+                                        Box(
+                                            modifier = Modifier
+                                                .width(1.dp)
+                                                .fillMaxHeight()
+                                                .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                        )
+                                    }
+
+                                    if (effectiveTab == NoteEditorTab.PREVIEW || effectiveTab == NoteEditorTab.SPLIT) {
+                                        Column(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .fillMaxHeight()
+                                                .verticalScroll(rememberScrollState())
+                                                .testTag("note_live_preview_pane")
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text("LIVE PREVIEW", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, letterSpacing = 0.5.sp)
+                                                if (checklistProgress != null) {
+                                                    val (done, total) = checklistProgress
+                                                    val ext = LocalExtendedColors.current
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .clip(RoundedCornerShape(8.dp))
+                                                            .background(if (done == total) ext.successBg else MaterialTheme.colorScheme.primaryContainer)
+                                                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                                                    ) {
+                                                        Text(
+                                                            "☑ $done / $total",
+                                                            fontSize = 11.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = if (done == total) ext.successText else MaterialTheme.colorScheme.onPrimaryContainer
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                                            Spacer(modifier = Modifier.height(10.dp))
+                                            MarkdownViewer(
+                                                markdown = contentValue.text,
+                                                onToggleChecklist = toggleChecklistInPreview,
+                                                onWikiLinkClick = onWikiLinkClick,
+                                                onUrlClick = openUrlAction
+                                            )
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(10.dp))
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Outlined.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(13.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Ctrl+S Save · Esc Back", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    Text("$wordsCount words · $charsCount chars", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+                    }
+
+                    // RIGHT DOCKED INSPECTOR PANE (Details / Inline Templates / Inline Formatting Guide)
+                    val inspectorWidth = if (windowInfo.isExtraLargeWidth) 340.dp else 300.dp
+                    Surface(
+                        shape = RoundedCornerShape(18.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
+                        modifier = Modifier
+                            .width(inspectorWidth)
+                            .fillMaxHeight()
+                            .testTag("note_editor_inspector")
+                    ) {
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                listOf(
+                                    DesktopInspectorDrawer.DETAILS to "Details",
+                                    DesktopInspectorDrawer.TEMPLATES to "Templates",
+                                    DesktopInspectorDrawer.GUIDE to "Guide"
+                                ).forEach { (drawerMode, label) ->
+                                    val active = desktopDrawer == drawerMode
+                                    FilterChip(
+                                        selected = active,
+                                        onClick = { desktopDrawer = drawerMode },
+                                        label = { Text(label, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold) },
+                                        modifier = Modifier.weight(1f).desktopHandCursor()
+                                    )
+                                }
+                            }
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                            when (desktopDrawer) {
+                                DesktopInspectorDrawer.DETAILS -> {
+                                    Column(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .verticalScroll(rememberScrollState())
+                                            .padding(14.dp),
+                                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        if (attachedClassText.isNotBlank()) {
+                                            AttachedTimetableClassCard(
+                                                attachedClassText = attachedClassText,
+                                                attachedLocation = attachedLocation,
+                                                lecturer = lecturer,
+                                                onClick = { showClassPicker = true }
+                                            )
+                                        }
+                                        PreClassAlertReminderCard(
+                                            canScheduleClassAlert = canScheduleClassAlert,
+                                            selectedAlarmMinutes = selectedAlarmMinutes,
+                                            onOpenClassPicker = { showClassPicker = true },
+                                            onSelectAlarmMinutes = { selectedAlarmMinutes = it },
+                                            onOpenCustomDialog = { showCustomReminderDialog = true }
+                                        )
+                                        NoteAttachmentsSection(
+                                            isCopyingAttachment = isCopyingAttachment,
+                                            attachmentName = attachmentName,
+                                            attachmentPath = attachmentPath,
+                                            onPickDocument = {
+                                                documentPickerLauncher.launch(
+                                                    arrayOf(
+                                                        "application/pdf",
+                                                        "application/msword",
+                                                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                                        "application/vnd.ms-powerpoint",
+                                                        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                                                        "text/*"
+                                                    )
+                                                )
+                                            },
+                                            onPickPhoto = {
+                                                photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                            },
+                                            onOpenAttachment = openAttachmentAction,
+                                            onRemoveAttachment = {
+                                                attachmentName = ""
+                                                attachmentPath = null
+                                            }
+                                        )
+                                    }
+                                }
+                                DesktopInspectorDrawer.TEMPLATES -> {
+                                    NoteTemplatesContent(
+                                        onDismiss = { desktopDrawer = DesktopInspectorDrawer.DETAILS },
+                                        onSelectTemplate = { tpl ->
+                                            if (contentValue.text.isBlank()) applyTemplate(tpl) else pendingTemplate = tpl
+                                        },
+                                        modifier = Modifier.weight(1f).padding(14.dp)
+                                    )
+                                }
+                                DesktopInspectorDrawer.GUIDE -> {
+                                    MarkdownHelpContent(
+                                        onDismiss = { desktopDrawer = DesktopInspectorDrawer.DETAILS },
+                                        onInsertSnippet = insertSnippet,
+                                        modifier = Modifier.weight(1f).padding(14.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -923,6 +1367,7 @@ fun NoteEditorScreen(
 
                 Spacer(modifier = Modifier.height(36.dp))
             }
+        }
         }
     }
 

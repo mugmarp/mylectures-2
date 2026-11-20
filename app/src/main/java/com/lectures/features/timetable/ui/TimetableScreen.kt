@@ -20,6 +20,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -41,6 +47,8 @@ import com.lectures.features.timetable.domain.TimetableEntry
 import com.lectures.ui.Chrome
 import com.lectures.ui.LocalAppTheme
 import com.lectures.ui.components.AcademicProfileSheet
+import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.contrastOnColor
 import com.lectures.ui.rememberLecturesWindow
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -240,6 +248,37 @@ fun TimetableScreen(
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         containerColor = if (isDark) DarkSurfaceBase else SurfaceBaseLight,
+        modifier = Modifier.onKeyEvent { event ->
+            if (event.type == KeyEventType.KeyDown) {
+                when {
+                    event.isCtrlPressed && event.key == Key.N -> {
+                        showQuickAddSheet = true
+                        true
+                    }
+                    event.key == Key.Escape && (detailLectureKey != null || detailActivityId != null) -> {
+                        detailLectureKey = null
+                        detailActivityId = null
+                        true
+                    }
+                    event.key == Key.DirectionLeft -> {
+                        val idx = daysList.indexOfFirst { it.equals(selectedDay, ignoreCase = true) }
+                        if (idx != -1) {
+                            val prev = if (idx - 1 < 0) daysList.lastIndex else idx - 1
+                            onDaySelected(daysList[prev])
+                            true
+                        } else false
+                    }
+                    event.key == Key.DirectionRight -> {
+                        val idx = daysList.indexOfFirst { it.equals(selectedDay, ignoreCase = true) }
+                        if (idx != -1) {
+                            onDaySelected(daysList[(idx + 1) % daysList.size])
+                            true
+                        } else false
+                    }
+                    else -> false
+                }
+            } else false
+        },
         topBar = {
             val semesterWeekLabel = remember { TimeUtil.currentSemesterWeekLabel() }
             TimetableTopAppBar(
@@ -252,35 +291,95 @@ fun TimetableScreen(
             )
         },
         floatingActionButton = {
-            if (windowInfo.collapseFab) {
-                FloatingActionButton(
-                    onClick = { showQuickAddSheet = true },
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = Color.White,
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier
-                        .navigationBarsPadding()
-                        .padding(bottom = Chrome.fabBottomPadding(windowInfo.useNavigationRail))
-                        .testTag("timetable_fab")
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "Add Activity", modifier = Modifier.size(24.dp))
+            if (!windowInfo.isDualPane) {
+                val fabInk = contrastOnColor(MaterialTheme.colorScheme.primary)
+                if (windowInfo.collapseFab) {
+                    FloatingActionButton(
+                        onClick = { showQuickAddSheet = true },
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = fabInk,
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier
+                            .navigationBarsPadding()
+                            .padding(bottom = Chrome.fabBottomPadding(windowInfo.useNavigationRail))
+                            .desktopHandCursor()
+                            .testTag("timetable_fab")
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = "Add Activity", modifier = Modifier.size(24.dp))
+                    }
+                } else {
+                    ExtendedFloatingActionButton(
+                        onClick = { showQuickAddSheet = true },
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = fabInk,
+                        shape = RoundedCornerShape(16.dp),
+                        icon = { Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(20.dp)) },
+                        text = { Text(text = "Add Activity", fontWeight = FontWeight.SemiBold, fontSize = 14.sp) },
+                        modifier = Modifier
+                            .navigationBarsPadding()
+                            .padding(bottom = Chrome.fabBottomPadding(windowInfo.useNavigationRail))
+                            .desktopHandCursor()
+                            .testTag("timetable_fab")
+                    )
                 }
-            } else {
-                ExtendedFloatingActionButton(
-                    onClick = { showQuickAddSheet = true },
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = Color.White,
-                    shape = RoundedCornerShape(16.dp),
-                    icon = { Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(20.dp)) },
-                    text = { Text(text = "Add Activity", fontWeight = FontWeight.SemiBold, fontSize = 14.sp) },
-                    modifier = Modifier
-                        .navigationBarsPadding()
-                        .padding(bottom = Chrome.fabBottomPadding(windowInfo.useNavigationRail))
-                        .testTag("timetable_fab")
-                )
             }
         }
     ) { innerPadding ->
+        if (windowInfo.isDualPane) {
+            TimetableDesktopWorkspace(
+                programme = programme,
+                enrolledProgramme = enrolledProgramme,
+                isPeeking = isPeeking,
+                entries = entries,
+                customEvents = customEvents,
+                notes = notes,
+                selectedDay = selectedDay,
+                todayName = todayName,
+                daysList = daysList,
+                dayInfoList = dayInfoList,
+                dayEntries = dayEntries,
+                dayCustomEvents = dayCustomEvents,
+                globalNextUp = globalNextUp,
+                selectedFilter = selectedFilter,
+                isLoading = isLoading,
+                selectedEntryForDetail = selectedEntryForDetail,
+                selectedActivityForDetail = selectedActivityForDetail,
+                topContentPadding = innerPadding.calculateTopPadding() + 8.dp,
+                bottomContentPadding = listBottomPadding,
+                onDaySelected = onDaySelected,
+                onCycleFilter = {
+                    selectedFilter = when (selectedFilter) {
+                        "All" -> "Lectures"
+                        "Lectures" -> "Labs"
+                        "Labs" -> "Associations"
+                        else -> "All"
+                    }
+                },
+                onInspectEntry = { key ->
+                    detailActivityId = null
+                    detailLectureKey = key
+                },
+                onDismissInspectEntry = { detailLectureKey = null },
+                onOpenAlarmPicker = { key -> alarmLectureKey = key },
+                onSaveNote = onSaveNote,
+                onInspectActivity = { id ->
+                    detailLectureKey = null
+                    detailActivityId = id
+                },
+                onDismissInspectActivity = { detailActivityId = null },
+                onEditActivity = { id ->
+                    detailActivityId = null
+                    editingActivityId = id
+                },
+                onDeleteActivity = { id ->
+                    detailActivityId = null
+                    onDeleteActivity(id)
+                },
+                onOpenQuickAdd = { showQuickAddSheet = true },
+                onResetToEnrolled = onResetToEnrolled,
+                onSettingsClick = onSettingsClick
+            )
+        } else {
         Box(
             contentAlignment = Alignment.TopCenter,
             modifier = Modifier
@@ -312,7 +411,7 @@ fun TimetableScreen(
             LazyColumn(
                 state = listState,
                 modifier = Modifier
-                    .widthIn(max = 840.dp)
+                    .widthIn(max = 760.dp)
                     .fillMaxWidth()
                     .fillMaxHeight(),
                 contentPadding = PaddingValues(
@@ -516,21 +615,24 @@ fun TimetableScreen(
                 }
             }
         }
+        }
     }
 
-    selectedActivityForDetail?.let { event ->
-        TimetableActivityDetailDialog(
-            event = event,
-            onDismiss = { detailActivityId = null },
-            onEdit = { id ->
-                detailActivityId = null
-                editingActivityId = id
-            },
-            onDelete = { id ->
-                detailActivityId = null
-                onDeleteActivity(id)
-            }
-        )
+    if (!windowInfo.isDualPane) {
+        selectedActivityForDetail?.let { event ->
+            TimetableActivityDetailDialog(
+                event = event,
+                onDismiss = { detailActivityId = null },
+                onEdit = { id ->
+                    detailActivityId = null
+                    editingActivityId = id
+                },
+                onDelete = { id ->
+                    detailActivityId = null
+                    onDeleteActivity(id)
+                }
+            )
+        }
     }
 
     if (activityToEdit != null) {
@@ -544,11 +646,12 @@ fun TimetableScreen(
         )
     }
 
-    if (selectedEntryForDetail != null) {
+    if (!windowInfo.isDualPane && selectedEntryForDetail != null) {
         val entry = selectedEntryForDetail
         LectureDetailSheet(
             entry = entry,
             initialNote = notes[entry.naturalKey]?.content ?: "",
+            initialReminder = notes[entry.naturalKey]?.alarmMinutes,
             onSaveNote = { noteText, reminderMinutes ->
                 onSaveNote(entry, noteText, reminderMinutes)
                 detailLectureKey = null

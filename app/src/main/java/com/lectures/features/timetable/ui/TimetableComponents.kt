@@ -73,7 +73,7 @@ fun TimetableTopAppBar(
                     Icon(
                         imageVector = Icons.Outlined.CalendarMonth,
                         contentDescription = null,
-                        tint = Color.White,
+                        tint = com.lectures.ui.contrastOnColor(accentColor),
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -123,36 +123,38 @@ fun TimetableTopAppBar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = accentColor.copy(alpha = 0.12f),
-                    border = BorderStroke(1.dp, accentColor.copy(alpha = 0.35f)),
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .clickable { onOpenVacantRooms() }
-                        .testTag("topbar_vacant_rooms_btn")
-                ) {
-                    Row(
-                        modifier = Modifier.padding(
-                            horizontal = if (windowInfo.topBarCompactAction) 8.dp else 10.dp,
-                            vertical = 6.dp
-                        ),
-                        verticalAlignment = Alignment.CenterVertically
+                if (!windowInfo.useNavigationRail) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = accentColor.copy(alpha = 0.12f),
+                        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.35f)),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { onOpenVacantRooms() }
+                            .testTag("topbar_vacant_rooms_btn")
                     ) {
-                        Icon(
-                            imageVector = Icons.Outlined.MeetingRoom,
-                            contentDescription = "Vacant Rooms",
-                            tint = accentColor,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        if (!windowInfo.topBarCompactAction) {
-                            Spacer(modifier = Modifier.width(5.dp))
-                            Text(
-                                text = "Free Rooms",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = accentColor
+                        Row(
+                            modifier = Modifier.padding(
+                                horizontal = if (windowInfo.topBarCompactAction) 8.dp else 10.dp,
+                                vertical = 6.dp
+                            ),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.MeetingRoom,
+                                contentDescription = "Vacant Rooms",
+                                tint = accentColor,
+                                modifier = Modifier.size(16.dp)
                             )
+                            if (!windowInfo.topBarCompactAction) {
+                                Spacer(modifier = Modifier.width(5.dp))
+                                Text(
+                                    text = "Free Rooms",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = accentColor
+                                )
+                            }
                         }
                     }
                 }
@@ -162,7 +164,7 @@ fun TimetableTopAppBar(
                     color = capsuleBg,
                     border = BorderStroke(1.dp, borderSubtle),
                     modifier = Modifier
-                        .size(38.dp)
+                        .size(40.dp)
                         .clip(CircleShape)
                         .clickable { onProfileClick() }
                         .testTag("topbar_academic_info_btn")

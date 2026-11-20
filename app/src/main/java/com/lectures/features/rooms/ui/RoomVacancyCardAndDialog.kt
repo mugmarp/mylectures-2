@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.LocalLibrary
+import androidx.compose.material.icons.outlined.MeetingRoom
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -25,6 +26,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.lectures.features.rooms.RoomItem
 import com.lectures.features.rooms.RoomType
 import com.lectures.features.rooms.RoomVacancyStatus
@@ -37,6 +39,11 @@ import com.lectures.features.timetable.ui.StatusGreenLive
 import com.lectures.features.timetable.ui.TextMutedLight
 import com.lectures.features.timetable.ui.TextPrimaryLight
 import com.lectures.ui.components.FloorIndicatorBadge
+import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.components.desktopHoverable
+import com.lectures.ui.components.onEscapeKey
+import com.lectures.ui.contrastOnColor
+import com.lectures.ui.rememberLecturesWindow
 
 fun formatRoomDisplayCode(room: RoomItem): String {
     val raw = room.code
@@ -58,6 +65,7 @@ fun RoomVacancyCard(
     isDark: Boolean,
     showCampus: Boolean = false,
     selectedBuilding: String? = null,
+    isSelected: Boolean = false,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
@@ -66,6 +74,7 @@ fun RoomVacancyCard(
     val textPrimary = if (isDark) Color.White else TextPrimaryLight
     val textMuted = if (isDark) Color(0xFF94A3B8) else TextMutedLight
     val borderSubtle = if (isDark) DarkBorderSubtle else BorderSubtleLight
+    val primaryColor = MaterialTheme.colorScheme.primary
 
     val statusColor = when {
         !room.isStudyFriendly -> Color(0xFF8B5CF6)
@@ -77,10 +86,17 @@ fun RoomVacancyCard(
 
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = surfaceColor,
-        border = BorderStroke(1.dp, borderSubtle),
+        color = if (isSelected) primaryColor.copy(alpha = 0.08f) else surfaceColor,
+        border = BorderStroke(
+            width = if (isSelected) 1.5.dp else 1.dp,
+            color = if (isSelected) primaryColor else borderSubtle
+        ),
         modifier = modifier
             .fillMaxWidth()
+            .desktopHoverable(
+                enabled = !isSelected,
+                hoverContainerColor = primaryColor.copy(alpha = 0.06f)
+            )
             .clickable { onClick() }
     ) {
         Row(
@@ -208,93 +224,182 @@ fun RoomScheduleDetailDialog(
     isDark: Boolean,
     onDismiss: () -> Unit
 ) {
+    val windowInfo = rememberLecturesWindow()
+    val useWide = windowInfo.preferDesktopDialogs
+    val dialogMaxH = minOf(640.dp, (windowInfo.heightDp - 48).coerceAtLeast(360).dp)
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = !useWide)
+    ) {
+        Card(
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = if (isDark) DarkSurfaceCard else Color.White),
+            modifier = Modifier
+                .then(
+                    if (useWide) Modifier.widthIn(min = 420.dp, max = 600.dp) else Modifier
+                )
+                .fillMaxWidth()
+                .heightIn(max = dialogMaxH)
+                .padding(horizontal = if (useWide) 24.dp else 4.dp)
+                .onEscapeKey(onDismiss)
+        ) {
+            RoomScheduleInspectorContent(
+                status = status,
+                dayOfWeek = dayOfWeek,
+                isDark = isDark,
+                showCloseButton = true,
+                onDismiss = onDismiss,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp)
+            )
+        }
+    }
+}
+
+@Composable
+internal fun EmptyRoomInspectorCard(
+    isDark: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val textPrimary = if (isDark) Color.White else TextPrimaryLight
+    val textMuted = if (isDark) Color(0xFF94A3B8) else TextMutedLight
+    val borderSubtle = if (isDark) DarkBorderSubtle else BorderSubtleLight
+    val surfaceColor = if (isDark) DarkSurfaceCard else Color.White
+
+    Surface(
+        modifier = modifier.fillMaxSize(),
+        shape = RoundedCornerShape(20.dp),
+        color = surfaceColor,
+        border = BorderStroke(1.dp, borderSubtle)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.MeetingRoom,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+            Spacer(modifier = Modifier.height(14.dp))
+            Text(
+                text = "Room Schedule Inspector",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = textPrimary,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = "Select any classroom or lab from the grid to inspect its full-day occupancy timeline, study friendliness, and allocated programmes.",
+                fontSize = 12.5.sp,
+                color = textMuted,
+                textAlign = TextAlign.Center,
+                lineHeight = 18.sp
+            )
+        }
+    }
+}
+
+@Composable
+internal fun RoomScheduleInspectorContent(
+    status: RoomVacancyStatus,
+    dayOfWeek: String,
+    isDark: Boolean,
+    showCloseButton: Boolean,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     val room = status.room
     val sessions = status.allDaySessions
     val textPrimary = if (isDark) Color.White else TextPrimaryLight
     val textMuted = if (isDark) Color(0xFF94A3B8) else TextMutedLight
 
-    Dialog(onDismissRequest = onDismiss) {
-        Card(
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = if (isDark) DarkSurfaceCard else Color.White),
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(max = 580.dp)
-                .padding(horizontal = 4.dp)
+    Column(modifier = modifier) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Top
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp)
-            ) {
+            Column(modifier = Modifier.weight(1f)) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                text = formatRoomDisplayCode(room),
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = textPrimary,
-                                modifier = Modifier.weight(1f, fill = false)
-                            )
-                            FloorIndicatorBadge(
-                                level = room.level,
-                                compact = true,
-                                isDark = isDark
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(3.dp))
-                        Text(
-                            text = "${room.buildingName} · $dayOfWeek",
-                            fontSize = 12.5.sp,
-                            color = textMuted
-                        )
-                        val accentColor = MaterialTheme.colorScheme.primary
-                        if (room.usedByFaculties.isNotEmpty()) {
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "Used by: ${room.usedByFaculties.joinToString(", ")}",
-                                fontSize = 11.sp,
-                                color = accentColor,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    IconButton(onClick = onDismiss) {
-                        Box(
-                            modifier = Modifier
-                                .size(32.dp)
-                                .background(if (isDark) Color(0xFF334155) else Color(0xFFF1F5F9), CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Close",
-                                tint = textMuted,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                    }
+                    Text(
+                        text = formatRoomDisplayCode(room),
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = textPrimary,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    FloorIndicatorBadge(
+                        level = room.level,
+                        compact = true,
+                        isDark = isDark
+                    )
                 }
+                Spacer(modifier = Modifier.height(3.dp))
+                Text(
+                    text = "${room.buildingName} · $dayOfWeek",
+                    fontSize = 12.5.sp,
+                    color = textMuted
+                )
+                val accentColor = MaterialTheme.colorScheme.primary
+                if (room.usedByFaculties.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Used by: ${room.usedByFaculties.joinToString(", ")}",
+                        fontSize = 11.sp,
+                        color = accentColor,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
 
-                Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.width(8.dp))
 
-                Column(
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier.desktopHandCursor()
+            ) {
+                Box(
                     modifier = Modifier
-                        .weight(1f, fill = false)
-                        .verticalScroll(rememberScrollState())
+                        .size(32.dp)
+                        .background(if (isDark) Color(0xFF334155) else Color(0xFFF1F5F9), CircleShape),
+                    contentAlignment = Alignment.Center
                 ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Close",
+                        tint = textMuted,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Column(
+            modifier = Modifier
+                .weight(1f, fill = false)
+                .verticalScroll(rememberScrollState())
+        ) {
                     val cleanNotes = remember(room.notes) {
                         room.notes
                             .replace(Regex("(?i)NOTE:\\s*duplicate listing in source data\\.?"), "")
@@ -479,19 +584,24 @@ fun RoomScheduleDetailDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(14.dp))
+        if (showCloseButton) {
+            Spacer(modifier = Modifier.height(14.dp))
 
-                Button(
-                    onClick = onDismiss,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(46.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                ) {
-                    Text("Close", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                }
+            Button(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(46.dp)
+                    .desktopHandCursor(),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = contrastOnColor(MaterialTheme.colorScheme.primary)
+                )
+            ) {
+                Text("Close", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             }
         }
     }
 }
+

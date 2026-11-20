@@ -27,9 +27,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lectures.features.timetable.domain.TimetableEntry
 import com.lectures.ui.LocalAppTheme
+import com.lectures.ui.components.AdaptiveSheetOrDialog
 import com.lectures.ui.components.RoomFloorBadge
+import com.lectures.ui.components.desktopHandCursor
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun LectureDetailSheet(
     entry: TimetableEntry,
@@ -38,42 +39,57 @@ fun LectureDetailSheet(
     onSaveNote: (String, Int?) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val isDark = LocalAppTheme.current.isDark
-    val surfaceColor = if (isDark) DarkSurfaceCard else Color.White
-    val textColor = if (isDark) Color.White else Color(0xFF0F172A)
-    val textSub = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
-    val inputBg = if (isDark) DarkSurfaceBase else Color(0xFFF8FAFC)
-    val inputBorder = if (isDark) DarkBorderSubtle else Color(0xFFE2E8F0)
-
-    var noteText by remember { mutableStateOf(initialNote) }
-    val standardReminderOptions = listOf(5, 10, 15, 30, 45, 60)
-    val isCustomInitial = initialReminder != null && initialReminder !in standardReminderOptions
-    var isCustomReminder by remember { mutableStateOf(isCustomInitial) }
-    var customReminderText by remember { mutableStateOf(if (isCustomInitial) initialReminder.toString() else "") }
-    var selectedReminder by remember { mutableStateOf<Int?>(initialReminder ?: 30) }
-
-    ModalBottomSheet(
+    AdaptiveSheetOrDialog(
         onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = surfaceColor,
-        dragHandle = {
-            Box(
-                modifier = Modifier
-                    .padding(vertical = 12.dp)
-                    .width(36.dp)
-                    .height(4.dp)
-                    .background(if (isDark) Color(0xFF475569) else Color(0xFFCBD5E1), RoundedCornerShape(2.dp))
-            )
-        }
+        sheetTestTag = "lecture_detail_sheet",
+        containerColor = if (LocalAppTheme.current.isDark) DarkSurfaceCard else Color.White,
+        desktopMaxWidth = 560.dp
     ) {
-        Column(
+        LectureDetailContent(
+            entry = entry,
+            initialNote = initialNote,
+            initialReminder = initialReminder,
+            onSaveNote = { text, rem ->
+                onSaveNote(text, rem)
+                onDismiss()
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
                 .padding(horizontal = 24.dp)
                 .verticalScroll(rememberScrollState())
                 .padding(bottom = 28.dp)
-        ) {
+        )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun LectureDetailContent(
+    entry: TimetableEntry,
+    initialNote: String = "",
+    initialReminder: Int? = null,
+    onSaveNote: (String, Int?) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val isDark = LocalAppTheme.current.isDark
+    val textColor = if (isDark) Color.White else Color(0xFF0F172A)
+    val textSub = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
+    val inputBg = if (isDark) DarkSurfaceBase else Color(0xFFF8FAFC)
+    val inputBorder = if (isDark) DarkBorderSubtle else Color(0xFFE2E8F0)
+
+    var noteText by remember(entry.naturalKey, initialNote) { mutableStateOf(initialNote) }
+    val standardReminderOptions = listOf(5, 10, 15, 30, 45, 60)
+    val isCustomInitial = initialReminder != null && initialReminder !in standardReminderOptions
+    var isCustomReminder by remember(entry.naturalKey, initialReminder) { mutableStateOf(isCustomInitial) }
+    var customReminderText by remember(entry.naturalKey, initialReminder) {
+        mutableStateOf(if (isCustomInitial) initialReminder.toString() else "")
+    }
+    var selectedReminder by remember(entry.naturalKey, initialReminder) {
+        mutableStateOf<Int?>(initialReminder ?: 30)
+    }
+
+    Column(modifier = modifier) {
             Text(
                 text = entry.courseTitle,
                 fontSize = 22.sp,
@@ -304,11 +320,11 @@ fun LectureDetailSheet(
             Button(
                 onClick = {
                     onSaveNote(noteText, effectiveMinutesToSave)
-                    onDismiss()
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(48.dp),
+                    .height(48.dp)
+                    .desktopHandCursor(),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = accentColor,
@@ -322,7 +338,6 @@ fun LectureDetailSheet(
                 )
             }
         }
-    }
 }
 
 @Composable

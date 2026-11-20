@@ -34,11 +34,12 @@ object Chrome {
     const val TopBarGlassAlpha: Float = 0.96f
     const val DockAlpha: Float = 0.96f
 
-    val NavigationRailWidth: Dp = 76.dp
+    val NavigationRailWidth: Dp = 80.dp
+    val ExpandedSidebarWidth: Dp = 228.dp
 
     /**
      * Total bottom padding required for scrollable list content to clear both the floating dock
-     * (or NavigationRail in tablet mode) and the Floating Action Button (FAB).
+     * (or NavigationRail in tablet/desktop mode) and the Floating Action Button (FAB).
      */
     fun listBottomPadding(navBarBottom: Dp, useNavigationRail: Boolean = false): Dp =
         if (useNavigationRail) {
@@ -59,14 +60,28 @@ object Chrome {
 
     /**
      * Bottom padding for FAB placed inside a layout using navigationBarsPadding().
-     * (60.dp dock + 12.dp above-dock gap = 72.dp on phone; 16.dp on tablet rail).
+     * (60.dp dock + 12.dp above-dock gap = 72.dp on phone; 16.dp on tablet/desktop rail).
      */
     fun fabBottomPadding(useNavigationRail: Boolean = false): Dp =
         if (useNavigationRail) 16.dp else DockHeight + FabAboveDockGap
 }
 
+enum class WindowWidthTier {
+    COMPACT,     // < 600dp (phones)
+    MEDIUM,      // 600..839dp (portrait tablets, unfolded foldables)
+    EXPANDED,    // 840..1199dp (landscape tablets, split-screen large windows)
+    LARGE,       // 1200..1599dp (Chromebooks, large tablets, laptops)
+    EXTRA_LARGE  // >= 1600dp (external monitors, desktop workstations)
+}
+
+enum class WindowHeightTier {
+    COMPACT,  // < 480dp
+    MEDIUM,   // 480..899dp
+    EXPANDED  // >= 900dp
+}
+
 /**
- * Responsive viewport metrics and density modes for Lectures across phone, foldable, and tablet screens.
+ * Responsive viewport metrics and density modes for Lectures across phone, foldable, tablet, Chromebook, and desktop screens.
  */
 data class LecturesWindow(
     val widthDp: Int,
@@ -75,6 +90,22 @@ data class LecturesWindow(
     val navBarBottom: Dp,
     val isImeVisible: Boolean
 ) {
+    val widthTier: WindowWidthTier
+        get() = when {
+            widthDp < 600 -> WindowWidthTier.COMPACT
+            widthDp < 840 -> WindowWidthTier.MEDIUM
+            widthDp < 1200 -> WindowWidthTier.EXPANDED
+            widthDp < 1600 -> WindowWidthTier.LARGE
+            else -> WindowWidthTier.EXTRA_LARGE
+        }
+
+    val heightTier: WindowHeightTier
+        get() = when {
+            heightDp < 480 -> WindowHeightTier.COMPACT
+            heightDp < 900 -> WindowHeightTier.MEDIUM
+            else -> WindowHeightTier.EXPANDED
+        }
+
     /** True for narrow viewports (e.g. Galaxy Fold cover screen, split-screen, or < 360dp width). */
     val isNarrow: Boolean get() = widthDp < 360
 
@@ -84,19 +115,34 @@ data class LecturesWindow(
     /** True when system font scaling is enlarged by the user (>= 1.15x). */
     val isTightFont: Boolean get() = fontScale >= 1.15f
 
-    /** Material 3 WindowSizeClass width classifications. */
+    /** Material 3 WindowSizeClass width classifications (backward-compatible booleans). */
     val isCompact: Boolean get() = widthDp < 600
     val isMedium: Boolean get() = widthDp in 600..839
     val isExpanded: Boolean get() = widthDp >= 840
+    val isLargeWidth: Boolean get() = widthDp in 1200..1599
+    val isExtraLargeWidth: Boolean get() = widthDp >= 1600
+    val isAtLeastLarge: Boolean get() = widthDp >= 1200
 
     /** True for tablets, foldables unfolded, and desktop viewports (width >= 600dp). */
     val isTablet: Boolean get() = widthDp >= 600
 
-    /** True when the shell should switch from a bottom pill dock to an ergonomic leading NavigationRail. */
+    /** True when viewport is Chromebook / desktop scale (>= 1200dp). */
+    val isDesktop: Boolean get() = widthDp >= 1200
+
+    /** True when the shell should switch from a bottom pill dock to an ergonomic leading NavigationRail/Sidebar. */
     val useNavigationRail: Boolean get() = isTablet && heightDp >= 440
+
+    /** True when desktop windows can comfortably expand the leading sidebar to 228dp with labels & workspace context. */
+    val useExpandedSidebar: Boolean get() = widthDp >= 1200 && heightDp >= 480
 
     /** True when screens should render dual-pane master-detail or side-by-side layouts (Expanded width >= 840dp). */
     val isDualPane: Boolean get() = isExpanded
+
+    /** True when a third inspector/filter column fits comfortably alongside dual panes (>= 1280dp). */
+    val supportsThreePanes: Boolean get() = widthDp >= 1280
+
+    /** True when secondary detail sheets should render as centered dialogs or docked side panes instead of bottom sheets. */
+    val preferDesktopDialogs: Boolean get() = widthDp >= 600
 
     /** True when dock tab labels would be cramped and should switch to icon-only. */
     val dockIconOnly: Boolean get() = isNarrow || isTightFont
@@ -112,6 +158,15 @@ data class LecturesWindow(
 
     /** True when FAB should collapse to an icon-only button to conserve vertical viewport. */
     val collapseFab: Boolean get() = isShort && !useNavigationRail
+
+    /** Responsive copy & card column max-width inside wide viewports. */
+    val maxReadingWidth: Dp
+        get() = when {
+            widthDp >= 1600 -> 1440.dp
+            widthDp >= 1200 -> 1180.dp
+            widthDp >= 840 -> 960.dp
+            else -> 600.dp
+        }
 }
 
 /**
@@ -137,6 +192,20 @@ fun rememberLecturesWindow(): LecturesWindow {
             fontScale = configuration.fontScale,
             navBarBottom = navBottom,
             isImeVisible = isIme
+        )
+    }
+}
+
+/**
+ * Derive container-accurate window info inside a BoxWithConstraints pane or sub-window.
+ */
+@Composable
+fun rememberContainerWindow(containerWidthDp: Int, containerHeightDp: Int): LecturesWindow {
+    val parent = rememberLecturesWindow()
+    return remember(containerWidthDp, containerHeightDp, parent.fontScale, parent.navBarBottom, parent.isImeVisible) {
+        parent.copy(
+            widthDp = containerWidthDp,
+            heightDp = containerHeightDp
         )
     }
 }

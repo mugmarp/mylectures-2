@@ -1,7 +1,9 @@
 package com.lectures.features.notes
 
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -10,34 +12,52 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Menu
+import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lectures.TimetableApplication
 import com.lectures.core.alarm.AlarmScheduler
+import com.lectures.features.timetable.domain.LectureNote
 import com.lectures.features.timetable.ui.DarkSurfaceBase
 import com.lectures.ui.Chrome
 import com.lectures.ui.LocalAppTheme
+import com.lectures.ui.LocalExtendedColors
 import com.lectures.ui.components.AcademicProfileSheet
 import com.lectures.ui.components.FloatingIslandTopBar
+import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.contrastOnColor
 import com.lectures.ui.rememberLecturesWindow
 import kotlinx.coroutines.delay
 
@@ -163,6 +183,8 @@ fun NotesScreen(
     val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val listBottomPadding = Chrome.listBottomPadding(navBarBottom, windowInfo.useNavigationRail)
     val listState = rememberLazyListState()
+    val searchFocusRequester = remember { FocusRequester() }
+    var desktopPreviewKey by rememberSaveable { mutableStateOf<String?>(null) }
 
     val startCreateNote = {
         focusManager.clearFocus()
@@ -172,8 +194,33 @@ fun NotesScreen(
         isEditing = true
     }
 
+    val desktopPreviewNote = remember(desktopPreviewKey, uiState.filteredNotes, uiState.notes) {
+        val target = desktopPreviewKey ?: return@remember null
+        uiState.notes.firstOrNull { it.naturalKey == target }
+            ?: uiState.filteredNotes.firstOrNull { it.naturalKey == target }
+    }
+
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        modifier = Modifier.onKeyEvent { event ->
+            if (event.type == KeyEventType.KeyDown) {
+                when {
+                    event.isCtrlPressed && event.key == Key.N -> {
+                        startCreateNote()
+                        true
+                    }
+                    event.isCtrlPressed && event.key == Key.F -> {
+                        try { searchFocusRequester.requestFocus() } catch (_: Exception) {}
+                        true
+                    }
+                    event.key == Key.Escape && desktopPreviewKey != null -> {
+                        desktopPreviewKey = null
+                        true
+                    }
+                    else -> false
+                }
+            } else false
+        },
         floatingActionButton = {
             if (windowInfo.collapseFab) {
                 FloatingActionButton(
@@ -185,6 +232,7 @@ fun NotesScreen(
                     modifier = Modifier
                         .navigationBarsPadding()
                         .padding(bottom = Chrome.fabBottomPadding(windowInfo.useNavigationRail))
+                        .desktopHandCursor()
                 ) {
                     Icon(Icons.Default.Add, contentDescription = "Add Note", modifier = Modifier.size(24.dp))
                 }
@@ -198,6 +246,7 @@ fun NotesScreen(
                     modifier = Modifier
                         .navigationBarsPadding()
                         .padding(bottom = Chrome.fabBottomPadding(windowInfo.useNavigationRail))
+                        .desktopHandCursor()
                 ) {
                     Icon(Icons.Default.Add, contentDescription = "Add Note", modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(8.dp))
@@ -225,7 +274,7 @@ fun NotesScreen(
                             Icon(
                                 Icons.Default.School,
                                 contentDescription = null,
-                                tint = Color.White,
+                                tint = contrastOnColor(MaterialTheme.colorScheme.primary),
                                 modifier = Modifier.size(20.dp)
                             )
                         }
@@ -279,90 +328,179 @@ fun NotesScreen(
             }
         }
     ) { innerPadding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(if (isDark) DarkSurfaceBase else MaterialTheme.colorScheme.background)
-                .padding(top = innerPadding.calculateTopPadding())
+                .padding(top = innerPadding.calculateTopPadding()),
+            contentAlignment = Alignment.TopCenter
         ) {
-            Spacer(modifier = Modifier.height(10.dp))
+            Column(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .let {
+                        if (windowInfo.isTablet) it.widthIn(max = windowInfo.maxReadingWidth) else it
+                    }
+                    .fillMaxWidth()
+            ) {
+                Spacer(modifier = Modifier.height(10.dp))
 
-            NotesSearchBarCard(
-                searchQuery = uiState.searchQuery,
-                isDark = isDark,
-                onSearchQueryChange = { viewModel.onSearchQueryChanged(it) },
-                onClearSearch = {
-                    viewModel.onSearchQueryChanged("")
-                    focusManager.clearFocus()
-                    keyboardController?.hide()
+                NotesSearchBarCard(
+                    searchQuery = uiState.searchQuery,
+                    isDark = isDark,
+                    focusRequester = searchFocusRequester,
+                    onSearchQueryChange = { viewModel.onSearchQueryChanged(it) },
+                    onClearSearch = {
+                        viewModel.onSearchQueryChanged("")
+                        focusManager.clearFocus()
+                        keyboardController?.hide()
+                    }
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                val filterChips = remember(uiState.notes, uiState.availableCourses) {
+                    val base = mutableListOf("All Notes" to uiState.notes.size)
+                    val pinnedCount = uiState.notes.count { it.isPinned }
+                    if (pinnedCount > 0) base.add("Pinned" to pinnedCount)
+                    val checklistCount = uiState.notes.count { MarkdownUtils.countChecklistProgress(it.content) != null }
+                    if (checklistCount > 0) base.add("Checklists" to checklistCount)
+                    val alertCount = uiState.notes.count { it.alarmMinutes != null }
+                    if (alertCount > 0) base.add("Alerts" to alertCount)
+
+                    val notesByCourse = uiState.notes.groupingBy {
+                        it.naturalKey.split("|").firstOrNull()?.trim().orEmpty()
+                    }.eachCount()
+                    uiState.availableCourses.forEach { course ->
+                        val count = notesByCourse[course.code] ?: 0
+                        if (count > 0) {
+                            base.add(course.code to count)
+                        }
+                    }
+                    base
                 }
-            )
 
-            Spacer(modifier = Modifier.height(10.dp))
+                if (filterChips.size > 1) {
+                    NotesFilterChipsStrip(
+                        filterChips = filterChips,
+                        selectedFilter = uiState.selectedFilter,
+                        onFilterSelected = { viewModel.onFilterSelected(it) }
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                }
 
-            val filterChips = remember(uiState.notes, uiState.availableCourses) {
-                val base = mutableListOf("All Notes" to uiState.notes.size)
-                val pinnedCount = uiState.notes.count { it.isPinned }
-                if (pinnedCount > 0) base.add("Pinned" to pinnedCount)
-                val checklistCount = uiState.notes.count { MarkdownUtils.countChecklistProgress(it.content) != null }
-                if (checklistCount > 0) base.add("Checklists" to checklistCount)
-                val alertCount = uiState.notes.count { it.alarmMinutes != null }
-                if (alertCount > 0) base.add("Alerts" to alertCount)
+                NotesFeedbackBanners(
+                    errorMessage = uiState.errorMessage,
+                    userMessage = uiState.userMessage,
+                    isDark = isDark,
+                    onDismiss = { viewModel.clearFeedback() }
+                )
 
-                val notesByCourse = uiState.notes.groupingBy {
-                    it.naturalKey.split("|").firstOrNull()?.trim().orEmpty()
-                }.eachCount()
-                uiState.availableCourses.forEach { course ->
-                    val count = notesByCourse[course.code] ?: 0
-                    if (count > 0) {
-                        base.add(course.code to count)
+                val grouped = remember(uiState.filteredNotes) {
+                    uiState.filteredNotes.groupBy { note ->
+                        note.naturalKey.split("|").firstOrNull()?.ifBlank { "General" } ?: "General"
                     }
                 }
-                base
-            }
 
-            if (filterChips.size > 1) {
-                NotesFilterChipsStrip(
-                    filterChips = filterChips,
-                    selectedFilter = uiState.selectedFilter,
-                    onFilterSelected = { viewModel.onFilterSelected(it) }
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-            }
-
-            NotesFeedbackBanners(
-                errorMessage = uiState.errorMessage,
-                userMessage = uiState.userMessage,
-                isDark = isDark,
-                onDismiss = { viewModel.clearFeedback() }
-            )
-
-            val grouped = remember(uiState.filteredNotes) {
-                uiState.filteredNotes.groupBy { note ->
-                    note.naturalKey.split("|").firstOrNull()?.ifBlank { "General" } ?: "General"
-                }
-            }
-
-            if (uiState.filteredNotes.isEmpty()) {
-                NotesEmptyStateView(
-                    searchQuery = uiState.searchQuery,
-                    selectedFilter = uiState.selectedFilter,
-                    onClearFilters = {
-                        viewModel.onSearchQueryChanged("")
-                        viewModel.onFilterSelected("All Notes")
-                    },
-                    onCreateNote = startCreateNote
-                )
-            } else if (windowInfo.isTablet) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.TopCenter
-                ) {
-                    LazyVerticalGrid(
-                        columns = GridCells.Adaptive(minSize = 340.dp),
+                if (uiState.filteredNotes.isEmpty()) {
+                    NotesEmptyStateView(
+                        searchQuery = uiState.searchQuery,
+                        selectedFilter = uiState.selectedFilter,
+                        onClearFilters = {
+                            viewModel.onSearchQueryChanged("")
+                            viewModel.onFilterSelected("All Notes")
+                        },
+                        onCreateNote = startCreateNote
+                    )
+                } else if (windowInfo.isAtLeastLarge) {
+                    Row(
                         modifier = Modifier
-                            .widthIn(max = 1040.dp)
-                            .fillMaxHeight(),
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp),
+                        horizontalArrangement = Arrangement.spacedBy(18.dp)
+                    ) {
+                        LazyVerticalGrid(
+                            columns = GridCells.Adaptive(minSize = 290.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight(),
+                            contentPadding = PaddingValues(bottom = listBottomPadding),
+                            horizontalArrangement = Arrangement.spacedBy(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(14.dp)
+                        ) {
+                            grouped.forEach { (courseCode, notes) ->
+                                item(key = "grid_header_$courseCode", span = { GridItemSpan(maxLineSpan) }) {
+                                    NotesCourseGroupHeader(
+                                        courseCode = courseCode,
+                                        notesCount = notes.size,
+                                        availableCourses = uiState.availableCourses,
+                                        isDark = isDark,
+                                        modifier = Modifier.padding(top = 10.dp, bottom = 4.dp)
+                                    )
+                                }
+
+                                items(notes, key = { it.naturalKey }) { note ->
+                                    val isSelected = desktopPreviewKey == note.naturalKey
+                                    Box(
+                                        modifier = if (isSelected) {
+                                            Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(16.dp))
+                                        } else Modifier
+                                    ) {
+                                        NoteCardItem(
+                                            note = note,
+                                            courseCode = courseCode,
+                                            isDark = isDark,
+                                            modifier = Modifier.animateItem(),
+                                            onOpen = { desktopPreviewKey = note.naturalKey },
+                                            onEdit = {
+                                                focusManager.clearFocus()
+                                                keyboardController?.hide()
+                                                editingNoteKey = note.naturalKey
+                                                editingInitialTab = NoteEditorTab.SPLIT
+                                                isEditing = true
+                                            },
+                                            onTogglePin = { viewModel.togglePin(note.naturalKey) },
+                                            onDelete = { deleteNoteKey = note.naturalKey }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        val readerWidth = if (windowInfo.isExtraLargeWidth) 460.dp else 390.dp
+                        NotesDesktopPreviewPane(
+                            note = desktopPreviewNote ?: uiState.filteredNotes.firstOrNull(),
+                            onEdit = { selected ->
+                                focusManager.clearFocus()
+                                keyboardController?.hide()
+                                editingNoteKey = selected.naturalKey
+                                editingInitialTab = NoteEditorTab.SPLIT
+                                isEditing = true
+                            },
+                            onTogglePin = { selected -> viewModel.togglePin(selected.naturalKey) },
+                            onDelete = { selected -> deleteNoteKey = selected.naturalKey },
+                            onClearSelection = if (desktopPreviewKey != null) ({ desktopPreviewKey = null }) else null,
+                            onWikiLinkClick = { linkTitle ->
+                                val target = viewModel.findNoteByTitle(linkTitle)
+                                if (target != null) {
+                                    desktopPreviewKey = target.naturalKey
+                                } else {
+                                    Toast.makeText(context, "Linked note \"$linkTitle\" not found", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            modifier = Modifier
+                                .width(readerWidth)
+                                .fillMaxHeight()
+                                .padding(bottom = 16.dp)
+                        )
+                    }
+                } else if (windowInfo.isTablet) {
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(minSize = 320.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
                         contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = listBottomPadding),
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -404,7 +542,6 @@ fun NotesScreen(
                             }
                         }
                     }
-                }
             } else {
                 LazyColumn(
                     state = listState,
@@ -450,6 +587,7 @@ fun NotesScreen(
                     }
                 }
             }
+        }
         }
     }
 

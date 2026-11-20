@@ -4,10 +4,14 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -21,7 +25,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -34,6 +44,7 @@ import com.lectures.TimetableApplication
 import com.lectures.core.util.TimeUtil
 import com.lectures.features.rooms.BuildingLevel
 import com.lectures.features.rooms.RoomType
+import com.lectures.features.rooms.RoomVacancyStatus
 import com.lectures.features.rooms.SuggestionValue
 import com.lectures.features.rooms.UniversityDirectory
 import com.lectures.features.timetable.ui.*
@@ -41,6 +52,7 @@ import com.lectures.ui.LocalAppTheme
 import com.lectures.ui.components.DedicatedDayPickerDialog
 import com.lectures.ui.components.DedicatedTimePickerDialog
 import com.lectures.ui.components.FloatingIslandTopBar
+import com.lectures.ui.components.desktopHandCursor
 import com.lectures.ui.rememberLecturesWindow
 import java.util.Calendar
 import java.util.Locale
@@ -51,7 +63,7 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VacantRoomsScreen(
-    onBack: () -> Unit,
+    onBack: (() -> Unit)? = null,
     enrolledProgramme: String? = null
 ) {
     val context = LocalContext.current
@@ -237,27 +249,77 @@ fun VacantRoomsScreen(
     }
     val occupiedCount = vacancyStatuses.count { it.isOccupied && it.room.isStudyFriendly }
     val windowInfo = rememberLecturesWindow()
-    val chunkedRooms = remember(filteredRooms) { filteredRooms.chunked(2) }
+    val isDesktopWorkspace = windowInfo.widthDp >= 1000
+    val selectedRoomForSchedule = remember(selectedRoomIdForSchedule, vacancyStatuses) {
+        selectedRoomIdForSchedule?.let { id -> vacancyStatuses.firstOrNull { it.room.id == id } }
+    }
     val accentColor = MaterialTheme.colorScheme.primary
 
+    val resetAllFilters: () -> Unit = {
+        val now = Calendar.getInstance()
+        queryDay = TimeUtil.todayName()
+        queryTime = String.format(Locale.US, "%02d:%02d", now.get(Calendar.HOUR_OF_DAY), now.get(Calendar.MINUTE))
+        isLiveNow = true
+        minGapMinutes = 30
+        selectedLevel = null
+        studyFriendlyOnly = true
+        showPermanentlyVacant = true
+        hideLibrary = false
+        freeOnly = false
+        selectedCategory = "All"
+    }
+
+    val selectLiveNow: () -> Unit = {
+        val now = Calendar.getInstance()
+        queryDay = TimeUtil.todayName()
+        queryTime = String.format(Locale.US, "%02d:%02d", now.get(Calendar.HOUR_OF_DAY), now.get(Calendar.MINUTE))
+        isLiveNow = true
+    }
+
     Scaffold(
+        modifier = Modifier.onKeyEvent { event ->
+            if (event.type == KeyEventType.KeyDown && event.key == Key.Escape && selectedRoomIdForSchedule != null) {
+                selectedRoomIdForSchedule = null
+                true
+            } else false
+        },
         containerColor = bgColor,
         topBar = {
             FloatingIslandTopBar {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 2.dp),
+                        .padding(horizontal = if (onBack == null) 16.dp else 8.dp, vertical = 2.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = textPrimary
-                        )
+                    if (onBack != null) {
+                        IconButton(
+                            onClick = onBack,
+                            modifier = Modifier.desktopHandCursor()
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back",
+                                tint = textPrimary
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(4.dp))
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .background(accentColor, RoundedCornerShape(10.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.MeetingRoom,
+                                contentDescription = null,
+                                tint = com.lectures.ui.contrastOnColor(accentColor),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
                     }
-                    Spacer(modifier = Modifier.width(4.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
@@ -284,7 +346,9 @@ fun VacantRoomsScreen(
                         Surface(
                             shape = RoundedCornerShape(6.dp),
                             color = if (isLiveNow) StatusGreenLive.copy(alpha = 0.12f) else accentColor.copy(alpha = 0.12f),
-                            modifier = Modifier.clickable { showFilterSheet = true }
+                            modifier = Modifier
+                                .desktopHandCursor()
+                                .clickable { showFilterSheet = true }
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -314,17 +378,8 @@ fun VacantRoomsScreen(
                     }
                     if (!isLiveNow) {
                         IconButton(
-                            onClick = {
-                                val nowCal = Calendar.getInstance()
-                                queryDay = TimeUtil.todayName()
-                                queryTime = String.format(
-                                    Locale.US,
-                                    "%02d:%02d",
-                                    nowCal.get(Calendar.HOUR_OF_DAY),
-                                    nowCal.get(Calendar.MINUTE)
-                                )
-                                isLiveNow = true
-                            }
+                            onClick = selectLiveNow,
+                            modifier = Modifier.desktopHandCursor()
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.RestartAlt,
@@ -334,234 +389,328 @@ fun VacantRoomsScreen(
                             )
                         }
                     }
-                    IconButton(onClick = { showFilterSheet = true }) {
-                        BadgedBox(
-                            badge = {
-                                if (!isLiveNow || minGapMinutes != 30 || selectedLevel != null || !studyFriendlyOnly || freeOnly) {
-                                    Badge(containerColor = accentColor)
-                                }
-                            }
+                    if (!isDesktopWorkspace) {
+                        IconButton(
+                            onClick = { showFilterSheet = true },
+                            modifier = Modifier.desktopHandCursor()
                         ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Tune,
-                                contentDescription = "Filter & Schedule Options",
-                                tint = if (!isLiveNow || minGapMinutes != 30 || selectedLevel != null || freeOnly) accentColor else textPrimary
-                            )
+                            BadgedBox(
+                                badge = {
+                                    if (!isLiveNow || minGapMinutes != 30 || selectedLevel != null || !studyFriendlyOnly || freeOnly) {
+                                        Badge(containerColor = accentColor)
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Tune,
+                                    contentDescription = "Filter & Schedule Options",
+                                    tint = if (!isLiveNow || minGapMinutes != 30 || selectedLevel != null || freeOnly) accentColor else textPrimary
+                                )
+                            }
                         }
                     }
                 }
             }
         }
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp),
-            contentPadding = PaddingValues(
-                top = padding.calculateTopPadding() + 4.dp,
-                bottom = padding.calculateBottomPadding() + 16.dp
-            ),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.TopCenter
         ) {
-            item(key = "header_spacer") { Spacer(modifier = Modifier.height(2.dp)) }
-
-            item(key = "search_and_quick_filters") {
-                VacantRoomsSearchAndFilters(
-                    searchQuery = searchQuery,
-                    onSearchQueryChange = { searchQuery = it },
-                    selectedCampus = selectedCampus,
-                    selectedBuilding = selectedBuilding,
-                    defaultScope = defaultScope,
-                    campusBuildings = campusBuildings,
-                    campusDropdownExpanded = campusDropdownExpanded,
-                    onCampusDropdownExpandedChange = { campusDropdownExpanded = it },
-                    buildingDropdownExpanded = buildingDropdownExpanded,
-                    onBuildingDropdownExpandedChange = { buildingDropdownExpanded = it },
-                    onCampusSelected = { campus, building ->
-                        selectedCampus = campus
-                        selectedBuilding = building
-                    },
-                    onBuildingSelected = { building, campus ->
-                        selectedBuilding = building
-                        if (campus != null) selectedCampus = campus
-                    },
-                    freeOnly = freeOnly,
-                    onToggleFreeOnly = { freeOnly = !freeOnly },
-                    categories = categories,
-                    selectedCategory = selectedCategory,
-                    onCategorySelected = { selectedCategory = it },
-                    isDefaultResetDismissed = isDefaultResetDismissed,
-                    onResetToDefaultScope = {
-                        selectedCampus = defaultScope.campus
-                        selectedBuilding = defaultScope.buildingCode
-                    },
-                    isDark = isDark,
-                    isNarrow = windowInfo.isNarrow
-                )
-            }
-
-            item(key = "status_summary_row") {
+            if (isDesktopWorkspace) {
+                val containerMaxW = if (windowInfo.isExtraLargeWidth) 1560.dp else windowInfo.maxReadingWidth
                 Row(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 2.dp, vertical = 2.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        .widthIn(max = containerMaxW)
+                        .fillMaxSize()
+                        .padding(
+                            start = 16.dp,
+                            end = 16.dp,
+                            top = padding.calculateTopPadding() + 8.dp,
+                            bottom = padding.calculateBottomPadding() + 12.dp
+                        ),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(7.dp)
-                                .background(if (isLiveNow) StatusGreenLive else Color(0xFFF59E0B), CircleShape)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = if (isLiveNow) "$freeCount free now" else "$queryDay $queryTime · $freeCount free",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isDark) Color(0xFF86EFAC) else Color(0xFF15803D)
-                        )
-                        if (occupiedCount > 0) {
-                            Text(
-                                text = " · $occupiedCount in use",
-                                fontSize = 12.sp,
-                                color = textMuted,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-
-                    val scopeSummary = selectedBuilding ?: selectedCampus ?: "All University"
-                    Text(
-                        text = scopeSummary,
-                        fontSize = 11.5.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = textMuted,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-
-            if (filteredRooms.isEmpty()) {
-                item(key = "empty_rooms") {
+                    // ZONE 1: Persistent Left Filter Rail (268dp)
                     Surface(
-                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier
+                            .width(268.dp)
+                            .fillMaxHeight()
+                            .testTag("vacant_rooms_filter_rail"),
+                        shape = RoundedCornerShape(20.dp),
                         color = surfaceColor,
-                        border = BorderStroke(1.dp, borderSubtle),
-                        modifier = Modifier.fillMaxWidth()
+                        border = BorderStroke(1.dp, borderSubtle)
                     ) {
                         Column(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(28.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                                .fillMaxSize()
+                                .verticalScroll(rememberScrollState())
+                                .padding(16.dp)
                         ) {
-                            Icon(
-                                Icons.Outlined.MeetingRoom,
-                                contentDescription = null,
-                                tint = textMuted,
-                                modifier = Modifier.size(40.dp)
+                            VacantRoomsFilterOptionsContent(
+                                queryDay = queryDay,
+                                queryTime = queryTime,
+                                isLiveNow = isLiveNow,
+                                minGapMinutes = minGapMinutes,
+                                selectedLevel = selectedLevel,
+                                studyFriendlyOnly = studyFriendlyOnly,
+                                hideLibrary = hideLibrary,
+                                isDark = isDark,
+                                showApplyButton = false,
+                                onDismiss = {},
+                                onResetAll = resetAllFilters,
+                                onSelectLiveNow = selectLiveNow,
+                                onOpenDayPicker = { showDayPicker = true },
+                                onOpenTimePicker = {
+                                    isLiveNow = false
+                                    showTimePicker = true
+                                },
+                                onPresetTimeSelected = { preset ->
+                                    queryTime = preset
+                                    isLiveNow = false
+                                },
+                                onMinGapSelected = { minGapMinutes = it },
+                                onLevelSelected = { selectedLevel = it },
+                                onToggleStudyFriendly = { studyFriendlyOnly = !studyFriendlyOnly },
+                                onToggleHideLibrary = { hideLibrary = !hideLibrary }
                             )
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Text(
-                                text = "No Rooms Match the Selected Filter",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp,
-                                color = textPrimary
+                        }
+                    }
+
+                    // ZONE 2: Adaptive Multi-Column Room Grid
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(minSize = 265.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .testTag("vacant_rooms_grid_pane"),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        contentPadding = PaddingValues(bottom = 16.dp)
+                    ) {
+                        item(span = { GridItemSpan(maxLineSpan) }, key = "search_and_quick_filters") {
+                            VacantRoomsSearchAndFilters(
+                                searchQuery = searchQuery,
+                                onSearchQueryChange = { searchQuery = it },
+                                selectedCampus = selectedCampus,
+                                selectedBuilding = selectedBuilding,
+                                defaultScope = defaultScope,
+                                campusBuildings = campusBuildings,
+                                campusDropdownExpanded = campusDropdownExpanded,
+                                onCampusDropdownExpandedChange = { campusDropdownExpanded = it },
+                                buildingDropdownExpanded = buildingDropdownExpanded,
+                                onBuildingDropdownExpandedChange = { buildingDropdownExpanded = it },
+                                onCampusSelected = { campus, building ->
+                                    selectedCampus = campus
+                                    selectedBuilding = building
+                                },
+                                onBuildingSelected = { building, campus ->
+                                    selectedBuilding = building
+                                    if (campus != null) selectedCampus = campus
+                                },
+                                freeOnly = freeOnly,
+                                onToggleFreeOnly = { freeOnly = !freeOnly },
+                                categories = categories,
+                                selectedCategory = selectedCategory,
+                                onCategorySelected = { selectedCategory = it },
+                                isDefaultResetDismissed = isDefaultResetDismissed,
+                                onResetToDefaultScope = {
+                                    selectedCampus = defaultScope.campus
+                                    selectedBuilding = defaultScope.buildingCode
+                                },
+                                isDark = isDark,
+                                isNarrow = windowInfo.isNarrow
                             )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "Try lowering the minimum study gap, clearing search, or switching building.",
-                                fontSize = 12.sp,
-                                color = textMuted,
-                                textAlign = TextAlign.Center
+                        }
+
+                        item(span = { GridItemSpan(maxLineSpan) }, key = "status_summary_row") {
+                            RoomStatusSummaryRow(
+                                isLiveNow = isLiveNow,
+                                freeCount = freeCount,
+                                occupiedCount = occupiedCount,
+                                queryDay = queryDay,
+                                queryTime = queryTime,
+                                selectedBuilding = selectedBuilding,
+                                selectedCampus = selectedCampus,
+                                isDark = isDark,
+                                textMuted = textMuted
                             )
-                            if (searchQuery.isNotBlank() || freeOnly || selectedLevel != null) {
-                                Spacer(modifier = Modifier.height(14.dp))
-                                OutlinedButton(
-                                    onClick = {
+                        }
+
+                        if (filteredRooms.isEmpty()) {
+                            item(span = { GridItemSpan(maxLineSpan) }, key = "empty_rooms") {
+                                EmptyRoomsFilterCard(
+                                    surfaceColor = surfaceColor,
+                                    borderSubtle = borderSubtle,
+                                    textPrimary = textPrimary,
+                                    textMuted = textMuted,
+                                    canClear = searchQuery.isNotBlank() || freeOnly || selectedLevel != null,
+                                    onClear = {
                                         searchQuery = ""
                                         freeOnly = false
                                         selectedLevel = null
-                                    },
-                                    shape = RoundedCornerShape(10.dp)
-                                ) {
-                                    Text("Clear Search & Filters", fontSize = 12.sp)
-                                }
+                                    }
+                                )
                             }
-                        }
-                    }
-                }
-            } else if (windowInfo.isTablet) {
-                items(chunkedRooms, key = { chunk -> chunk.joinToString("_") { it.room.id } }) { rowRooms ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(14.dp)
-                    ) {
-                        for (status in rowRooms) {
-                            Box(modifier = Modifier.weight(1f)) {
+                        } else {
+                            items(filteredRooms, key = { it.room.id }) { status ->
                                 RoomVacancyCard(
                                     status = status,
                                     isDark = isDark,
                                     showCampus = selectedCampus == null,
                                     selectedBuilding = selectedBuilding,
+                                    isSelected = status.room.id == selectedRoomIdForSchedule,
                                     modifier = Modifier.animateItem(),
                                     onClick = { selectedRoomIdForSchedule = status.room.id }
                                 )
                             }
                         }
-                        if (rowRooms.size == 1) {
-                            Spacer(modifier = Modifier.weight(1f))
+
+                        item(span = { GridItemSpan(maxLineSpan) }, key = "data_provenance_notice") {
+                            RoomCatalogProvenanceCard(
+                                surfaceColor = surfaceColor,
+                                borderSubtle = borderSubtle,
+                                accentColor = accentColor,
+                                textMuted = textMuted
+                            )
+                        }
+                    }
+
+                    // ZONE 3: Docked Right Room Schedule Inspector
+                    if (windowInfo.isAtLeastLarge || selectedRoomForSchedule != null) {
+                        val inspectorWidth = if (windowInfo.isExtraLargeWidth) 356.dp else 320.dp
+                        Box(
+                            modifier = Modifier
+                                .width(inspectorWidth)
+                                .fillMaxHeight()
+                                .testTag("vacant_rooms_inspector_pane")
+                        ) {
+                            if (selectedRoomForSchedule != null) {
+                                Surface(
+                                    modifier = Modifier.fillMaxSize(),
+                                    shape = RoundedCornerShape(20.dp),
+                                    color = surfaceColor,
+                                    border = BorderStroke(1.dp, borderSubtle)
+                                ) {
+                                    RoomScheduleInspectorContent(
+                                        status = selectedRoomForSchedule,
+                                        dayOfWeek = queryDay,
+                                        isDark = isDark,
+                                        showCloseButton = false,
+                                        onDismiss = { selectedRoomIdForSchedule = null },
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(18.dp)
+                                    )
+                                }
+                            } else {
+                                EmptyRoomInspectorCard(isDark = isDark)
+                            }
                         }
                     }
                 }
             } else {
-                items(filteredRooms, key = { it.room.id }) { status ->
-                    RoomVacancyCard(
-                        status = status,
-                        isDark = isDark,
-                        showCampus = selectedCampus == null,
-                        selectedBuilding = selectedBuilding,
-                        modifier = Modifier.animateItem(),
-                        onClick = { selectedRoomIdForSchedule = status.room.id }
-                    )
-                }
-            }
-
-            item(key = "data_provenance_notice") {
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = surfaceColor.copy(alpha = 0.6f),
-                    border = BorderStroke(1.dp, borderSubtle),
-                    modifier = Modifier.fillMaxWidth()
+                // Compact (<600dp) & Medium/Expanded (<1000dp) adaptive grid/list
+                LazyVerticalGrid(
+                    columns = if (windowInfo.isTablet) GridCells.Adaptive(minSize = 280.dp) else GridCells.Fixed(1),
+                    modifier = Modifier
+                        .widthIn(max = windowInfo.maxReadingWidth)
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
+                    contentPadding = PaddingValues(
+                        top = padding.calculateTopPadding() + 6.dp,
+                        bottom = padding.calculateBottomPadding() + 20.dp
+                    ),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Outlined.Info,
-                            contentDescription = null,
-                            tint = accentColor,
-                            modifier = Modifier.size(20.dp)
+                    item(span = { GridItemSpan(maxLineSpan) }, key = "search_and_quick_filters") {
+                        VacantRoomsSearchAndFilters(
+                            searchQuery = searchQuery,
+                            onSearchQueryChange = { searchQuery = it },
+                            selectedCampus = selectedCampus,
+                            selectedBuilding = selectedBuilding,
+                            defaultScope = defaultScope,
+                            campusBuildings = campusBuildings,
+                            campusDropdownExpanded = campusDropdownExpanded,
+                            onCampusDropdownExpandedChange = { campusDropdownExpanded = it },
+                            buildingDropdownExpanded = buildingDropdownExpanded,
+                            onBuildingDropdownExpandedChange = { buildingDropdownExpanded = it },
+                            onCampusSelected = { campus, building ->
+                                selectedCampus = campus
+                                selectedBuilding = building
+                            },
+                            onBuildingSelected = { building, campus ->
+                                selectedBuilding = building
+                                if (campus != null) selectedCampus = campus
+                            },
+                            freeOnly = freeOnly,
+                            onToggleFreeOnly = { freeOnly = !freeOnly },
+                            categories = categories,
+                            selectedCategory = selectedCategory,
+                            onCategorySelected = { selectedCategory = it },
+                            isDefaultResetDismissed = isDefaultResetDismissed,
+                            onResetToDefaultScope = {
+                                selectedCampus = defaultScope.campus
+                                selectedBuilding = defaultScope.buildingCode
+                            },
+                            isDark = isDark,
+                            isNarrow = windowInfo.isNarrow
                         )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            text = "Room catalog and campus assignment sourced from the MUST Room Allocation " +
-                                "timetable (2026/2027 Semester I). ${UniversityDirectory.ALL_ROOMS.size} rooms " +
-                                "across ${UniversityDirectory.BUILDINGS.size} buildings. Verify venue changes on " +
-                                "the official MUST website (timetable.must.ac.ug).",
-                            fontSize = 12.sp,
-                            color = textMuted
+                    }
+
+                    item(span = { GridItemSpan(maxLineSpan) }, key = "status_summary_row") {
+                        RoomStatusSummaryRow(
+                            isLiveNow = isLiveNow,
+                            freeCount = freeCount,
+                            occupiedCount = occupiedCount,
+                            queryDay = queryDay,
+                            queryTime = queryTime,
+                            selectedBuilding = selectedBuilding,
+                            selectedCampus = selectedCampus,
+                            isDark = isDark,
+                            textMuted = textMuted
+                        )
+                    }
+
+                    if (filteredRooms.isEmpty()) {
+                        item(span = { GridItemSpan(maxLineSpan) }, key = "empty_rooms") {
+                            EmptyRoomsFilterCard(
+                                surfaceColor = surfaceColor,
+                                borderSubtle = borderSubtle,
+                                textPrimary = textPrimary,
+                                textMuted = textMuted,
+                                canClear = searchQuery.isNotBlank() || freeOnly || selectedLevel != null,
+                                onClear = {
+                                    searchQuery = ""
+                                    freeOnly = false
+                                    selectedLevel = null
+                                }
+                            )
+                        }
+                    } else {
+                        items(filteredRooms, key = { it.room.id }) { status ->
+                            RoomVacancyCard(
+                                status = status,
+                                isDark = isDark,
+                                showCampus = selectedCampus == null,
+                                selectedBuilding = selectedBuilding,
+                                isSelected = status.room.id == selectedRoomIdForSchedule,
+                                modifier = Modifier.animateItem(),
+                                onClick = { selectedRoomIdForSchedule = status.room.id }
+                            )
+                        }
+                    }
+
+                    item(span = { GridItemSpan(maxLineSpan) }, key = "data_provenance_notice") {
+                        RoomCatalogProvenanceCard(
+                            surfaceColor = surfaceColor,
+                            borderSubtle = borderSubtle,
+                            accentColor = accentColor,
+                            textMuted = textMuted
                         )
                     }
                 }
-                Spacer(modifier = Modifier.height(24.dp))
             }
         }
     }
@@ -577,25 +726,8 @@ fun VacantRoomsScreen(
             hideLibrary = hideLibrary,
             isDark = isDark,
             onDismiss = { showFilterSheet = false },
-            onResetAll = {
-                val now = Calendar.getInstance()
-                queryDay = TimeUtil.todayName()
-                queryTime = String.format(Locale.US, "%02d:%02d", now.get(Calendar.HOUR_OF_DAY), now.get(Calendar.MINUTE))
-                isLiveNow = true
-                minGapMinutes = 30
-                selectedLevel = null
-                studyFriendlyOnly = true
-                showPermanentlyVacant = true
-                hideLibrary = false
-                freeOnly = false
-                selectedCategory = "All"
-            },
-            onSelectLiveNow = {
-                val now = Calendar.getInstance()
-                queryDay = TimeUtil.todayName()
-                queryTime = String.format(Locale.US, "%02d:%02d", now.get(Calendar.HOUR_OF_DAY), now.get(Calendar.MINUTE))
-                isLiveNow = true
-            },
+            onResetAll = resetAllFilters,
+            onSelectLiveNow = selectLiveNow,
             onOpenDayPicker = { showDayPicker = true },
             onOpenTimePicker = {
                 isLiveNow = false
@@ -635,15 +767,164 @@ fun VacantRoomsScreen(
         )
     }
 
-    val selectedRoomForSchedule = remember(selectedRoomIdForSchedule, vacancyStatuses) {
-        selectedRoomIdForSchedule?.let { id -> vacancyStatuses.firstOrNull { it.room.id == id } }
+    if (!isDesktopWorkspace) {
+        selectedRoomForSchedule?.let { status ->
+            RoomScheduleDetailDialog(
+                status = status,
+                dayOfWeek = queryDay,
+                isDark = isDark,
+                onDismiss = { selectedRoomIdForSchedule = null }
+            )
+        }
     }
-    selectedRoomForSchedule?.let { status ->
-        RoomScheduleDetailDialog(
-            status = status,
-            dayOfWeek = queryDay,
-            isDark = isDark,
-            onDismiss = { selectedRoomIdForSchedule = null }
+}
+
+@Composable
+private fun RoomStatusSummaryRow(
+    isLiveNow: Boolean,
+    freeCount: Int,
+    occupiedCount: Int,
+    queryDay: String,
+    queryTime: String,
+    selectedBuilding: String?,
+    selectedCampus: String?,
+    isDark: Boolean,
+    textMuted: Color
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 2.dp, vertical = 2.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.weight(1f)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(7.dp)
+                    .background(if (isLiveNow) StatusGreenLive else Color(0xFFF59E0B), CircleShape)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = if (isLiveNow) "$freeCount free now" else "$queryDay $queryTime · $freeCount free",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (isDark) Color(0xFF86EFAC) else Color(0xFF15803D)
+            )
+            if (occupiedCount > 0) {
+                Text(
+                    text = " · $occupiedCount in use",
+                    fontSize = 12.sp,
+                    color = textMuted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+
+        val scopeSummary = selectedBuilding ?: selectedCampus ?: "All University"
+        Text(
+            text = scopeSummary,
+            fontSize = 11.5.sp,
+            fontWeight = FontWeight.Medium,
+            color = textMuted,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }
+
+@Composable
+private fun EmptyRoomsFilterCard(
+    surfaceColor: Color,
+    borderSubtle: Color,
+    textPrimary: Color,
+    textMuted: Color,
+    canClear: Boolean,
+    onClear: () -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = surfaceColor,
+        border = BorderStroke(1.dp, borderSubtle),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                Icons.Outlined.MeetingRoom,
+                contentDescription = null,
+                tint = textMuted,
+                modifier = Modifier.size(40.dp)
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = "No Rooms Match the Selected Filter",
+                fontWeight = FontWeight.Bold,
+                fontSize = 15.sp,
+                color = textPrimary
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Try lowering the minimum study gap, clearing search, or switching building.",
+                fontSize = 12.sp,
+                color = textMuted,
+                textAlign = TextAlign.Center
+            )
+            if (canClear) {
+                Spacer(modifier = Modifier.height(14.dp))
+                OutlinedButton(
+                    onClick = onClear,
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.desktopHandCursor()
+                ) {
+                    Text("Clear Search & Filters", fontSize = 12.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RoomCatalogProvenanceCard(
+    surfaceColor: Color,
+    borderSubtle: Color,
+    accentColor: Color,
+    textMuted: Color
+) {
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = surfaceColor.copy(alpha = 0.6f),
+        border = BorderStroke(1.dp, borderSubtle),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Outlined.Info,
+                contentDescription = null,
+                tint = accentColor,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            Text(
+                text = "Room catalog and campus assignment sourced from the MUST Room Allocation " +
+                    "timetable (2026/2027 Semester I). ${UniversityDirectory.ALL_ROOMS.size} rooms " +
+                    "across ${UniversityDirectory.BUILDINGS.size} buildings. Verify venue changes on " +
+                    "the official MUST website (timetable.must.ac.ug).",
+                fontSize = 12.sp,
+                color = textMuted
+            )
+        }
+    }
+}
+
