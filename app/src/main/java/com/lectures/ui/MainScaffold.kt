@@ -473,18 +473,19 @@ fun MainScaffold(
                                                 }
                                                 Spacer(modifier = Modifier.width(10.dp))
                                                 Column(modifier = Modifier.weight(1f)) {
+                                                    val ext = LocalExtendedColors.current
                                                     Text(
                                                         text = alert.title,
                                                         fontSize = 13.5.sp,
                                                         fontWeight = FontWeight.Bold,
-                                                        color = if (isDark) Color.White else Color(0xFF0F172A),
+                                                        color = ext.textPrimary,
                                                         maxLines = 1,
                                                         overflow = TextOverflow.Ellipsis
                                                     )
                                                     Text(
                                                         text = alert.message,
                                                         fontSize = 12.sp,
-                                                        color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
+                                                        color = ext.textMuted,
                                                         maxLines = 2,
                                                         overflow = TextOverflow.Ellipsis
                                                     )
@@ -642,7 +643,7 @@ fun MainScaffold(
                                                 Icon(
                                                     imageVector = Icons.Default.School,
                                                     contentDescription = "Lectures",
-                                                    tint = Color.White,
+                                                    tint = MaterialTheme.colorScheme.onPrimary,
                                                     modifier = Modifier.size(20.dp)
                                                 )
                                             }

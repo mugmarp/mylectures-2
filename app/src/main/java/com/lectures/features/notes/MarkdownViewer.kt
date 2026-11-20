@@ -100,16 +100,56 @@ fun MarkdownViewer(
                 // 2. Obsidian Callouts (> [!NOTE], > [!WARNING], etc.)
                 is MarkdownBlock.Callout -> {
                     val (calloutColor, calloutBg, calloutIcon) = when (block.type) {
-                        CalloutType.NOTE -> Triple(Color(0xFF2563EB), if (isDark) Color(0xFF1E293B) else Color(0xFFEFF6FF), Icons.Outlined.Info)
-                        CalloutType.TIP -> Triple(Color(0xFF0D9488), if (isDark) Color(0xFF134E4A).copy(alpha = 0.4f) else Color(0xFFF0FDFA), Icons.Outlined.Lightbulb)
-                        CalloutType.IMPORTANT -> Triple(Color(0xFF7C3AED), if (isDark) Color(0xFF4C1D95).copy(alpha = 0.4f) else Color(0xFFFAF5FF), Icons.Outlined.PriorityHigh)
-                        CalloutType.WARNING -> Triple(Color(0xFFD97706), if (isDark) Color(0xFF78350F).copy(alpha = 0.4f) else Color(0xFFFFFBEB), Icons.Outlined.WarningAmber)
-                        CalloutType.DANGER -> Triple(Color(0xFFDC2626), if (isDark) Color(0xFF7F1D1D).copy(alpha = 0.4f) else Color(0xFFFEF2F2), Icons.Outlined.ErrorOutline)
-                        CalloutType.SUCCESS -> Triple(Color(0xFF16A34A), if (isDark) Color(0xFF14532D).copy(alpha = 0.4f) else Color(0xFFF0FDF4), Icons.Outlined.CheckCircle)
-                        CalloutType.INFO -> Triple(Color(0xFF0284C7), if (isDark) Color(0xFF0C4A6E).copy(alpha = 0.4f) else Color(0xFFF0F9FF), Icons.Outlined.Info)
-                        CalloutType.QUESTION -> Triple(Color(0xFFEAB308), if (isDark) Color(0xFF713F12).copy(alpha = 0.4f) else Color(0xFFFEFCE8), Icons.AutoMirrored.Outlined.HelpOutline)
-                        CalloutType.EXAMPLE -> Triple(Color(0xFF4F46E5), if (isDark) Color(0xFF312E81).copy(alpha = 0.4f) else Color(0xFFEEF2FF), Icons.Outlined.Science)
-                        CalloutType.QUOTE -> Triple(Color(0xFF64748B), if (isDark) Color(0xFF1E293B) else Color(0xFFF8FAFC), Icons.Default.FormatQuote)
+                        CalloutType.NOTE -> Triple(
+                            if (isDark) Color(0xFF60A5FA) else Color(0xFF2563EB),
+                            if (isDark) Color(0xFF172554).copy(alpha = 0.45f) else Color(0xFFEFF6FF),
+                            Icons.Outlined.Info
+                        )
+                        CalloutType.TIP -> Triple(
+                            if (isDark) Color(0xFF2DD4BF) else Color(0xFF0D9488),
+                            if (isDark) Color(0xFF134E4A).copy(alpha = 0.45f) else Color(0xFFF0FDFA),
+                            Icons.Outlined.Lightbulb
+                        )
+                        CalloutType.IMPORTANT -> Triple(
+                            if (isDark) Color(0xFFA78BFA) else Color(0xFF7C3AED),
+                            if (isDark) Color(0xFF4C1D95).copy(alpha = 0.42f) else Color(0xFFFAF5FF),
+                            Icons.Outlined.PriorityHigh
+                        )
+                        CalloutType.WARNING -> Triple(
+                            if (isDark) Color(0xFFFBBF24) else Color(0xFFD97706),
+                            if (isDark) Color(0xFF78350F).copy(alpha = 0.42f) else Color(0xFFFFFBEB),
+                            Icons.Outlined.WarningAmber
+                        )
+                        CalloutType.DANGER -> Triple(
+                            if (isDark) Color(0xFFF87171) else Color(0xFFDC2626),
+                            if (isDark) Color(0xFF7F1D1D).copy(alpha = 0.45f) else Color(0xFFFEF2F2),
+                            Icons.Outlined.ErrorOutline
+                        )
+                        CalloutType.SUCCESS -> Triple(
+                            if (isDark) Color(0xFF4ADE80) else Color(0xFF16A34A),
+                            if (isDark) Color(0xFF14532D).copy(alpha = 0.45f) else Color(0xFFF0FDF4),
+                            Icons.Outlined.CheckCircle
+                        )
+                        CalloutType.INFO -> Triple(
+                            if (isDark) Color(0xFF38BDF8) else Color(0xFF0284C7),
+                            if (isDark) Color(0xFF0C4A6E).copy(alpha = 0.45f) else Color(0xFFF0F9FF),
+                            Icons.Outlined.Info
+                        )
+                        CalloutType.QUESTION -> Triple(
+                            if (isDark) Color(0xFFFACC15) else Color(0xFFCA8A04),
+                            if (isDark) Color(0xFF713F12).copy(alpha = 0.42f) else Color(0xFFFEFCE8),
+                            Icons.AutoMirrored.Outlined.HelpOutline
+                        )
+                        CalloutType.EXAMPLE -> Triple(
+                            if (isDark) Color(0xFF818CF8) else Color(0xFF4F46E5),
+                            if (isDark) Color(0xFF312E81).copy(alpha = 0.45f) else Color(0xFFEEF2FF),
+                            Icons.Outlined.Science
+                        )
+                        CalloutType.QUOTE -> Triple(
+                            if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
+                            if (isDark) com.lectures.features.timetable.ui.DarkSurfaceContainer else Color(0xFFF8FAFC),
+                            Icons.Default.FormatQuote
+                        )
                     }
 
                     Card(
@@ -165,8 +205,8 @@ fun MarkdownViewer(
                             .fillMaxWidth()
                             .padding(vertical = 6.dp),
                         shape = RoundedCornerShape(10.dp),
-                        colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0xFF1E293B) else Color.White),
-                        border = BorderStroke(1.dp, if (isDark) Color(0xFF334155) else Color(0xFFE2E8F0))
+                        colors = CardDefaults.cardColors(containerColor = if (isDark) com.lectures.features.timetable.ui.DarkSurfaceCard else Color.White),
+                        border = BorderStroke(1.dp, if (isDark) com.lectures.features.timetable.ui.DarkBorderSubtle else Color(0xFFE2E8F0))
                     ) {
                         Column(
                             modifier = Modifier
@@ -176,7 +216,7 @@ fun MarkdownViewer(
                             // Header Row
                             Row(
                                 modifier = Modifier
-                                    .background(if (isDark) Color(0xFF0F172A) else Color(0xFFF1F5F9))
+                                    .background(if (isDark) com.lectures.features.timetable.ui.DarkSurfaceContainer else Color(0xFFF1F5F9))
                                     .padding(horizontal = 4.dp, vertical = 8.dp)
                             ) {
                                 block.headers.forEachIndexed { colIndex, header ->
@@ -212,12 +252,12 @@ fun MarkdownViewer(
                                 }
                             }
 
-                            HorizontalDivider(color = if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1), thickness = 1.dp)
+                            HorizontalDivider(color = if (isDark) com.lectures.features.timetable.ui.DarkBorderSubtle else Color(0xFFCBD5E1), thickness = 1.dp)
 
                             // Data Rows
                             block.rows.forEachIndexed { rowIndex, row ->
                                 val rowBg = if (rowIndex % 2 == 1) {
-                                    if (isDark) Color(0xFF0F172A).copy(alpha = 0.4f) else Color(0xFFF8FAFC)
+                                    if (isDark) com.lectures.features.timetable.ui.DarkSurfaceBase.copy(alpha = 0.55f) else Color(0xFFF8FAFC)
                                 } else Color.Transparent
 
                                 Row(
@@ -258,7 +298,7 @@ fun MarkdownViewer(
                                     }
                                 }
                                 if (rowIndex < block.rows.lastIndex) {
-                                    HorizontalDivider(color = if (isDark) Color(0xFF334155).copy(alpha = 0.4f) else Color(0xFFE2E8F0), thickness = 0.5.dp)
+                                    HorizontalDivider(color = if (isDark) com.lectures.features.timetable.ui.DarkBorderSubtle.copy(alpha = 0.55f) else Color(0xFFE2E8F0), thickness = 0.5.dp)
                                 }
                             }
                         }
@@ -273,9 +313,9 @@ fun MarkdownViewer(
                             .padding(vertical = 6.dp),
                         shape = RoundedCornerShape(12.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = if (isDark) Color(0xFF0F172A) else Color(0xFFF0FDF4)
+                            containerColor = if (isDark) com.lectures.features.timetable.ui.DarkSurfaceBase else Color(0xFFF0FDF4)
                         ),
-                        border = BorderStroke(1.dp, if (isDark) Color(0xFF1E3A8A) else Color(0xFFBFDBFE))
+                        border = BorderStroke(1.dp, if (isDark) com.lectures.features.timetable.ui.DarkBorderSubtle else Color(0xFFBFDBFE))
                     ) {
                         Column(
                             modifier = Modifier

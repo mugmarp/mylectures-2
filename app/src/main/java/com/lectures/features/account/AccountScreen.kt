@@ -38,6 +38,7 @@ import com.lectures.core.sync.SyncMergeStats
 import com.lectures.core.sync.UserSettingsSyncManager
 import com.lectures.ui.components.FloatingIslandTopBar
 import com.lectures.ui.LocalAppTheme
+import com.lectures.ui.LocalExtendedColors
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -59,9 +60,10 @@ fun AccountScreen(
     val currentUser by authRepo.currentUser.collectAsState()
 
     val isDark = LocalAppTheme.current.isDark
-    val surfaceColor = if (isDark) Color(0xFF1E293B) else Color.White
-    val borderSubtle = if (isDark) Color(0xFF334155) else Color(0xFFE2E8F0)
-    val textMuted = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
+    val ext = LocalExtendedColors.current
+    val surfaceColor = ext.surfaceCard
+    val borderSubtle = ext.borderSubtle
+    val textMuted = ext.textMuted
 
     var isAuthenticating by remember { mutableStateOf(false) }
     var isSyncing by remember { mutableStateOf(false) }
@@ -147,20 +149,19 @@ fun AccountScreen(
                 syncMessage?.let { msg ->
                     Surface(
                         shape = RoundedCornerShape(12.dp),
-                        color = if (isDark) Color(0xFF064E3B) else Color(0xFFDCFCE7),
+                        color = ext.successBg,
+                        border = BorderStroke(1.dp, ext.successBorder),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        val iconTint = if (isDark) Color(0xFF34D399) else Color(0xFF15803D)
-                        val msgColor = if (isDark) Color(0xFFD1FAE5) else Color(0xFF14532D)
                         Row(
                             modifier = Modifier.padding(14.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = iconTint)
+                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = ext.successIcon)
                             Spacer(modifier = Modifier.width(10.dp))
-                            Text(msg, color = msgColor, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                            Text(msg, color = ext.successText, fontSize = 13.sp, modifier = Modifier.weight(1f))
                             IconButton(onClick = { syncMessage = null }) {
-                                Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = iconTint, modifier = Modifier.size(16.dp))
+                                Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = ext.successIcon, modifier = Modifier.size(16.dp))
                             }
                         }
                     }
@@ -288,7 +289,7 @@ fun AccountScreen(
                             shape = RoundedCornerShape(14.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = Color.White
+                                contentColor = MaterialTheme.colorScheme.onPrimary
                             ),
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -299,7 +300,7 @@ fun AccountScreen(
                                 CircularProgressIndicator(
                                     modifier = Modifier.size(22.dp),
                                     strokeWidth = 2.5.dp,
-                                    color = Color.White
+                                    color = MaterialTheme.colorScheme.onPrimary
                                 )
                                 Spacer(modifier = Modifier.width(10.dp))
                                 Text("Connecting to Google...", fontWeight = FontWeight.Bold, fontSize = 15.sp)
@@ -335,7 +336,7 @@ fun AccountScreen(
                             ) {
                                 Text(
                                     text = initial.toString(),
-                                    color = Color.White,
+                                    color = MaterialTheme.colorScheme.onPrimary,
                                     fontSize = 24.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -449,18 +450,18 @@ fun AccountScreen(
                                 shape = RoundedCornerShape(12.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = MaterialTheme.colorScheme.primary,
-                                    contentColor = Color.White
+                                    contentColor = MaterialTheme.colorScheme.onPrimary
                                 ),
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(46.dp)
+                                    .height(48.dp)
                                     .testTag("sync_now_button")
                             ) {
                                 if (isSyncing) {
                                     CircularProgressIndicator(
                                         modifier = Modifier.size(18.dp),
                                         strokeWidth = 2.dp,
-                                        color = Color.White
+                                        color = MaterialTheme.colorScheme.onPrimary
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text("Syncing...", fontSize = 13.sp, fontWeight = FontWeight.Bold)
@@ -475,12 +476,12 @@ fun AccountScreen(
                                 onClick = { showSignOutDialog = true },
                                 shape = RoundedCornerShape(12.dp),
                                 colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = Color(0xFFDC2626)
+                                    contentColor = ext.dangerText
                                 ),
-                                border = BorderStroke(1.dp, Color(0xFFFCA5A5)),
+                                border = BorderStroke(1.dp, ext.dangerBorder),
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(46.dp)
+                                    .height(48.dp)
                                     .testTag("sign_out_button")
                             ) {
                                 Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -499,17 +500,18 @@ fun AccountScreen(
     if (showSignOutDialog) {
         AlertDialog(
             onDismissRequest = { showSignOutDialog = false },
+            containerColor = ext.surfaceCard,
             icon = {
                 Box(
                     modifier = Modifier
                         .size(48.dp)
-                        .background(Color(0xFFFEE2E2), CircleShape),
+                        .background(ext.dangerBg, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         Icons.AutoMirrored.Filled.Logout,
                         contentDescription = null,
-                        tint = Color(0xFFDC2626),
+                        tint = ext.dangerIcon,
                         modifier = Modifier.size(24.dp)
                     )
                 }
@@ -535,10 +537,13 @@ fun AccountScreen(
                             syncMessage = "Signed out. App reverted to guest mode."
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    ),
                     shape = RoundedCornerShape(10.dp)
                 ) {
-                    Text("Confirm Sign Out", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text("Confirm Sign Out", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
@@ -557,14 +562,12 @@ private fun DashboardStatItem(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     modifier: Modifier = Modifier
 ) {
-    val isDark = LocalAppTheme.current.isDark
-    val bg = if (isDark) Color(0xFF0F172A) else Color(0xFFF8FAFC)
-    val border = if (isDark) Color(0xFF334155) else Color(0xFFE2E8F0)
+    val ext = LocalExtendedColors.current
 
     Surface(
         shape = RoundedCornerShape(12.dp),
-        color = bg,
-        border = BorderStroke(1.dp, border),
+        color = ext.surfaceBase,
+        border = BorderStroke(1.dp, ext.borderSubtle),
         modifier = modifier
     ) {
         Column(
@@ -582,7 +585,7 @@ private fun DashboardStatItem(
             Text(
                 text = title,
                 fontSize = 11.sp,
-                color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
+                color = ext.textMuted
             )
         }
     }

@@ -798,17 +798,18 @@ fun NoteEditorScreen(
                                 Text("RICH PREVIEW", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, letterSpacing = 0.5.sp)
                                 if (checklistProgress != null) {
                                     val (done, total) = checklistProgress
+                                    val ext = com.lectures.ui.LocalExtendedColors.current
                                     Box(
                                         modifier = Modifier
                                             .clip(RoundedCornerShape(8.dp))
-                                            .background(if (done == total) Color(0xFFDCFCE7) else MaterialTheme.colorScheme.primaryContainer)
+                                            .background(if (done == total) ext.successBg else MaterialTheme.colorScheme.primaryContainer)
                                             .padding(horizontal = 8.dp, vertical = 2.dp)
                                     ) {
                                         Text(
                                             "☑ $done / $total completed",
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = if (done == total) Color(0xFF15803D) else MaterialTheme.colorScheme.primary
+                                            color = if (done == total) ext.successText else MaterialTheme.colorScheme.onPrimaryContainer
                                         )
                                     }
                                 }

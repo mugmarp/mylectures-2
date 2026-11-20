@@ -3,8 +3,10 @@ package com.lectures
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -12,6 +14,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.lifecycle.lifecycleScope
 import com.lectures.ui.AppTheme
+import com.lectures.ui.LocalAppTheme
 import com.lectures.ui.MainScaffold
 import com.lectures.ui.ThemeMode
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -94,6 +97,29 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             ) {
+                val isDarkEffective = LocalAppTheme.current.isDark
+                DisposableEffect(isDarkEffective) {
+                    enableEdgeToEdge(
+                        statusBarStyle = if (isDarkEffective) {
+                            SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
+                        } else {
+                            SystemBarStyle.light(
+                                android.graphics.Color.TRANSPARENT,
+                                android.graphics.Color.TRANSPARENT
+                            )
+                        },
+                        navigationBarStyle = if (isDarkEffective) {
+                            SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
+                        } else {
+                            SystemBarStyle.light(
+                                android.graphics.Color.TRANSPARENT,
+                                android.graphics.Color.TRANSPARENT
+                            )
+                        }
+                    )
+                    onDispose {}
+                }
+
                 MainScaffold(
                     initialTab = 0,
                     notificationIntentFlow = notificationIntentFlow

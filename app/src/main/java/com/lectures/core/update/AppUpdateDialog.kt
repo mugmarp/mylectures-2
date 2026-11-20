@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.lectures.BuildConfig
 import com.lectures.ui.LocalAppTheme
+import com.lectures.ui.LocalExtendedColors
 
 /**
  * Material 3 Dialog displaying verified remote release notes and routing users
@@ -56,6 +57,7 @@ fun AppUpdateDialog(
 
     val context = LocalContext.current
     val isDark = LocalAppTheme.current.isDark
+    val ext = LocalExtendedColors.current
     val primaryColor = MaterialTheme.colorScheme.primary
 
     var errorMessage by rememberSaveable { mutableStateOf<String?>(null) }
@@ -67,8 +69,9 @@ fun AppUpdateDialog(
         Card(
             shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(
-                containerColor = if (isDark) Color(0xFF1E293B) else Color.White
+                containerColor = ext.surfaceCard
             ),
+            border = if (isDark) BorderStroke(1.dp, ext.borderSubtle) else null,
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
             modifier = Modifier
                 .fillMaxWidth()
@@ -108,12 +111,12 @@ fun AppUpdateDialog(
                                 text = "App Update Available",
                                 fontSize = 17.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = if (isDark) Color.White else Color(0xFF0F172A)
+                                color = ext.textPrimary
                             )
                             Text(
                                 text = "v${updateInfo.versionName} (Current: v${BuildConfig.VERSION_NAME})",
                                 fontSize = 12.sp,
-                                color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
+                                color = ext.textMuted
                             )
                         }
                     }
@@ -140,8 +143,8 @@ fun AppUpdateDialog(
                 ) {
                     Surface(
                         shape = RoundedCornerShape(14.dp),
-                        color = if (isDark) Color(0xFF0F172A) else Color(0xFFF8FAFC),
-                        border = BorderStroke(1.dp, if (isDark) Color(0xFF334155) else Color(0xFFE2E8F0)),
+                        color = ext.surfaceBase,
+                        border = BorderStroke(1.dp, ext.borderSubtle),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(modifier = Modifier.padding(14.dp)) {
@@ -175,7 +178,7 @@ fun AppUpdateDialog(
                                             text = item,
                                             fontSize = 12.5.sp,
                                             lineHeight = 17.sp,
-                                            color = if (isDark) Color(0xFFE2E8F0) else Color(0xFF334155)
+                                            color = ext.textSecondary
                                         )
                                     }
                                 }
@@ -200,14 +203,14 @@ fun AppUpdateDialog(
                         Spacer(modifier = Modifier.height(14.dp))
                         Surface(
                             shape = RoundedCornerShape(10.dp),
-                            color = Color(0xFFEF4444).copy(alpha = 0.12f),
-                            border = BorderStroke(1.dp, Color(0xFFEF4444).copy(alpha = 0.4f)),
+                            color = ext.dangerBg,
+                            border = BorderStroke(1.dp, ext.dangerBorder),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
                                 text = errorMessage ?: "",
                                 fontSize = 12.sp,
-                                color = Color(0xFFB91C1C),
+                                color = ext.dangerText,
                                 modifier = Modifier.padding(10.dp)
                             )
                         }
@@ -230,7 +233,10 @@ fun AppUpdateDialog(
                         },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = primaryColor)
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = primaryColor,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        )
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.OpenInNew,
@@ -246,7 +252,7 @@ fun AppUpdateDialog(
                             onClick = onDismiss,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("Remind Me Later", fontSize = 13.sp, color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B))
+                            Text("Remind Me Later", fontSize = 13.sp, color = ext.textMuted)
                         }
                     } else if (errorMessage != null) {
                         TextButton(

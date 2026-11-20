@@ -184,6 +184,7 @@ fun AddTaskDialog(
                             color = if (isSelected) cat.color else (if (isDark) DarkSurfaceBase else cat.lightContainerColor.copy(alpha = 0.5f)),
                             border = BorderStroke(1.dp, if (isSelected) cat.color else cat.color.copy(alpha = 0.35f))
                         ) {
+                            val selectedInk = com.lectures.ui.contrastOnColor(cat.color)
                             Row(
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically
@@ -191,7 +192,7 @@ fun AddTaskDialog(
                                 Icon(
                                     cat.icon,
                                     contentDescription = null,
-                                    tint = if (isSelected) Color.White else cat.color,
+                                    tint = if (isSelected) selectedInk else cat.color,
                                     modifier = Modifier.size(12.dp)
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
@@ -199,7 +200,7 @@ fun AddTaskDialog(
                                     cat.displayName,
                                     fontSize = 11.sp,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (isSelected) Color.White else (if (isDark) Color.White else Color(0xFF1E293B))
+                                    color = if (isSelected) selectedInk else (if (isDark) Color(0xFFF1F5F9) else Color(0xFF1E293B))
                                 )
                             }
                         }

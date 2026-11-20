@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lectures.R
 import com.lectures.ui.LocalAppTheme
+import com.lectures.ui.LocalExtendedColors
 import com.lectures.ui.rememberLecturesWindow
 
 @Composable
@@ -41,28 +42,29 @@ fun WelcomeScreen(
     onGetStarted: () -> Unit
 ) {
     val isDark = LocalAppTheme.current.isDark
+    val ext = LocalExtendedColors.current
     val windowInfo = rememberLecturesWindow()
 
     var termsAcknowledged by remember { mutableStateOf(false) }
     var showDisclaimerDialog by remember { mutableStateOf(false) }
     var showTermsDialog by remember { mutableStateOf(false) }
 
-    val primaryBlue = Color(0xFF2563EB)
+    val primaryBlue = MaterialTheme.colorScheme.primary
     val bgGradient = if (isDark) {
-        Brush.verticalGradient(listOf(Color(0xFF0B132B), Color(0xFF1C2541), Color(0xFF0F172A)))
+        Brush.verticalGradient(listOf(DarkSurfaceBase, Color(0xFF141824), DarkSurfaceCard))
     } else {
         Brush.verticalGradient(listOf(Color(0xFFE0E7FF), Color(0xFFEEF2FF), Color(0xFFF8FAFC)))
     }
-    val cardBg = if (isDark) Color(0xFF1E293B) else Color.White
-    val textPrimary = if (isDark) Color.White else Color(0xFF0F172A)
-    val textSecondary = if (isDark) Color(0xFF94A3B8) else Color(0xFF475569)
-    val textMuted = if (isDark) Color(0xFF64748B) else Color(0xFF64748B)
+    val cardBg = if (isDark) DarkSurfaceCard else Color.White
+    val textPrimary = ext.textPrimary
+    val textSecondary = ext.textSecondary
+    val textMuted = ext.textMuted
 
     // Institutional Disclaimer Dialog
     if (showDisclaimerDialog) {
         AlertDialog(
             onDismissRequest = { showDisclaimerDialog = false },
-            containerColor = if (isDark) Color(0xFF1E293B) else Color.White,
+            containerColor = if (isDark) DarkSurfaceCard else Color.White,
             icon = { Icon(Icons.Default.VerifiedUser, contentDescription = null, tint = primaryBlue) },
             title = {
                 Text(
@@ -132,7 +134,10 @@ fun WelcomeScreen(
                 Button(
                     onClick = { showDisclaimerDialog = false },
                     shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = primaryBlue)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = primaryBlue,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    )
                 ) {
                     Text("I Understand")
                 }
@@ -144,7 +149,7 @@ fun WelcomeScreen(
     if (showTermsDialog) {
         AlertDialog(
             onDismissRequest = { showTermsDialog = false },
-            containerColor = if (isDark) Color(0xFF1E293B) else Color.White,
+            containerColor = if (isDark) DarkSurfaceCard else Color.White,
             icon = { Icon(Icons.Default.Gavel, contentDescription = null, tint = primaryBlue) },
             title = {
                 Text(
@@ -214,7 +219,10 @@ fun WelcomeScreen(
                 Button(
                     onClick = { showTermsDialog = false },
                     shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = primaryBlue)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = primaryBlue,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    )
                 ) {
                     Text("I accept the Terms of Service & Disclaimer.")
                 }
@@ -254,7 +262,7 @@ fun WelcomeScreen(
                     shape = RoundedCornerShape(26.dp),
                     color = cardBg,
                     shadowElevation = 6.dp,
-                    border = BorderStroke(1.5.dp, if (isDark) Color(0xFF334155) else Color(0xFFDBEAFE))
+                    border = BorderStroke(1.5.dp, if (isDark) DarkBorderSubtle else Color(0xFFDBEAFE))
                 ) {
                     Box(
                         modifier = Modifier.fillMaxSize(),
@@ -289,12 +297,12 @@ fun WelcomeScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .background(
-                            if (isDark) Color(0xFF1E293B).copy(alpha = 0.85f) else Color.White.copy(alpha = 0.9f),
+                            if (isDark) DarkSurfaceContainer.copy(alpha = 0.85f) else Color.White.copy(alpha = 0.9f),
                             RoundedCornerShape(20.dp)
                         )
                         .border(
                             1.dp,
-                            if (isDark) Color(0xFF334155) else Color(0xFFE2E8F0),
+                            if (isDark) DarkBorderSubtle else Color(0xFFE2E8F0),
                             RoundedCornerShape(20.dp)
                         )
                         .padding(horizontal = 12.dp, vertical = 4.dp)
@@ -308,7 +316,7 @@ fun WelcomeScreen(
                         Icon(
                             Icons.Default.School,
                             contentDescription = null,
-                            tint = Color.White,
+                            tint = MaterialTheme.colorScheme.onPrimary,
                             modifier = Modifier.size(10.dp)
                         )
                     }
@@ -361,7 +369,7 @@ fun WelcomeScreen(
                         modifier = Modifier.weight(1f),
                         icon = Icons.Default.MeetingRoom,
                         iconBg = if (isDark) Color(0xFF064E3B).copy(alpha = 0.45f) else Color(0xFFDCFCE7),
-                        iconTint = Color(0xFF059669),
+                        iconTint = if (isDark) Color(0xFF34D399) else Color(0xFF059669),
                         tag = "Campus",
                         title = "Free Rooms",
                         description = "Locate empty halls for revision",
@@ -381,7 +389,7 @@ fun WelcomeScreen(
                         modifier = Modifier.weight(1f),
                         icon = Icons.Default.TaskAlt,
                         iconBg = if (isDark) Color(0xFF78350F).copy(alpha = 0.4f) else Color(0xFFFEF3C7),
-                        iconTint = Color(0xFFD97706),
+                        iconTint = if (isDark) Color(0xFFFBBF24) else Color(0xFFD97706),
                         tag = "Tasks",
                         title = "Coursework",
                         description = "Track assignments, tests & deadlines",
@@ -395,7 +403,7 @@ fun WelcomeScreen(
                         modifier = Modifier.weight(1f),
                         icon = Icons.Default.School,
                         iconBg = if (isDark) Color(0xFF581C87).copy(alpha = 0.4f) else Color(0xFFF3E8FF),
-                        iconTint = Color(0xFF7C3AED),
+                        iconTint = if (isDark) Color(0xFFA78BFA) else Color(0xFF7C3AED),
                         tag = "100% Local",
                         title = "Study Notes",
                         description = "Write summaries linked to courses",
@@ -411,7 +419,7 @@ fun WelcomeScreen(
             Surface(
                 shape = RoundedCornerShape(16.dp),
                 color = cardBg,
-                border = BorderStroke(1.dp, if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1)),
+                border = BorderStroke(1.dp, if (isDark) DarkBorderSubtle else Color(0xFFCBD5E1)),
                 shadowElevation = 2.dp,
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -489,7 +497,8 @@ fun WelcomeScreen(
                         .testTag("get_started_button"),
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = primaryBlue
+                        containerColor = primaryBlue,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
                     )
                 ) {
                     Row(
@@ -500,13 +509,13 @@ fun WelcomeScreen(
                             "Get Started",
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = MaterialTheme.colorScheme.onPrimary
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowForward,
                             contentDescription = null,
-                            tint = Color.White,
+                            tint = MaterialTheme.colorScheme.onPrimary,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -544,7 +553,7 @@ fun WelcomeBentoCard(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         color = cardBg,
-        border = BorderStroke(1.dp, if (isDark) Color(0xFF334155) else Color(0xFFE2E8F0)),
+        border = BorderStroke(1.dp, if (isDark) DarkBorderSubtle else Color(0xFFE2E8F0)),
         shadowElevation = 1.dp
     ) {
         Column(

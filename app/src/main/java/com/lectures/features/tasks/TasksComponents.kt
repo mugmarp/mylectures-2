@@ -245,7 +245,8 @@ internal fun TasksFilterChipsRow(
                 else -> borderColor
             }
             val chipTextColor = when {
-                isSelected -> Color.White
+                isSelected && isOverdueFilter -> Color.White
+                isSelected -> MaterialTheme.colorScheme.onPrimary
                 isOverdueFilter && count > 0 -> if (isDark) Color(0xFFFCA5A5) else Color(0xFFDC2626)
                 else -> textSecondary
             }
@@ -368,7 +369,7 @@ fun TaskCard(
             brush = androidx.compose.ui.graphics.SolidColor(
                 when {
                     isHighlighted -> primaryColor
-                    isDark && !task.completed && dueStatus == TaskDueStatus.OVERDUE -> Color(0xFF991B1B)
+                    isDark && !task.completed && dueStatus == TaskDueStatus.OVERDUE -> Color(0xFFF87171).copy(alpha = 0.55f)
                     isDark -> DarkBorderSubtle
                     !task.completed && dueStatus == TaskDueStatus.OVERDUE -> Color(0xFFFCA5A5)
                     else -> Color(0xFFE2E8F0)
@@ -407,7 +408,7 @@ fun TaskCard(
                             Icon(
                                 Icons.Default.Check,
                                 contentDescription = "Completed",
-                                tint = Color.White,
+                                tint = MaterialTheme.colorScheme.onPrimary,
                                 modifier = Modifier.size(15.dp)
                             )
                         }

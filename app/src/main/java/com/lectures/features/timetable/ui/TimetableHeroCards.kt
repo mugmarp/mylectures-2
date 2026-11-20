@@ -2,6 +2,7 @@ package com.lectures.features.timetable.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -26,7 +27,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lectures.ui.AccentColors
+import com.lectures.ui.AccentDarkColors
 import com.lectures.ui.LocalAppTheme
+import com.lectures.ui.LocalExtendedColors
 import com.lectures.ui.components.RoomFloorBadge
 
 @Composable
@@ -37,21 +40,60 @@ fun NextUpHeroCard(
     onClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val safeAccentIdx = LocalAppTheme.current.accentIndex.coerceIn(0, AccentColors.lastIndex)
-    val heroStart = AccentColors[safeAccentIdx]
-    val heroEnd = when (safeAccentIdx) {
-        0 -> Color(0xFF4F46E5)
-        1 -> Color(0xFF047857)
-        2 -> Color(0xFF5B21B6)
-        3 -> Color(0xFFB45309)
-        else -> Color(0xFF0369A1)
+    val appTheme = LocalAppTheme.current
+    val isDark = appTheme.isDark
+    val ext = LocalExtendedColors.current
+    val safeAccentIdx = appTheme.accentIndex.coerceIn(0, AccentColors.lastIndex)
+    val heroStart = if (isDark) {
+        when (safeAccentIdx) {
+            0 -> Color(0xFF15223B)
+            1 -> Color(0xFF0A2E25)
+            2 -> Color(0xFF22163B)
+            3 -> Color(0xFF2E1B08)
+            else -> Color(0xFF0D283A)
+        }
+    } else {
+        AccentColors[safeAccentIdx]
     }
+    val heroEnd = if (isDark) {
+        when (safeAccentIdx) {
+            0 -> Color(0xFF1B1938)
+            1 -> Color(0xFF0B221D)
+            2 -> Color(0xFF1A1430)
+            3 -> Color(0xFF22160A)
+            else -> Color(0xFF0C1E2E)
+        }
+    } else {
+        when (safeAccentIdx) {
+            0 -> Color(0xFF4F46E5)
+            1 -> Color(0xFF047857)
+            2 -> Color(0xFF5B21B6)
+            3 -> Color(0xFFB45309)
+            else -> Color(0xFF0369A1)
+        }
+    }
+    val darkAccentGlow = AccentDarkColors[safeAccentIdx]
+    val cardTextPrimary = if (isDark) ext.textPrimary else Color.White
 
     Box(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
-            .shadow(elevation = 8.dp, shape = HeroCardShape, ambientColor = heroStart.copy(alpha = 0.4f))
+            .then(
+                if (isDark) {
+                    Modifier.border(
+                        width = 1.dp,
+                        color = darkAccentGlow.copy(alpha = 0.42f),
+                        shape = HeroCardShape
+                    )
+                } else {
+                    Modifier.shadow(
+                        elevation = 8.dp,
+                        shape = HeroCardShape,
+                        ambientColor = heroStart.copy(alpha = 0.4f)
+                    )
+                }
+            )
             .background(
                 brush = Brush.verticalGradient(listOf(heroStart, heroEnd)),
                 shape = HeroCardShape
@@ -257,8 +299,18 @@ fun NextUpHeroCard(
                         .weight(1f)
                         .height(44.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (session.isAlarmSet) Color(0xFFDCFCE7) else Color.White,
-                        contentColor = if (session.isAlarmSet) Color(0xFF15803D) else heroStart
+                        containerColor = when {
+                            isDark && session.isAlarmSet -> ext.successBg
+                            isDark -> MaterialTheme.colorScheme.primary
+                            session.isAlarmSet -> Color(0xFFDCFCE7)
+                            else -> Color.White
+                        },
+                        contentColor = when {
+                            isDark && session.isAlarmSet -> ext.successText
+                            isDark -> MaterialTheme.colorScheme.onPrimary
+                            session.isAlarmSet -> Color(0xFF15803D)
+                            else -> heroStart
+                        }
                     ),
                     shape = ActionButtonShape,
                     contentPadding = PaddingValues(horizontal = 12.dp)
@@ -283,8 +335,8 @@ fun NextUpHeroCard(
                         .weight(1f)
                         .height(44.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.White.copy(alpha = 0.2f),
-                        contentColor = Color.White
+                        containerColor = Color.White.copy(alpha = if (isDark) 0.14f else 0.2f),
+                        contentColor = cardTextPrimary
                     ),
                     shape = ActionButtonShape,
                     contentPadding = PaddingValues(horizontal = 12.dp)
@@ -314,10 +366,11 @@ fun DockedUpNextBar(
     modifier: Modifier = Modifier
 ) {
     val isDark = LocalAppTheme.current.isDark
+    val ext = LocalExtendedColors.current
     val accentColor = MaterialTheme.colorScheme.primary
     val containerColor = if (isDark) DarkSurfaceCard else SurfaceContainerLowLight
     val borderSubtle = if (isDark) DarkBorderSubtle else BorderSubtleLight
-    val textPrimary = if (isDark) Color.White else TextPrimaryLight
+    val textPrimary = if (isDark) ext.textPrimary else TextPrimaryLight
 
     Surface(
         modifier = modifier
@@ -367,7 +420,7 @@ fun DockedUpNextBar(
                         Text(
                             text = "• ${session.courseCode}",
                             fontSize = 11.sp,
-                            color = if (isDark) Color(0xFF94A3B8) else TextMutedLight
+                            color = if (isDark) ext.textMuted else TextMutedLight
                         )
                     }
                     Text(

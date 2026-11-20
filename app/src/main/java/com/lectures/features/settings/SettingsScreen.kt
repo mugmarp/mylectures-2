@@ -324,15 +324,22 @@ fun SettingsScreen(
         var isPermissionBannerDismissed by rememberSaveable { mutableStateOf(false) }
 
         if (currentSubScreen == SettingsSubScreen.APPEARANCE) {
-            AppearanceSettingsView(
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding),
-                uiState = uiState,
-                appTheme = appTheme,
-                onSelectThemeMode = onSelectThemeMode,
-                onSelectAccent = onSelectAccent
-            )
+                contentAlignment = Alignment.TopCenter
+            ) {
+                AppearanceSettingsView(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .widthIn(max = 760.dp),
+                    uiState = uiState,
+                    appTheme = appTheme,
+                    onSelectThemeMode = onSelectThemeMode,
+                    onSelectAccent = onSelectAccent
+                )
+            }
         } else if (currentSubScreen == SettingsSubScreen.NOTIFICATIONS) {
             Box(
                 modifier = Modifier
@@ -500,7 +507,8 @@ fun SettingsScreen(
                     SettingsAppearanceSection(
                         uiState = uiState,
                         appTheme = appTheme,
-                        onOpenAppearance = { currentSubScreen = SettingsSubScreen.APPEARANCE }
+                        onOpenAppearance = { currentSubScreen = SettingsSubScreen.APPEARANCE },
+                        onSelectThemeMode = onSelectThemeMode
                     )
 
                     Spacer(modifier = Modifier.height(24.dp))

@@ -320,15 +320,18 @@ internal fun ResetNotesConfirmDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        icon = { Icon(Icons.Default.DeleteOutline, contentDescription = null, tint = Color(0xFFDC2626)) },
+        icon = { Icon(Icons.Default.DeleteOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
         title = { Text("Reset All Notes?", fontWeight = FontWeight.Bold) },
         text = { Text("This will permanently delete all your lecture notes and attached class alarm intervals. This action cannot be undone.") },
         confirmButton = {
             Button(
                 onClick = onConfirm,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626))
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error,
+                    contentColor = MaterialTheme.colorScheme.onError
+                )
             ) {
-                Text("Delete Notes", color = Color.White)
+                Text("Delete Notes")
             }
         },
         dismissButton = {
@@ -346,15 +349,18 @@ internal fun ResetTasksConfirmDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        icon = { Icon(Icons.Default.AlarmOff, contentDescription = null, tint = Color(0xFFDC2626)) },
+        icon = { Icon(Icons.Default.AlarmOff, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
         title = { Text("Reset Academic Tasks?", fontWeight = FontWeight.Bold) },
         text = { Text("This will remove all saved assignments and cancel any scheduled reminder notifications.") },
         confirmButton = {
             Button(
                 onClick = onConfirm,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626))
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error,
+                    contentColor = MaterialTheme.colorScheme.onError
+                )
             ) {
-                Text("Clear Tasks & Alarms", color = Color.White)
+                Text("Clear Tasks & Alarms")
             }
         },
         dismissButton = {

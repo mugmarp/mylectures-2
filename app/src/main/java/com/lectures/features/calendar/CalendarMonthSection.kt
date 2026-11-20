@@ -204,17 +204,18 @@ internal fun CalendarMonthSection(
                                         horizontalArrangement = Arrangement.spacedBy(1.5.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
+                                        val selectedDotColor = MaterialTheme.colorScheme.onPrimary
                                         if (hasDeadlinesThisDay) {
-                                            CalendarDot(color = if (isSelected) Color.White else Color(0xFFEF4444))
+                                            CalendarDot(color = if (isSelected) selectedDotColor else Color(0xFFEF4444))
                                         }
                                         if (hasClassesThisDay) {
-                                            CalendarDot(color = if (isSelected) Color.White else MaterialTheme.colorScheme.primary)
+                                            CalendarDot(color = if (isSelected) selectedDotColor else MaterialTheme.colorScheme.primary)
                                         }
                                         if (hasActivitiesThisDay) {
-                                            CalendarDot(color = if (isSelected) Color.White else Color(0xFF10B981))
+                                            CalendarDot(color = if (isSelected) selectedDotColor else Color(0xFF10B981))
                                         }
                                         if (hasMilestoneThisDay && !hasClassesThisDay && !hasDeadlinesThisDay) {
-                                            CalendarDot(color = if (isSelected) Color.White else Color(0xFF8B5CF6))
+                                            CalendarDot(color = if (isSelected) selectedDotColor else Color(0xFF8B5CF6))
                                         }
                                     }
                                 }

@@ -79,7 +79,7 @@ fun NoteCardItem(
                         "Study Guide" -> if (isDark) Color(0xFF1E3A8A) else Color(0xFFEFF6FF)
                         "Revision", "Exam Prep" -> if (isDark) Color(0xFF064E3B) else Color(0xFFECFDF5)
                         "Assignment" -> if (isDark) Color(0xFF581C87) else Color(0xFFF3E8FF)
-                        else -> if (isDark) Color(0xFF1E293B) else Color(0xFFF1F5F9)
+                        else -> if (isDark) com.lectures.features.timetable.ui.DarkSurfaceContainer else Color(0xFFF1F5F9)
                     }
                     val tagText = when (categoryTag) {
                         "Lab Prep" -> if (isDark) Color(0xFFA5B4FC) else Color(0xFF4338CA)
@@ -101,7 +101,7 @@ fun NoteCardItem(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
-                            .background(if (isDark) Color(0xFF1E293B) else Color(0xFFF1F5F9))
+                            .background(if (isDark) com.lectures.features.timetable.ui.DarkSurfaceContainer else Color(0xFFF1F5F9))
                             .padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
                         Text(

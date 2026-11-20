@@ -98,19 +98,15 @@ class SettingsViewModel(
                 }
                 _uiState.value = _uiState.value.copy(
                     themeMode = mode,
-                    darkMode = when (mode) {
-                        ThemeMode.DARK -> true
-                        ThemeMode.LIGHT -> false
-                        ThemeMode.SYSTEM -> _uiState.value.darkMode
-                    }
+                    darkMode = mode == ThemeMode.DARK
                 )
             }
         }
 
-        // Collect dark mode fallback
+        // Collect dark mode fallback only when not tracking system theme
         viewModelScope.launch {
             repository.themeDarkPref.collect { dark ->
-                if (_uiState.value.themeMode != ThemeMode.SYSTEM || dark) {
+                if (_uiState.value.themeMode != ThemeMode.SYSTEM) {
                     _uiState.value = _uiState.value.copy(darkMode = dark)
                 }
             }

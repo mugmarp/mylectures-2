@@ -30,7 +30,11 @@ import androidx.compose.ui.unit.sp
 import com.lectures.core.util.TimeUtil
 import com.lectures.core.util.rememberLiveClockPulse
 import com.lectures.features.timetable.domain.TimetableEntry
+import com.lectures.ui.AccentColors
+import com.lectures.ui.AccentDarkColors
+import com.lectures.ui.LocalAppTheme
 import com.lectures.ui.components.RoomFloorBadge
+import androidx.compose.foundation.border
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -42,21 +46,57 @@ fun NextUpCard(entry: TimetableEntry, minutesUntil: Int, onClick: () -> Unit) {
     }
 
     val isLive = progress.isOngoing || minutesUntil == 0
+    val appTheme = LocalAppTheme.current
+    val isDark = appTheme.isDark
+    val safeAccentIdx = appTheme.accentIndex.coerceIn(0, AccentColors.lastIndex)
+    val darkBorderGlow = AccentDarkColors[safeAccentIdx]
+    val cardBrush = if (isDark) {
+        if (isLive) {
+            Brush.horizontalGradient(listOf(Color(0xFF152544), Color(0xFF1F1D45), Color(0xFF281A4B)))
+        } else {
+            val start = when (safeAccentIdx) {
+                0 -> Color(0xFF15223B)
+                1 -> Color(0xFF0A2E25)
+                2 -> Color(0xFF22163B)
+                3 -> Color(0xFF2E1B08)
+                else -> Color(0xFF0D283A)
+            }
+            val end = when (safeAccentIdx) {
+                0 -> Color(0xFF1B1938)
+                1 -> Color(0xFF0B221D)
+                2 -> Color(0xFF1A1430)
+                3 -> Color(0xFF22160A)
+                else -> Color(0xFF0C1E2E)
+            }
+            Brush.horizontalGradient(listOf(start, end))
+        }
+    } else {
+        Brush.horizontalGradient(
+            if (isLive) {
+                listOf(Color(0xFF1E40AF), Color(0xFF4338CA), Color(0xFF6D28D9))
+            } else {
+                listOf(MaterialTheme.colorScheme.primary, Color(0xFF6D28D9))
+            }
+        )
+    }
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(24.dp))
-            .clickable(onClick = onClick)
-            .background(
-                Brush.horizontalGradient(
-                    if (isLive) {
-                        listOf(Color(0xFF1E40AF), Color(0xFF4338CA), Color(0xFF6D28D9))
-                    } else {
-                        listOf(MaterialTheme.colorScheme.primary, Color(0xFF6D28D9))
-                    }
-                )
+            .then(
+                if (isDark) {
+                    Modifier.border(
+                        width = 1.dp,
+                        color = darkBorderGlow.copy(alpha = 0.45f),
+                        shape = RoundedCornerShape(24.dp)
+                    )
+                } else {
+                    Modifier
+                }
             )
+            .clickable(onClick = onClick)
+            .background(cardBrush)
             .padding(20.dp)
     ) {
         Column {
@@ -219,10 +259,17 @@ fun NextUpCard(entry: TimetableEntry, minutesUntil: Int, onClick: () -> Unit) {
                 Box(
                     modifier = Modifier
                         .size(36.dp)
-                        .background(Color.White, CircleShape),
+                        .background(
+                            if (isDark) MaterialTheme.colorScheme.primary else Color.White,
+                            CircleShape
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Default.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Icon(
+                        Icons.Default.ChevronRight,
+                        contentDescription = null,
+                        tint = if (isDark) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
+                    )
                 }
             }
         }

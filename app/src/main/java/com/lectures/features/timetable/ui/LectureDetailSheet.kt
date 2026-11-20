@@ -160,8 +160,8 @@ fun LectureDetailSheet(
                     allAttendingCohorts.forEach { cohort ->
                         Surface(
                             shape = RoundedCornerShape(8.dp),
-                            color = if (isDark) Color(0xFF1E293B) else Color(0xFFF1F5F9),
-                            border = BorderStroke(1.dp, if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1))
+                            color = if (isDark) DarkSurfaceContainer else Color(0xFFF1F5F9),
+                            border = BorderStroke(1.dp, if (isDark) DarkBorderSubtle else Color(0xFFCBD5E1))
                         ) {
                             Text(
                                 text = cohort,
@@ -212,7 +212,7 @@ fun LectureDetailSheet(
                     ) {
                         Text(
                             text = "${minutes}m before",
-                            color = if (isSelected) Color.White else (if (isDark) Color(0xFFCBD5E1) else Color(0xFF1E293B)),
+                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else (if (isDark) Color(0xFFCBD5E1) else Color(0xFF1E293B)),
                             fontSize = 12.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                         )
@@ -240,7 +240,7 @@ fun LectureDetailSheet(
                 ) {
                     Text(
                         text = "Custom",
-                        color = if (isCustomReminder) Color.White else (if (isDark) Color(0xFFCBD5E1) else Color(0xFF1E293B)),
+                        color = if (isCustomReminder) MaterialTheme.colorScheme.onPrimary else (if (isDark) Color(0xFFCBD5E1) else Color(0xFF1E293B)),
                         fontSize = 12.sp,
                         fontWeight = if (isCustomReminder) FontWeight.Bold else FontWeight.Medium
                     )
@@ -310,7 +310,10 @@ fun LectureDetailSheet(
                     .fillMaxWidth()
                     .height(48.dp),
                 shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = accentColor, contentColor = Color.White)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = accentColor,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                )
             ) {
                 Text(
                     text = if (effectiveMinutesToSave != null) "Save Note & Set ${effectiveMinutesToSave}m Alarm" else "Save Note",

@@ -36,10 +36,11 @@ fun ClassAlarmPickerDialog(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val isDark = LocalAppTheme.current.isDark
+    val ext = com.lectures.ui.LocalExtendedColors.current
     val primaryColor = MaterialTheme.colorScheme.primary
-    val surfaceColor = if (isDark) Color(0xFF1E293B) else Color.White
-    val textColor = if (isDark) Color.White else Color(0xFF0F172A)
-    val textSub = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
+    val surfaceColor = if (isDark) DarkSurfaceCard else Color.White
+    val textColor = ext.textPrimary
+    val textSub = ext.textMuted
 
     val standardPresets = listOf(5, 10, 15, 30, 45, 60)
     val isCustomInitial = currentMinutes != null && currentMinutes !in standardPresets

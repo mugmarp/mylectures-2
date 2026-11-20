@@ -344,9 +344,9 @@ fun DayCapsuleStrip(
                     fontSize = if (isCompact) 12.sp else 13.sp,
                     fontWeight = if (isActive || isToday) FontWeight.Bold else FontWeight.Medium,
                     color = when {
-                        isActive -> Color.White
+                        isActive -> MaterialTheme.colorScheme.onPrimary
                         isToday -> accentColor
-                        isDark -> Color.White
+                        isDark -> Color(0xFFF1F5F9)
                         else -> TextSecondaryLight
                     },
                     maxLines = 1
@@ -429,9 +429,9 @@ fun DayCapsuleStrip(
                     fontSize = 13.sp,
                     fontWeight = if (isActive || isToday) FontWeight.Bold else FontWeight.Medium,
                     color = when {
-                        isActive -> Color.White
+                        isActive -> MaterialTheme.colorScheme.onPrimary
                         isToday -> accentColor
-                        isDark -> Color.White
+                        isDark -> Color(0xFFF1F5F9)
                         else -> TextSecondaryLight
                     }
                 )
