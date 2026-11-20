@@ -29,10 +29,10 @@ import androidx.compose.ui.unit.sp
 
 val AccentColors = listOf(
     Color(0xFF2563EB), // Royal Blue (Default)
-    Color(0xFF059669), // Emerald Green
+    Color(0xFF047857), // Emerald Green
     Color(0xFF7C3AED), // Academic Violet
-    Color(0xFFD97706), // Warm Amber
-    Color(0xFF0284C7)  // Ocean Teal
+    Color(0xFFB45309), // Warm Amber
+    Color(0xFF0369A1)  // Ocean Teal
 )
 
 val AccentColorNames = listOf(
@@ -58,7 +58,7 @@ fun accentDisplayColors(isDark: Boolean): List<Color> =
  * Picks high-contrast foreground ink (`>= 4.5:1` WCAG AA) for any filled accent background.
  */
 fun contrastOnColor(background: Color): Color =
-    if (background.luminance() > 0.30f) Color(0xFF0B1120) else Color.White
+    if (background.luminance() > 0.18f) Color(0xFF0B1120) else Color.White
 
 private val AccentLightContainers = listOf(
     Color(0xFFE2EDFE) to Color(0xFF1D4ED8),

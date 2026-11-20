@@ -57,6 +57,8 @@ class NotesAndSettingsFixesTest {
         context = app.applicationContext
         db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
             .allowMainThreadQueries()
+            .setQueryExecutor { it.run() }
+            .setTransactionExecutor { it.run() }
             .build()
         etagStore = ETagStore(context)
         repository = TimetableRepository(
