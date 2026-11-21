@@ -36,6 +36,7 @@ import com.lectures.features.timetable.ui.DarkBorderSubtle
 import com.lectures.features.timetable.ui.DarkSurfaceBase
 import com.lectures.features.timetable.ui.DarkSurfaceCard
 import com.lectures.ui.LocalAppTheme
+import com.lectures.ui.components.desktopHandCursor
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -290,6 +291,7 @@ fun TaskProgressDashboard(
                         modifier = Modifier
                             .clip(RoundedCornerShape(10.dp))
                             .background(if (scopeThisWeekOnly) slotActive else Color.Transparent)
+                            .desktopHandCursor()
                             .clickable { scopeThisWeekOnly = true }
                             .padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
@@ -304,6 +306,7 @@ fun TaskProgressDashboard(
                         modifier = Modifier
                             .clip(RoundedCornerShape(10.dp))
                             .background(if (!scopeThisWeekOnly) slotActive else Color.Transparent)
+                            .desktopHandCursor()
                             .clickable { scopeThisWeekOnly = false }
                             .padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
@@ -347,7 +350,8 @@ fun TaskProgressDashboard(
                             onClick = { onFilterChange("High Priority") },
                             shape = RoundedCornerShape(10.dp),
                             color = if (isDark) Color(0xFF7F1D1D).copy(alpha = 0.4f) else Color(0xFFFEF2F2),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, if (isDark) Color(0xFF991B1B) else Color(0xFFFCA5A5))
+                            border = androidx.compose.foundation.BorderStroke(1.dp, if (isDark) Color(0xFF991B1B) else Color(0xFFFCA5A5)),
+                            modifier = Modifier.desktopHandCursor()
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
@@ -455,6 +459,7 @@ fun TaskProgressDashboard(
                 Row(
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
+                        .desktopHandCursor()
                         .clickable { onFilterChange("Completed") }
                         .padding(horizontal = 4.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -477,6 +482,7 @@ fun TaskProgressDashboard(
                 Row(
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
+                        .desktopHandCursor()
                         .clickable { onFilterChange("Pending") }
                         .padding(horizontal = 4.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically

@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.lectures.features.onboarding.FACULTIES
 import com.lectures.features.timetable.domain.TimetableMatcher
 import com.lectures.features.timetable.ui.BorderSubtleLight
@@ -30,6 +31,7 @@ import com.lectures.features.timetable.ui.DarkSurfaceBase
 import com.lectures.features.timetable.ui.DarkSurfaceCard
 import com.lectures.features.timetable.ui.TextMutedLight
 import com.lectures.features.timetable.ui.TextPrimaryLight
+import com.lectures.ui.rememberLecturesWindow
 import java.util.Locale
 
 @Composable
@@ -110,13 +112,32 @@ fun QuickChangeProgrammeDialog(
         onDismiss()
     }
 
-    Dialog(onDismissRequest = handleDismiss) {
+    val windowInfo = rememberLecturesWindow()
+
+    Dialog(
+        onDismissRequest = handleDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = !windowInfo.preferDesktopDialogs,
+            dismissOnBackPress = true,
+            dismissOnClickOutside = true
+        )
+    ) {
+        val dialogModifier = if (windowInfo.preferDesktopDialogs) {
+            Modifier
+                .padding(horizontal = 24.dp, vertical = 20.dp)
+                .widthIn(min = 420.dp, max = 600.dp)
+                .heightIn(max = (windowInfo.heightDp - 48).coerceAtLeast(360).dp)
+                .fillMaxWidth()
+                .onEscapeKey(handleDismiss)
+        } else {
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp)
+        }
         Card(
             shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(containerColor = if (isDark) DarkSurfaceCard else Color.White),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp)
+            modifier = dialogModifier
         ) {
             Column(
                 modifier = Modifier
@@ -143,7 +164,10 @@ fun QuickChangeProgrammeDialog(
                             color = if (isDark) Color(0xFF94A3B8) else TextMutedLight
                         )
                     }
-                    IconButton(onClick = handleDismiss) {
+                    IconButton(
+                        onClick = handleDismiss,
+                        modifier = Modifier.desktopHandCursor()
+                    ) {
                         Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(20.dp))
                     }
                 }
@@ -461,6 +485,7 @@ private fun ProfileSelectorBox(
             border = BorderStroke(1.dp, if (isDark) DarkBorderSubtle else BorderSubtleLight),
             modifier = Modifier
                 .fillMaxWidth()
+                .desktopHandCursor()
                 .clickable { onExpandedChange(!expanded) }
         ) {
             Row(

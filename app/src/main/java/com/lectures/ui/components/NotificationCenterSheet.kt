@@ -92,19 +92,10 @@ fun NotificationCenterSheet(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    ModalBottomSheet(
+    AdaptiveSheetOrDialog(
         onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = surfaceColor,
-        dragHandle = {
-            Box(
-                modifier = Modifier
-                    .padding(vertical = 12.dp)
-                    .width(36.dp)
-                    .height(4.dp)
-                    .background(if (isDark) Color(0xFF475569) else Color(0xFFCBD5E1), RoundedCornerShape(2.dp))
-            )
-        }
+        desktopMaxWidth = 640.dp
     ) {
         LazyColumn(
             modifier = Modifier
@@ -152,7 +143,9 @@ fun NotificationCenterSheet(
                             onDismiss()
                             onOpenSettings()
                         },
-                        modifier = Modifier.testTag("notification_center_settings_btn")
+                        modifier = Modifier
+                            .desktopHandCursor()
+                            .testTag("notification_center_settings_btn")
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.Settings,

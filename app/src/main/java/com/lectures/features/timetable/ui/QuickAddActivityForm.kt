@@ -27,8 +27,11 @@ import androidx.compose.ui.unit.sp
 import com.lectures.core.util.TimeUtil
 import com.lectures.features.timetable.domain.ActivityCategory
 import com.lectures.ui.components.RoomFloorBadge
+import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.rememberLecturesWindow
 import java.util.Locale
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun QuickAddActivityForm(
     activityTitle: String,
@@ -56,6 +59,7 @@ internal fun QuickAddActivityForm(
     onNotesChange: (String) -> Unit
 ) {
     val daysOfWeek = TimeUtil.DAYS
+    val windowInfo = rememberLecturesWindow()
 
     // Category Selection Header
     Text(
@@ -66,48 +70,63 @@ internal fun QuickAddActivityForm(
     )
     Spacer(modifier = Modifier.height(8.dp))
 
-    LazyRow(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.testTag("activity_category_row")
-    ) {
-        items(ActivityCategory.entries) { cat ->
-            val isSelected = cat == selectedCategory
-            val categoryIcon = when (cat) {
-                ActivityCategory.STUDY -> Icons.AutoMirrored.Outlined.MenuBook
-                ActivityCategory.LAB -> Icons.Outlined.Science
-                ActivityCategory.SPORTS -> Icons.Outlined.FitnessCenter
-                ActivityCategory.CLUB -> Icons.Outlined.Groups
-                ActivityCategory.PERSONAL -> Icons.Outlined.Person
-                ActivityCategory.EXAM -> Icons.Outlined.Timer
-            }
-            Card(
-                onClick = { onCategoryChange(cat) },
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (isSelected) cat.color.copy(alpha = 0.15f)
-                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-                ),
-                border = if (isSelected) BorderStroke(1.5.dp, cat.color) else null
+    val categoryCardContent: @Composable (ActivityCategory) -> Unit = { cat ->
+        val isSelected = cat == selectedCategory
+        val categoryIcon = when (cat) {
+            ActivityCategory.STUDY -> Icons.AutoMirrored.Outlined.MenuBook
+            ActivityCategory.LAB -> Icons.Outlined.Science
+            ActivityCategory.SPORTS -> Icons.Outlined.FitnessCenter
+            ActivityCategory.CLUB -> Icons.Outlined.Groups
+            ActivityCategory.PERSONAL -> Icons.Outlined.Person
+            ActivityCategory.EXAM -> Icons.Outlined.Timer
+        }
+        Card(
+            onClick = { onCategoryChange(cat) },
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = if (isSelected) cat.color.copy(alpha = 0.15f)
+                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+            ),
+            border = if (isSelected) BorderStroke(1.5.dp, cat.color) else null,
+            modifier = Modifier.desktopHandCursor()
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = categoryIcon,
-                        contentDescription = null,
-                        tint = if (isSelected) cat.color else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = cat.displayName,
-                        fontSize = 12.sp,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                        color = if (isSelected) cat.color else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                Icon(
+                    imageVector = categoryIcon,
+                    contentDescription = null,
+                    tint = if (isSelected) cat.color else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = cat.displayName,
+                    fontSize = 12.sp,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                    color = if (isSelected) cat.color else MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
+        }
+    }
+
+    if (windowInfo.isTablet) {
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("activity_category_row")
+        ) {
+            ActivityCategory.entries.forEach { cat -> categoryCardContent(cat) }
+        }
+    } else {
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.testTag("activity_category_row")
+        ) {
+            items(ActivityCategory.entries) { cat -> categoryCardContent(cat) }
         }
     }
 
@@ -131,16 +150,34 @@ internal fun QuickAddActivityForm(
     )
 
     // Title quick suggestions
-    LazyRow(
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        modifier = Modifier.padding(top = 6.dp)
-    ) {
-        val suggestions = listOf("Group Study", "Physics Lab", "Library Work", "Discussion", "Exam Revision")
-        items(suggestions) { sugg ->
-            SuggestionChip(
-                onClick = { onSuggestionClick(sugg) },
-                label = { Text(sugg, fontSize = 11.sp) }
-            )
+    val suggestions = listOf("Group Study", "Physics Lab", "Library Work", "Discussion", "Exam Revision")
+    if (windowInfo.isTablet) {
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 6.dp)
+        ) {
+            suggestions.forEach { sugg ->
+                SuggestionChip(
+                    onClick = { onSuggestionClick(sugg) },
+                    label = { Text(sugg, fontSize = 11.sp) },
+                    modifier = Modifier.desktopHandCursor()
+                )
+            }
+        }
+    } else {
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.padding(top = 6.dp)
+        ) {
+            items(suggestions) { sugg ->
+                SuggestionChip(
+                    onClick = { onSuggestionClick(sugg) },
+                    label = { Text(sugg, fontSize = 11.sp) }
+                )
+            }
         }
     }
 
@@ -155,19 +192,40 @@ internal fun QuickAddActivityForm(
     )
     Spacer(modifier = Modifier.height(8.dp))
 
-    LazyRow(
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        contentPadding = PaddingValues(end = 16.dp),
-        modifier = Modifier.testTag("activity_day_row")
-    ) {
-        items(daysOfWeek) { day ->
-            val isSelected = day.equals(activityDay, ignoreCase = true)
-            FilterChip(
-                selected = isSelected,
-                onClick = { onDayChange(day) },
-                label = { Text(day.take(3), fontSize = 12.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
-                shape = RoundedCornerShape(10.dp)
-            )
+    if (windowInfo.isTablet) {
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("activity_day_row")
+        ) {
+            daysOfWeek.forEach { day ->
+                val isSelected = day.equals(activityDay, ignoreCase = true)
+                FilterChip(
+                    selected = isSelected,
+                    onClick = { onDayChange(day) },
+                    label = { Text(day.take(3), fontSize = 12.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.desktopHandCursor()
+                )
+            }
+        }
+    } else {
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            contentPadding = PaddingValues(end = 16.dp),
+            modifier = Modifier.testTag("activity_day_row")
+        ) {
+            items(daysOfWeek) { day ->
+                val isSelected = day.equals(activityDay, ignoreCase = true)
+                FilterChip(
+                    selected = isSelected,
+                    onClick = { onDayChange(day) },
+                    label = { Text(day.take(3), fontSize = 12.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
+                    shape = RoundedCornerShape(10.dp)
+                )
+            }
         }
     }
 
@@ -185,6 +243,7 @@ internal fun QuickAddActivityForm(
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             modifier = Modifier
                 .weight(1f)
+                .desktopHandCursor()
                 .testTag("activity_start_time_input")
         ) {
             Column(
@@ -215,6 +274,7 @@ internal fun QuickAddActivityForm(
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             modifier = Modifier
                 .weight(1f)
+                .desktopHandCursor()
                 .testTag("activity_end_time_input")
         ) {
             Column(
@@ -240,9 +300,10 @@ internal fun QuickAddActivityForm(
     }
 
     // Duration presets
-    Row(
+    FlowRow(
         modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         listOf("+1 hr" to 60, "+1.5 hrs" to 90, "+2 hrs" to 120).forEach { (label, durationMinutes) ->
             AssistChip(
@@ -253,7 +314,8 @@ internal fun QuickAddActivityForm(
                     val m = endMin % 60
                     onEndTimeChange(String.format(Locale.US, "%02d:%02d", h, m))
                 },
-                label = { Text(label, fontSize = 11.sp) }
+                label = { Text(label, fontSize = 11.sp) },
+                modifier = Modifier.desktopHandCursor()
             )
         }
     }
@@ -292,39 +354,67 @@ internal fun QuickAddActivityForm(
     )
     Spacer(modifier = Modifier.height(8.dp))
 
-    LazyRow(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        contentPadding = PaddingValues(end = 16.dp)
-    ) {
-        items(
-            listOf(
-                "None" to null,
-                "10m" to 10,
-                "15m" to 15,
-                "30m" to 30,
-                "1h" to 60
-            )
-        ) { (label, minutes) ->
-            val isSelected = !isCustomAlarm && activityAlarmMinutes == minutes
-            FilterChip(
-                selected = isSelected,
-                onClick = { onPresetAlarmSelected(minutes) },
-                label = { Text(label, fontSize = 12.sp) },
-                leadingIcon = if (isSelected && minutes != null) {
-                    { Icon(Icons.Outlined.NotificationsActive, contentDescription = null, modifier = Modifier.size(14.dp)) }
-                } else null,
-                shape = RoundedCornerShape(10.dp)
-            )
-        }
-
-        item {
+    val alarmOptions = listOf(
+        "None" to null,
+        "10m" to 10,
+        "15m" to 15,
+        "30m" to 30,
+        "1h" to 60
+    )
+    if (windowInfo.isTablet) {
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            alarmOptions.forEach { (label, minutes) ->
+                val isSelected = !isCustomAlarm && activityAlarmMinutes == minutes
+                FilterChip(
+                    selected = isSelected,
+                    onClick = { onPresetAlarmSelected(minutes) },
+                    label = { Text(label, fontSize = 12.sp) },
+                    leadingIcon = if (isSelected && minutes != null) {
+                        { Icon(Icons.Outlined.NotificationsActive, contentDescription = null, modifier = Modifier.size(14.dp)) }
+                    } else null,
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.desktopHandCursor()
+                )
+            }
             FilterChip(
                 selected = isCustomAlarm,
                 onClick = onToggleCustomAlarm,
                 label = { Text("Custom", fontSize = 12.sp) },
-                shape = RoundedCornerShape(10.dp)
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.desktopHandCursor()
             )
+        }
+    } else {
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(end = 16.dp)
+        ) {
+            items(alarmOptions) { (label, minutes) ->
+                val isSelected = !isCustomAlarm && activityAlarmMinutes == minutes
+                FilterChip(
+                    selected = isSelected,
+                    onClick = { onPresetAlarmSelected(minutes) },
+                    label = { Text(label, fontSize = 12.sp) },
+                    leadingIcon = if (isSelected && minutes != null) {
+                        { Icon(Icons.Outlined.NotificationsActive, contentDescription = null, modifier = Modifier.size(14.dp)) }
+                    } else null,
+                    shape = RoundedCornerShape(10.dp)
+                )
+            }
+
+            item {
+                FilterChip(
+                    selected = isCustomAlarm,
+                    onClick = onToggleCustomAlarm,
+                    label = { Text("Custom", fontSize = 12.sp) },
+                    shape = RoundedCornerShape(10.dp)
+                )
+            }
         }
     }
 

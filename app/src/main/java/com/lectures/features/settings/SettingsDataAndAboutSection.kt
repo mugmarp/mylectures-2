@@ -56,6 +56,8 @@ import com.lectures.ui.AccentColorNames
 import com.lectures.ui.AppThemeState
 import com.lectures.ui.ThemeMode
 import com.lectures.ui.accentDisplayColors
+import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.components.desktopHoverable
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -85,6 +87,7 @@ internal fun SettingsAppearanceSection(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+                    .desktopHoverable()
                     .clickable(onClick = onOpenAppearance)
                     .padding(start = 18.dp, end = 18.dp, top = 16.dp, bottom = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -169,6 +172,7 @@ internal fun SettingsAppearanceSection(
                             .minimumInteractiveComponentSize()
                             .heightIn(min = 44.dp)
                             .clip(RoundedCornerShape(12.dp))
+                            .desktopHandCursor()
                             .clickable { onSelectThemeMode(mode) }
                             .testTag(tag)
                     ) {
@@ -628,6 +632,7 @@ internal fun SettingsAboutAndDangerSection(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
+                    .desktopHoverable()
                     .clickable(onClick = onOpenDeveloper)
                     .padding(vertical = 6.dp, horizontal = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -659,6 +664,7 @@ internal fun SettingsAboutAndDangerSection(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(10.dp))
+                    .desktopHoverable()
                     .clickable(onClick = onOpenFeedback)
                     .padding(vertical = 8.dp, horizontal = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -797,6 +803,7 @@ internal fun SettingsAboutAndDangerSection(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(10.dp))
+                    .desktopHoverable()
                     .clickable(onClick = onRequestResetNotes)
                     .padding(vertical = 8.dp, horizontal = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -827,6 +834,7 @@ internal fun SettingsAboutAndDangerSection(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(10.dp))
+                    .desktopHoverable()
                     .clickable(onClick = onRequestResetTasks)
                     .padding(vertical = 8.dp, horizontal = 6.dp),
                 verticalAlignment = Alignment.CenterVertically

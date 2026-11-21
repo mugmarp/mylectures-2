@@ -104,19 +104,10 @@ fun AcademicProfileSheet(
     val cardBg = if (isDark) DarkSurfaceBase else Color(0xFFF8FAFC)
     val cardBorder = if (isDark) DarkBorderSubtle else BorderSubtleLight
 
-    ModalBottomSheet(
+    AdaptiveSheetOrDialog(
         onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = surfaceColor,
-        dragHandle = {
-            Box(
-                modifier = Modifier
-                    .padding(vertical = 12.dp)
-                    .width(36.dp)
-                    .height(4.dp)
-                    .background(if (isDark) Color(0xFF475569) else Color(0xFFCBD5E1), RoundedCornerShape(2.dp))
-            )
-        }
+        desktopMaxWidth = 600.dp
     ) {
         Column(
             modifier = Modifier
@@ -366,6 +357,7 @@ fun AcademicProfileSheet(
                                     .weight(1f)
                                     .heightIn(min = 48.dp)
                                     .clip(RoundedCornerShape(12.dp))
+                                    .desktopHandCursor()
                                     .clickable { appTheme.onThemeModeChange(mode) }
                                     .testTag(tag)
                             ) {
@@ -407,6 +399,7 @@ fun AcademicProfileSheet(
                 border = BorderStroke(1.dp, cardBorder),
                 modifier = Modifier
                     .fillMaxWidth()
+                    .desktopHoverable()
                     .clickable { showChangeProgrammeDialog = true }
             ) {
                 Row(
@@ -464,6 +457,7 @@ fun AcademicProfileSheet(
                 border = BorderStroke(1.dp, cardBorder),
                 modifier = Modifier
                     .fillMaxWidth()
+                    .desktopHoverable()
                     .clickable {
                         onDismiss()
                         onOpenSettings()

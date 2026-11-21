@@ -29,6 +29,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lectures.core.alarm.TaskDateTimeParser
 import com.lectures.features.timetable.domain.TaskCategory
+import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.rememberLecturesWindow
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -58,6 +60,7 @@ internal fun QuickAddTaskForm(
     taskNotes: String,
     onNotesChange: (String) -> Unit
 ) {
+    val windowInfo = rememberLecturesWindow()
     // Task Category Header
     Text(
         text = "Task Category",
@@ -67,40 +70,55 @@ internal fun QuickAddTaskForm(
     )
     Spacer(modifier = Modifier.height(8.dp))
 
-    LazyRow(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.testTag("task_category_row")
-    ) {
-        items(TaskCategory.entries) { cat ->
-            val isSelected = cat == selectedCategory
-            Card(
-                onClick = { onCategoryChange(cat) },
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (isSelected) cat.color.copy(alpha = 0.15f)
-                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-                ),
-                border = if (isSelected) BorderStroke(1.5.dp, cat.color) else null
+    val taskCategoryCard: @Composable (TaskCategory) -> Unit = { cat ->
+        val isSelected = cat == selectedCategory
+        Card(
+            onClick = { onCategoryChange(cat) },
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = if (isSelected) cat.color.copy(alpha = 0.15f)
+                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+            ),
+            border = if (isSelected) BorderStroke(1.5.dp, cat.color) else null,
+            modifier = Modifier.desktopHandCursor()
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = cat.icon,
-                        contentDescription = null,
-                        tint = if (isSelected) cat.color else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = cat.displayName,
-                        fontSize = 12.sp,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                        color = if (isSelected) cat.color else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                Icon(
+                    imageVector = cat.icon,
+                    contentDescription = null,
+                    tint = if (isSelected) cat.color else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = cat.displayName,
+                    fontSize = 12.sp,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                    color = if (isSelected) cat.color else MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
+        }
+    }
+
+    if (windowInfo.isTablet) {
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("task_category_row")
+        ) {
+            TaskCategory.entries.forEach { cat -> taskCategoryCard(cat) }
+        }
+    } else {
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.testTag("task_category_row")
+        ) {
+            items(TaskCategory.entries) { cat -> taskCategoryCard(cat) }
         }
     }
 
@@ -132,7 +150,9 @@ internal fun QuickAddTaskForm(
                     containerColor = if (isSelected) bgColor else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
                 ),
                 border = if (isSelected) BorderStroke(1.5.dp, textColor) else null,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier
+                    .weight(1f)
+                    .desktopHandCursor()
             ) {
                 Box(
                     modifier = Modifier
@@ -182,7 +202,7 @@ internal fun QuickAddTaskForm(
             Icon(Icons.Outlined.School, contentDescription = null, modifier = Modifier.size(18.dp))
         },
         trailingIcon = {
-            IconButton(onClick = onOpenCoursePicker) {
+            IconButton(onClick = onOpenCoursePicker, modifier = Modifier.desktopHandCursor()) {
                 Icon(Icons.Default.ArrowDropDown, contentDescription = "Pick Course", modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
             }
         },
@@ -195,21 +215,44 @@ internal fun QuickAddTaskForm(
 
     val courseSuggestions = availableCourses.distinct().take(5)
     if (courseSuggestions.isNotEmpty()) {
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            modifier = Modifier.padding(top = 6.dp)
-        ) {
-            item {
+        if (windowInfo.isTablet) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 6.dp)
+            ) {
                 AssistChip(
                     onClick = onOpenCoursePicker,
-                    label = { Text("Select Course ▼", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+                    label = { Text("Select Course ▼", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                    modifier = Modifier.desktopHandCursor()
                 )
+                courseSuggestions.forEach { code ->
+                    SuggestionChip(
+                        onClick = { onCourseCodeChange(code) },
+                        label = { Text(code, fontSize = 11.sp) },
+                        modifier = Modifier.desktopHandCursor()
+                    )
+                }
             }
-            items(courseSuggestions) { code ->
-                SuggestionChip(
-                    onClick = { onCourseCodeChange(code) },
-                    label = { Text(code, fontSize = 11.sp) }
-                )
+        } else {
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.padding(top = 6.dp)
+            ) {
+                item {
+                    AssistChip(
+                        onClick = onOpenCoursePicker,
+                        label = { Text("Select Course ▼", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+                    )
+                }
+                items(courseSuggestions) { code ->
+                    SuggestionChip(
+                        onClick = { onCourseCodeChange(code) },
+                        label = { Text(code, fontSize = 11.sp) }
+                    )
+                }
             }
         }
     }
@@ -234,6 +277,7 @@ internal fun QuickAddTaskForm(
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
             modifier = Modifier
                 .weight(1.3f)
+                .desktopHandCursor()
                 .clickable(onClick = onOpenDueDatePicker)
                 .testTag("task_due_date_button")
         ) {
@@ -272,6 +316,7 @@ internal fun QuickAddTaskForm(
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
             modifier = Modifier
                 .weight(1f)
+                .desktopHandCursor()
                 .clickable(onClick = onOpenDueTimePicker)
                 .testTag("task_due_time_button")
         ) {
@@ -359,7 +404,8 @@ internal fun QuickAddTaskForm(
                 leadingIcon = if (isSelected && minutes != null) {
                     { Icon(Icons.Outlined.NotificationsActive, contentDescription = null, modifier = Modifier.size(14.dp)) }
                 } else null,
-                shape = RoundedCornerShape(10.dp)
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.desktopHandCursor()
             )
         }
 
@@ -367,7 +413,8 @@ internal fun QuickAddTaskForm(
             selected = isCustomReminder,
             onClick = onToggleCustomReminder,
             label = { Text("Custom", fontSize = 12.sp) },
-            shape = RoundedCornerShape(10.dp)
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.desktopHandCursor()
         )
     }
 

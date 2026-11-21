@@ -850,6 +850,8 @@ class Phase3AlarmAndNotificationTest {
         assertNotNull("Snooze alarm must register AlarmClockInfo", alarmManager.nextAlarmClock)
 
         // When exact alarm permission is revoked, fall back gracefully without crashing
+        scheduler.cancelClassAlarm(entry.naturalKey)
+        scheduler.cancelCustomEventAlarm(event.id)
         ShadowAlarmManager.setCanScheduleExactAlarms(false)
         try {
             shadowAlarmManager.scheduledAlarms.clear()

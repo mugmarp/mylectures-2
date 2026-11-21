@@ -55,6 +55,8 @@ import com.lectures.ui.AppThemeState
 import com.lectures.ui.LocalExtendedColors
 import com.lectures.ui.ThemeMode
 import com.lectures.ui.accentDisplayColors
+import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.components.desktopHoverable
 import com.lectures.ui.contrastOnColor
 
 @Composable
@@ -96,6 +98,7 @@ internal fun ThemeSelectionCard(
         modifier = modifier
             .minimumInteractiveComponentSize()
             .clip(RoundedCornerShape(14.dp))
+            .desktopHoverable()
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(14.dp),
         border = BorderStroke(if (isSelected) 2.dp else 1.dp, borderColor),
@@ -371,6 +374,7 @@ internal fun AppearanceSettingsView(
                             modifier = Modifier
                                 .minimumInteractiveComponentSize()
                                 .clip(RoundedCornerShape(12.dp))
+                                .desktopHandCursor()
                                 .clickable { onSelectAccent(idx) }
                                 .padding(horizontal = 6.dp, vertical = 6.dp)
                                 .semantics { contentDescription = "Select $name accent color" }

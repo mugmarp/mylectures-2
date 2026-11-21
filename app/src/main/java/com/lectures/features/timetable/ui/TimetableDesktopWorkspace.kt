@@ -584,7 +584,7 @@ private fun WeeklyTimetableMatrix(
                     .weight(1f)
                     .fillMaxWidth()
                     .verticalScroll(verticalScroll)
-                    .padding(bottom = min(bottomPadding, 48.dp))
+                    .padding(bottom = minOf(bottomPadding, 48.dp))
             ) {
                 // Time Gutter
                 Column(modifier = Modifier.width(56.dp)) {

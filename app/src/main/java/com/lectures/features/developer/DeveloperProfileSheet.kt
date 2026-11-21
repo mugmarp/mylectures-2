@@ -43,11 +43,9 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -58,13 +56,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lectures.ui.components.AdaptiveSheetOrDialog
+import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.components.desktopHoverable
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DeveloperProfileSheet(
     onDismiss: () -> Unit
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val context = LocalContext.current
 
     val devName = "MUGENDAWALA MARK PAUL"
@@ -72,11 +72,10 @@ fun DeveloperProfileSheet(
     val githubUrl = "https://github.com/mugmarp"
     val emailContact = "markpaulmu@gmail.com"
 
-    ModalBottomSheet(
+    AdaptiveSheetOrDialog(
         onDismissRequest = onDismiss,
-        sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surface,
-        dragHandle = null
+        desktopMaxWidth = 560.dp
     ) {
         Column(
             modifier = Modifier
@@ -97,7 +96,10 @@ fun DeveloperProfileSheet(
                     fontSize = 18.sp,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                IconButton(onClick = onDismiss) {
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.desktopHandCursor()
+                ) {
                     Icon(Icons.Default.Close, contentDescription = "Close", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
@@ -195,7 +197,9 @@ fun DeveloperProfileSheet(
             // Close Button
             Button(
                 onClick = onDismiss,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .desktopHandCursor(),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text("Close Profile")
@@ -216,6 +220,7 @@ private fun DeveloperLinkRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
+            .desktopHoverable()
             .clickable(onClick = onClick)
             .padding(vertical = 10.dp, horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically

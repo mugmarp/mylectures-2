@@ -56,6 +56,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lectures.core.util.NotificationPermissionHelper
+import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.components.desktopHoverable
+import com.lectures.ui.contrastOnColor
 
 private fun formatTaskLeadShort(hours: Int): String = if (hours >= 24) {
     val days = hours / 24
@@ -123,15 +126,18 @@ private fun NotificationHealthWarningBanner(
                         color = if (isDark) Color(0xFFFDE68A).copy(alpha = 0.9f) else Color(0xFF78350F)
                     )
                     Spacer(modifier = Modifier.height(8.dp))
+                    val allowContainer = if (isDark) Color(0xFFD97706) else Color(0xFFB45309)
                     Button(
                         onClick = { NotificationPermissionHelper.openAppNotificationSettings(context) },
                         shape = RoundedCornerShape(8.dp),
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isDark) Color(0xFFD97706) else Color(0xFFB45309),
-                            contentColor = Color.White
+                            containerColor = allowContainer,
+                            contentColor = contrastOnColor(allowContainer)
                         ),
-                        modifier = Modifier.defaultMinSize(minHeight = 36.dp)
+                        modifier = Modifier
+                            .defaultMinSize(minHeight = 36.dp)
+                            .desktopHandCursor()
                     ) {
                         Text("Allow Notifications", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     }
@@ -344,6 +350,7 @@ internal fun SettingsNotificationsSection(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp))
+                    .desktopHoverable()
                     .clickable(onClick = onOpenNotificationPreferences)
                     .padding(horizontal = 18.dp, vertical = 15.dp)
                     .testTag("settings_notifications_configure_row"),
@@ -554,6 +561,7 @@ internal fun NotificationSettingsView(
                                 .weight(1f)
                                 .defaultMinSize(minHeight = 48.dp)
                                 .clip(RoundedCornerShape(10.dp))
+                                .desktopHandCursor()
                                 .background(chipBg)
                                 .clickable { onSelectClassLeadMinutes(mins) }
                                 .padding(vertical = 8.dp),
@@ -583,6 +591,7 @@ internal fun NotificationSettingsView(
                             .weight(1.3f)
                             .defaultMinSize(minHeight = 48.dp)
                             .clip(RoundedCornerShape(10.dp))
+                            .desktopHandCursor()
                             .background(customChipBg)
                             .clickable(onClick = onOpenCustomLeadDialog)
                             .padding(vertical = 8.dp),
@@ -647,6 +656,7 @@ internal fun NotificationSettingsView(
                                 .weight(1f)
                                 .defaultMinSize(minHeight = 48.dp)
                                 .clip(RoundedCornerShape(10.dp))
+                                .desktopHandCursor()
                                 .background(
                                     if (isSelected) MaterialTheme.colorScheme.primary
                                     else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)

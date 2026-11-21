@@ -22,6 +22,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lectures.ui.components.AdaptiveSheetOrDialog
+import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.components.desktopHoverable
 
 data class NoteTemplate(
     val id: String,
@@ -199,10 +202,6 @@ ${'$'}${'$'}f(x) = \sum_{k=1}^n a_k \cdot \sin(k \omega t)${'$'}${'$'}
         )
     )
 }
-
-import com.lectures.ui.components.AdaptiveSheetOrDialog
-import com.lectures.ui.components.desktopHandCursor
-import com.lectures.ui.components.desktopHoverable
 
 @Composable
 fun NoteTemplatesBottomSheet(

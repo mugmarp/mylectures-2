@@ -27,9 +27,12 @@ import com.lectures.core.util.TimeUtil
 import com.lectures.features.timetable.domain.ActivityCategory
 import com.lectures.features.timetable.domain.CustomEvent
 import com.lectures.features.timetable.domain.TaskCategory
+import com.lectures.ui.components.AdaptiveSheetOrDialog
 import com.lectures.ui.components.DedicatedCalendarDatePickerDialog
 import com.lectures.ui.components.DedicatedCoursePickerDialog
 import com.lectures.ui.components.DedicatedTimePickerDialog
+import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.contrastOnColor
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -107,13 +110,11 @@ fun QuickAddBottomSheet(
     var showDueCalendarPicker by remember { mutableStateOf(false) }
     var showDueTimePicker by remember { mutableStateOf(false) }
 
-    ModalBottomSheet(
+    AdaptiveSheetOrDialog(
         onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        sheetTestTag = "quick_add_bottom_sheet",
         containerColor = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        dragHandle = { BottomSheetDefaults.DragHandle() },
-        modifier = Modifier.testTag("quick_add_bottom_sheet")
+        desktopMaxWidth = 640.dp
     ) {
         Column(
             modifier = Modifier
@@ -152,7 +153,9 @@ fun QuickAddBottomSheet(
                             keyboardController?.hide()
                             onDismiss()
                         },
-                        modifier = Modifier.testTag("close_quick_add_sheet")
+                        modifier = Modifier
+                            .desktopHandCursor()
+                            .testTag("close_quick_add_sheet")
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
@@ -293,10 +296,12 @@ fun QuickAddBottomSheet(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(48.dp)
+                                    .desktopHandCursor()
                                     .testTag("save_activity_button"),
                                 shape = RoundedCornerShape(14.dp),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = selectedActivityCategory.color
+                                    containerColor = selectedActivityCategory.color,
+                                    contentColor = contrastOnColor(selectedActivityCategory.color)
                                 )
                             ) {
                                 Icon(Icons.Default.EventNote, contentDescription = null, modifier = Modifier.size(20.dp))
@@ -336,10 +341,12 @@ fun QuickAddBottomSheet(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(48.dp)
+                                    .desktopHandCursor()
                                     .testTag("save_task_button"),
                                 shape = RoundedCornerShape(14.dp),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.primary
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = contrastOnColor(MaterialTheme.colorScheme.primary)
                                 )
                             ) {
                                 Icon(Icons.AutoMirrored.Outlined.Assignment, contentDescription = null, modifier = Modifier.size(20.dp))
@@ -433,6 +440,7 @@ private fun QuickAddModeSelectorTabs(
             modifier = Modifier
                 .weight(1f)
                 .clip(RoundedCornerShape(12.dp))
+                .desktopHandCursor()
                 .background(if (isActivity) MaterialTheme.colorScheme.surface else Color.Transparent)
                 .clickable { onModeSelected(QuickAddMode.ACTIVITY) }
                 .padding(vertical = 10.dp, horizontal = 12.dp)
@@ -468,6 +476,7 @@ private fun QuickAddModeSelectorTabs(
             modifier = Modifier
                 .weight(1f)
                 .clip(RoundedCornerShape(12.dp))
+                .desktopHandCursor()
                 .background(if (isTask) MaterialTheme.colorScheme.surface else Color.Transparent)
                 .clickable { onModeSelected(QuickAddMode.TASK) }
                 .padding(vertical = 10.dp, horizontal = 12.dp)

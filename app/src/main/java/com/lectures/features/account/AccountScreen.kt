@@ -32,13 +32,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.DialogProperties
 import com.lectures.TimetableApplication
 import com.lectures.core.auth.AuthRepository
 import com.lectures.core.sync.SyncMergeStats
 import com.lectures.core.sync.UserSettingsSyncManager
 import com.lectures.ui.components.FloatingIslandTopBar
+import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.components.onEscapeKey
 import com.lectures.ui.LocalAppTheme
 import com.lectures.ui.LocalExtendedColors
+import com.lectures.ui.rememberLecturesWindow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -81,6 +85,7 @@ fun AccountScreen(
     val tasksCount by (app?.database?.assignmentDao()?.getAll()?.collectAsState(initial = emptyList())
         ?: remember { mutableStateOf(emptyList()) })
 
+    val windowInfo = rememberLecturesWindow()
     Scaffold(
         topBar = {
             FloatingIslandTopBar {
@@ -93,7 +98,9 @@ fun AccountScreen(
                     if (onBack != null) {
                         IconButton(
                             onClick = onBack,
-                            modifier = Modifier.testTag("account_back_button")
+                            modifier = Modifier
+                                .desktopHandCursor()
+                                .testTag("account_back_button")
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -139,9 +146,9 @@ fun AccountScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .widthIn(max = 760.dp)
+                    .widthIn(max = windowInfo.maxReadingWidth)
                     .verticalScroll(scrollState)
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(horizontal = if (windowInfo.isDualPane) 24.dp else 16.dp, vertical = 14.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
             // Error / Success Banner
@@ -159,7 +166,7 @@ fun AccountScreen(
                             Icon(Icons.Default.ErrorOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error)
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(msg, color = MaterialTheme.colorScheme.onErrorContainer, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                            IconButton(onClick = { errorMessage = null }) {
+                            IconButton(onClick = { errorMessage = null }, modifier = Modifier.desktopHandCursor()) {
                                 Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
                             }
                         }
@@ -182,7 +189,7 @@ fun AccountScreen(
                             Icon(Icons.Default.CheckCircle, contentDescription = null, tint = ext.successIcon)
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(msg, color = ext.successText, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                            IconButton(onClick = { syncMessage = null }) {
+                            IconButton(onClick = { syncMessage = null }, modifier = Modifier.desktopHandCursor()) {
                                 Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = ext.successIcon, modifier = Modifier.size(16.dp))
                             }
                         }
@@ -192,224 +199,305 @@ fun AccountScreen(
 
             if (currentUser == null) {
                 // ==================== GUEST STATE ====================
-                Card(
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = surfaceColor),
-                    border = BorderStroke(1.dp, borderSubtle),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(20.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                val signInCard: @Composable (Modifier, Boolean) -> Unit = { cardMod, includeInlinePill ->
+                    Card(
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(containerColor = surfaceColor),
+                        border = BorderStroke(1.dp, borderSubtle),
+                        modifier = cardMod
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(64.dp)
-                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), CircleShape),
-                            contentAlignment = Alignment.Center
+                        Column(
+                            modifier = Modifier.padding(20.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Icon(
-                                Icons.Outlined.CloudSync,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(36.dp)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        Text(
-                            text = "Cloud Backup & Sync",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Center,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        Text(
-                            text = "Keep your notes, tasks, and coursework backed up safely.",
-                            fontSize = 13.sp,
-                            color = textMuted,
-                            textAlign = TextAlign.Center,
-                            lineHeight = 18.sp
-                        )
-
-                        Spacer(modifier = Modifier.height(18.dp))
-
-                        // Preserved Local Data Pill
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                            Box(
+                                modifier = Modifier
+                                    .size(64.dp)
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), CircleShape),
+                                contentAlignment = Alignment.Center
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Outlined.Folder, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        "Local Unsynced Data",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                }
-                                Text(
-                                    "${notesCount.size} Notes · ${tasksCount.size} Tasks · ${eventsCount.size} Events",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = MaterialTheme.colorScheme.primary
+                                Icon(
+                                    Icons.Outlined.CloudSync,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(36.dp)
                                 )
                             }
-                        }
 
-                        Spacer(modifier = Modifier.height(20.dp))
+                            Spacer(modifier = Modifier.height(14.dp))
 
-                        // Sign In with Google Button
-                        Button(
-                            onClick = {
-                                scope.launch {
-                                    isAuthenticating = true
-                                    errorMessage = null
-                                    syncMessage = null
-                                    val result = authRepo.signInWithGoogle(context)
-                                    isAuthenticating = false
-                                    result.fold(
-                                        onSuccess = { user ->
-                                            syncMessage = "Signed in as ${user.email ?: user.displayName}! Syncing your data..."
-                                            app?.let { application ->
-                                                val settingsMgr = UserSettingsSyncManager(
-                                                    application.etagStore,
-                                                    application.onboardingDataStore
-                                                )
-                                                val stats = kotlinx.coroutines.withContext(application.applicationScope.coroutineContext) {
-                                                    application.syncRepository.performFullUserSync(
-                                                        user.uid,
-                                                        settingsMgr
-                                                    )
-                                                }
-                                                if (stats.status == com.lectures.core.sync.SyncState.ERROR || stats.failedCount > 0) {
-                                                    syncMessage = null
-                                                    errorMessage = stats.errorMessage ?: "Signed in as ${user.email}, but cloud sync could not complete."
-                                                } else {
-                                                    syncMessage = "Connected to ${user.email}! Synced ${stats.notesCount} notes, ${stats.assignmentsCount} tasks to cloud."
-                                                }
-                                            }
-                                        },
-                                        onFailure = { err ->
-                                            errorMessage = "Sign-in issue: ${err.localizedMessage ?: "User cancelled or Google Play services unavailable"}"
+                            Text(
+                                text = "Cloud Backup & Sync",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            Text(
+                                text = "Keep your notes, tasks, and coursework backed up safely.",
+                                fontSize = 13.sp,
+                                color = textMuted,
+                                textAlign = TextAlign.Center,
+                                lineHeight = 18.sp
+                            )
+
+                            if (includeInlinePill) {
+                                Spacer(modifier = Modifier.height(18.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Outlined.Folder, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                "Local Unsynced Data",
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
                                         }
-                                    )
+                                        Text(
+                                            "${notesCount.size} Notes · ${tasksCount.size} Tasks · ${eventsCount.size} Events",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
                                 }
-                            },
-                            enabled = !isAuthenticating,
-                            shape = RoundedCornerShape(14.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary
-                            ),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(50.dp)
-                                .testTag("google_signin_button")
-                        ) {
-                            if (isAuthenticating) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(22.dp),
-                                    strokeWidth = 2.5.dp,
-                                    color = MaterialTheme.colorScheme.onPrimary
-                                )
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Text("Connecting to Google...", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                            } else {
-                                Icon(Icons.Default.AccountCircle, contentDescription = null, modifier = Modifier.size(20.dp))
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Text("Sign in with Google", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            }
+
+                            Spacer(modifier = Modifier.height(20.dp))
+
+                            Button(
+                                onClick = {
+                                    scope.launch {
+                                        isAuthenticating = true
+                                        errorMessage = null
+                                        syncMessage = null
+                                        val result = authRepo.signInWithGoogle(context)
+                                        isAuthenticating = false
+                                        result.fold(
+                                            onSuccess = { user ->
+                                                syncMessage = "Signed in as ${user.email ?: user.displayName}! Syncing your data..."
+                                                app?.let { application ->
+                                                    val settingsMgr = UserSettingsSyncManager(
+                                                        application.etagStore,
+                                                        application.onboardingDataStore
+                                                    )
+                                                    val stats = kotlinx.coroutines.withContext(application.applicationScope.coroutineContext) {
+                                                        application.syncRepository.performFullUserSync(
+                                                            user.uid,
+                                                            settingsMgr
+                                                        )
+                                                    }
+                                                    if (stats.status == com.lectures.core.sync.SyncState.ERROR || stats.failedCount > 0) {
+                                                        syncMessage = null
+                                                        errorMessage = stats.errorMessage ?: "Signed in as ${user.email}, but cloud sync could not complete."
+                                                    } else {
+                                                        syncMessage = "Connected to ${user.email}! Synced ${stats.notesCount} notes, ${stats.assignmentsCount} tasks to cloud."
+                                                    }
+                                                }
+                                            },
+                                            onFailure = { err ->
+                                                errorMessage = "Sign-in issue: ${err.localizedMessage ?: "User cancelled or Google Play services unavailable"}"
+                                            }
+                                        )
+                                    }
+                                },
+                                enabled = !isAuthenticating,
+                                shape = RoundedCornerShape(14.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = MaterialTheme.colorScheme.onPrimary
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(50.dp)
+                                    .desktopHandCursor(enabled = !isAuthenticating)
+                                    .testTag("google_signin_button")
+                            ) {
+                                if (isAuthenticating) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(22.dp),
+                                        strokeWidth = 2.5.dp,
+                                        color = MaterialTheme.colorScheme.onPrimary
+                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Text("Connecting to Google...", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                } else {
+                                    Icon(Icons.Default.AccountCircle, contentDescription = null, modifier = Modifier.size(20.dp))
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Text("Sign in with Google", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                }
                             }
                         }
                     }
                 }
-            } else {
-                // ==================== AUTHENTICATED STATE ====================
-                val user = currentUser!!
-                Card(
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = surfaceColor),
-                    border = BorderStroke(1.dp, borderSubtle),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
+
+                if (windowInfo.isDualPane) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("account_desktop_guest_row"),
+                        horizontalArrangement = Arrangement.spacedBy(20.dp),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        signInCard(Modifier.weight(1.05f), false)
+
+                        Card(
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(containerColor = surfaceColor),
+                            border = BorderStroke(1.dp, borderSubtle),
+                            modifier = Modifier.weight(0.95f)
                         ) {
-                            // User Monogram Avatar
-                            val initial = (user.displayName?.firstOrNull() ?: user.email?.firstOrNull() ?: 'U').uppercaseChar()
-                            Box(
-                                modifier = Modifier
-                                    .size(56.dp)
-                                    .background(MaterialTheme.colorScheme.primary, CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = initial.toString(),
-                                    color = MaterialTheme.colorScheme.onPrimary,
-                                    fontSize = 24.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.width(14.dp))
-
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = user.displayName ?: "Student Account",
-                                    fontSize = 17.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = user.email ?: user.uid,
-                                    fontSize = 13.sp,
-                                    color = textMuted
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
+                            Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(8.dp)
-                                            .background(Color(0xFF22C55E), CircleShape)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Icon(Icons.Outlined.Folder, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
                                     Text(
-                                        "Cloud Sync Active",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = if (isDark) Color(0xFF4ADE80) else Color(0xFF15803D)
+                                        "Local Unsynced Data",
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                                Text(
+                                    text = "Signing in automatically preserves and merges your existing local academic records into your account.",
+                                    fontSize = 12.sp,
+                                    color = textMuted,
+                                    lineHeight = 17.sp
+                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    DashboardStatItem(
+                                        title = "Notes",
+                                        count = notesCount.size,
+                                        icon = Icons.AutoMirrored.Outlined.Notes,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    DashboardStatItem(
+                                        title = "Tasks",
+                                        count = tasksCount.size,
+                                        icon = Icons.Outlined.TaskAlt,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    DashboardStatItem(
+                                        title = "Events",
+                                        count = eventsCount.size,
+                                        icon = Icons.Outlined.CalendarMonth,
+                                        modifier = Modifier.weight(1f)
                                     )
                                 }
                             }
                         }
+                    }
+                } else {
+                    signInCard(Modifier.fillMaxWidth(), true)
+                }
+            } else {
+                // ==================== AUTHENTICATED STATE ====================
+                val user = currentUser!!
+                val onSyncNowClick = {
+                    scope.launch {
+                        isSyncing = true
+                        errorMessage = null
+                        syncMessage = null
+                        app?.let { application ->
+                            val settingsMgr = UserSettingsSyncManager(
+                                application.etagStore,
+                                application.onboardingDataStore
+                            )
+                            val stats = kotlinx.coroutines.withContext(application.applicationScope.coroutineContext) {
+                                application.syncRepository.performFullUserSync(
+                                    user.uid,
+                                    settingsMgr
+                                )
+                            }
+                            if (stats.status == com.lectures.core.sync.SyncState.ERROR || stats.failedCount > 0) {
+                                errorMessage = stats.errorMessage ?: "Cloud sync encountered an error (${stats.failedCount} failed)."
+                            } else {
+                                val format = SimpleDateFormat("h:mm a", Locale.getDefault())
+                                syncMessage = "Synced at ${format.format(Date())}: ${stats.notesCount} notes, ${stats.assignmentsCount} tasks up to date."
+                            }
+                        }
+                        isSyncing = false
+                    }
+                    Unit
+                }
 
-                        HorizontalDivider(
-                            modifier = Modifier.padding(vertical = 16.dp),
-                            color = borderSubtle
-                        )
+                val profileHeader: @Composable () -> Unit = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        val initial = (user.displayName?.firstOrNull() ?: user.email?.firstOrNull() ?: 'U').uppercaseChar()
+                        Box(
+                            modifier = Modifier
+                                .size(56.dp)
+                                .background(MaterialTheme.colorScheme.primary, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = initial.toString(),
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
 
-                        // Data Dashboard
+                        Spacer(modifier = Modifier.width(14.dp))
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = user.displayName ?: "Student Account",
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = user.email ?: user.uid,
+                                fontSize = 13.sp,
+                                color = textMuted
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .background(Color(0xFF22C55E), CircleShape)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    "Cloud Sync Active",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = if (isDark) Color(0xFF4ADE80) else Color(0xFF15803D)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                val dataDashboardSection: @Composable () -> Unit = {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text(
                             text = "Preserved Coursework & Timetable Data",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
-                        Spacer(modifier = Modifier.height(10.dp))
-
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -433,83 +521,109 @@ fun AccountScreen(
                                 modifier = Modifier.weight(1f)
                             )
                         }
+                    }
+                }
 
-                        Spacer(modifier = Modifier.height(18.dp))
-
-                        // Action Buttons: Sync Now & Sign Out
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                val actionButtonsSection: @Composable () -> Unit = {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Button(
+                            onClick = onSyncNowClick,
+                            enabled = !isSyncing,
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            ),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                                .desktopHandCursor(enabled = !isSyncing)
+                                .testTag("sync_now_button")
                         ) {
-                            Button(
-                                onClick = {
-                                    scope.launch {
-                                        isSyncing = true
-                                        errorMessage = null
-                                        syncMessage = null
-                                        app?.let { application ->
-                                            val settingsMgr = UserSettingsSyncManager(
-                                                application.etagStore,
-                                                application.onboardingDataStore
-                                            )
-                                            val stats = kotlinx.coroutines.withContext(application.applicationScope.coroutineContext) {
-                                                application.syncRepository.performFullUserSync(
-                                                    user.uid,
-                                                    settingsMgr
-                                                )
-                                            }
-                                            if (stats.status == com.lectures.core.sync.SyncState.ERROR || stats.failedCount > 0) {
-                                                errorMessage = stats.errorMessage ?: "Cloud sync encountered an error (${stats.failedCount} failed)."
-                                            } else {
-                                                val format = SimpleDateFormat("h:mm a", Locale.getDefault())
-                                                syncMessage = "Synced at ${format.format(Date())}: ${stats.notesCount} notes, ${stats.assignmentsCount} tasks up to date."
-                                            }
-                                        }
-                                        isSyncing = false
-                                    }
-                                },
-                                enabled = !isSyncing,
-                                shape = RoundedCornerShape(12.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.primary,
-                                    contentColor = MaterialTheme.colorScheme.onPrimary
-                                ),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(48.dp)
-                                    .testTag("sync_now_button")
-                            ) {
-                                if (isSyncing) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(18.dp),
-                                        strokeWidth = 2.dp,
-                                        color = MaterialTheme.colorScheme.onPrimary
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Syncing...", fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                } else {
-                                    Icon(Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(18.dp))
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Sync Now", fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                }
-                            }
-
-                            OutlinedButton(
-                                onClick = { showSignOutDialog = true },
-                                shape = RoundedCornerShape(12.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = ext.dangerText
-                                ),
-                                border = BorderStroke(1.dp, ext.dangerBorder),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(48.dp)
-                                    .testTag("sign_out_button")
-                            ) {
-                                Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, modifier = Modifier.size(18.dp))
+                            if (isSyncing) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.onPrimary
+                                )
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Sign Out", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                Text("Syncing...", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            } else {
+                                Icon(Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Sync Now", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                             }
+                        }
+
+                        OutlinedButton(
+                            onClick = { showSignOutDialog = true },
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = ext.dangerText
+                            ),
+                            border = BorderStroke(1.dp, ext.dangerBorder),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                                .desktopHandCursor()
+                                .testTag("sign_out_button")
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Sign Out", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+
+                if (windowInfo.isDualPane) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("account_desktop_auth_row"),
+                        horizontalArrangement = Arrangement.spacedBy(20.dp),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Card(
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(containerColor = surfaceColor),
+                            border = BorderStroke(1.dp, borderSubtle),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+                                profileHeader()
+                                actionButtonsSection()
+                            }
+                        }
+                        Card(
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(containerColor = surfaceColor),
+                            border = BorderStroke(1.dp, borderSubtle),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Column(modifier = Modifier.padding(20.dp)) {
+                                dataDashboardSection()
+                            }
+                        }
+                    }
+                } else {
+                    Card(
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(containerColor = surfaceColor),
+                        border = BorderStroke(1.dp, borderSubtle),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(20.dp)) {
+                            profileHeader()
+                            HorizontalDivider(
+                                modifier = Modifier.padding(vertical = 16.dp),
+                                color = borderSubtle
+                            )
+                            dataDashboardSection()
+                            Spacer(modifier = Modifier.height(18.dp))
+                            actionButtonsSection()
                         }
                     }
                 }
@@ -522,6 +636,10 @@ fun AccountScreen(
     if (showSignOutDialog) {
         AlertDialog(
             onDismissRequest = { showSignOutDialog = false },
+            properties = DialogProperties(usePlatformDefaultWidth = !windowInfo.preferDesktopDialogs),
+            modifier = Modifier
+                .then(if (windowInfo.preferDesktopDialogs) Modifier.widthIn(min = 400.dp, max = 520.dp) else Modifier)
+                .onEscapeKey { showSignOutDialog = false },
             containerColor = ext.surfaceCard,
             icon = {
                 Box(
@@ -563,13 +681,14 @@ fun AccountScreen(
                         containerColor = MaterialTheme.colorScheme.error,
                         contentColor = MaterialTheme.colorScheme.onError
                     ),
-                    shape = RoundedCornerShape(10.dp)
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.desktopHandCursor()
                 ) {
                     Text("Confirm Sign Out", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showSignOutDialog = false }) {
+                TextButton(onClick = { showSignOutDialog = false }, modifier = Modifier.desktopHandCursor()) {
                     Text("Cancel")
                 }
             }

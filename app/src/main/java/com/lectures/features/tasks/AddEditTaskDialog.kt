@@ -7,13 +7,17 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -54,6 +58,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.DialogProperties
 import com.lectures.core.alarm.TaskDateTimeParser
 import com.lectures.features.timetable.domain.Assignment
 import com.lectures.features.timetable.domain.TaskCategory
@@ -64,11 +69,15 @@ import com.lectures.features.timetable.ui.TextMutedLight
 import com.lectures.features.timetable.ui.TextPrimaryLight
 import com.lectures.ui.components.DedicatedCalendarDatePickerDialog
 import com.lectures.ui.components.DedicatedTimePickerDialog
+import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.components.onEscapeKey
+import com.lectures.ui.contrastOnColor
+import com.lectures.ui.rememberLecturesWindow
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun AddTaskDialog(
     isDark: Boolean,
@@ -124,6 +133,7 @@ fun AddTaskDialog(
         TaskDateTimeParser.formatSchedulePreview(fullDueDateTime, reminderMinutes)
     }
 
+    val windowInfo = rememberLecturesWindow()
     val handleDismiss = {
         courseDropdownExpanded = false
         onDismiss()
@@ -131,7 +141,21 @@ fun AddTaskDialog(
 
     AlertDialog(
         onDismissRequest = handleDismiss,
-        modifier = Modifier.imePadding(),
+        properties = DialogProperties(usePlatformDefaultWidth = !windowInfo.preferDesktopDialogs),
+        modifier = Modifier
+            .then(
+                if (windowInfo.preferDesktopDialogs) {
+                    Modifier
+                        .padding(horizontal = 24.dp, vertical = 16.dp)
+                        .widthIn(min = 440.dp, max = 660.dp)
+                        .fillMaxWidth()
+                } else {
+                    Modifier
+                }
+            )
+            .heightIn(max = (windowInfo.heightDp - 48).coerceAtLeast(360).dp)
+            .imePadding()
+            .onEscapeKey(handleDismiss),
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
@@ -172,38 +196,51 @@ fun AddTaskDialog(
                     singleLine = true
                 )
 
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    items(TaskCategory.entries) { cat ->
-                        val isSelected = category == cat
-                        Surface(
-                            onClick = { category = cat },
-                            shape = RoundedCornerShape(10.dp),
-                            color = if (isSelected) cat.color else (if (isDark) DarkSurfaceBase else cat.lightContainerColor.copy(alpha = 0.5f)),
-                            border = BorderStroke(1.dp, if (isSelected) cat.color else cat.color.copy(alpha = 0.35f))
+                val categoryChipContent: @Composable (TaskCategory) -> Unit = { cat ->
+                    val isSelected = category == cat
+                    Surface(
+                        onClick = { category = cat },
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (isSelected) cat.color else (if (isDark) DarkSurfaceBase else cat.lightContainerColor.copy(alpha = 0.5f)),
+                        border = BorderStroke(1.dp, if (isSelected) cat.color else cat.color.copy(alpha = 0.35f)),
+                        modifier = Modifier.desktopHandCursor()
+                    ) {
+                        val selectedInk = contrastOnColor(cat.color)
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            val selectedInk = com.lectures.ui.contrastOnColor(cat.color)
-                            Row(
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    cat.icon,
-                                    contentDescription = null,
-                                    tint = if (isSelected) selectedInk else cat.color,
-                                    modifier = Modifier.size(12.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    cat.displayName,
-                                    fontSize = 11.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (isSelected) selectedInk else (if (isDark) Color(0xFFF1F5F9) else Color(0xFF1E293B))
-                                )
-                            }
+                            Icon(
+                                cat.icon,
+                                contentDescription = null,
+                                tint = if (isSelected) selectedInk else cat.color,
+                                modifier = Modifier.size(12.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                cat.displayName,
+                                fontSize = 11.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isSelected) selectedInk else (if (isDark) Color(0xFFF1F5F9) else Color(0xFF1E293B))
+                            )
                         }
+                    }
+                }
+
+                if (windowInfo.isTablet) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        TaskCategory.entries.forEach { cat -> categoryChipContent(cat) }
+                    }
+                } else {
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        items(TaskCategory.entries) { cat -> categoryChipContent(cat) }
                     }
                 }
 
@@ -326,6 +363,7 @@ fun AddTaskDialog(
                         border = BorderStroke(1.dp, if (isDark) DarkBorderSubtle else Color(0xFFE2E8F0)),
                         modifier = Modifier
                             .weight(1.3f)
+                            .desktopHandCursor()
                             .clickable { showDueCalendarPicker = true }
                     ) {
                         Row(
@@ -363,6 +401,7 @@ fun AddTaskDialog(
                         border = BorderStroke(1.dp, if (isDark) DarkBorderSubtle else Color(0xFFE2E8F0)),
                         modifier = Modifier
                             .weight(1f)
+                            .desktopHandCursor()
                             .clickable { showDueTimePicker = true }
                     ) {
                         Row(
@@ -400,6 +439,7 @@ fun AddTaskDialog(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text("Priority:", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = textSecondary)
+                    val selectedInk = contrastOnColor(primaryColor)
                     listOf("High", "Medium", "Low").forEach { p ->
                         val isSelected = priority == p
                         Box(
@@ -408,12 +448,13 @@ fun AddTaskDialog(
                                 .background(
                                     if (isSelected) primaryColor else (if (isDark) DarkSurfaceBase else Color(0xFFF1F5F9))
                                 )
+                                .desktopHandCursor()
                                 .clickable { priority = p }
                                 .padding(horizontal = 10.dp, vertical = 4.dp)
                         ) {
                             Text(
                                 p,
-                                color = if (isSelected) Color.White else textSecondary,
+                                color = if (isSelected) selectedInk else textSecondary,
                                 fontSize = 11.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                             )
@@ -421,11 +462,11 @@ fun AddTaskDialog(
                     }
                 }
 
-                Row(
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Text("Alert: ", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = textSecondary)
+                    Text("Alert:", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = textSecondary)
                     val reminderOptions = listOf(
                         0 to "On due time",
                         60 to "1h before",
@@ -436,25 +477,38 @@ fun AddTaskDialog(
                         2880 to "2d before",
                         null to "None"
                     )
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        items(reminderOptions) { (mins, label) ->
-                            val isSelected = reminderMinutes == mins
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(
-                                        if (isSelected) primaryColor else (if (isDark) DarkSurfaceBase else Color(0xFFF1F5F9))
-                                    )
-                                    .clickable { reminderMinutes = mins }
-                                    .padding(horizontal = 8.dp, vertical = 4.dp)
-                            ) {
-                                Text(
-                                    label,
-                                    color = if (isSelected) Color.White else textSecondary,
-                                    fontSize = 11.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                    val selectedInk = contrastOnColor(primaryColor)
+                    val alertChipContent: @Composable (Pair<Int?, String>) -> Unit = { (mins, label) ->
+                        val isSelected = reminderMinutes == mins
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(
+                                    if (isSelected) primaryColor else (if (isDark) DarkSurfaceBase else Color(0xFFF1F5F9))
                                 )
-                            }
+                                .desktopHandCursor()
+                                .clickable { reminderMinutes = mins }
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                label,
+                                color = if (isSelected) selectedInk else textSecondary,
+                                fontSize = 11.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
+                    }
+                    if (windowInfo.isTablet) {
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            reminderOptions.forEach { opt -> alertChipContent(opt) }
+                        }
+                    } else {
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            items(reminderOptions) { opt -> alertChipContent(opt) }
                         }
                     }
                 }
@@ -518,13 +572,17 @@ fun AddTaskDialog(
                     }
                 },
                 enabled = title.isNotBlank() && course.isNotBlank(),
-                colors = ButtonDefaults.buttonColors(containerColor = primaryColor)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = primaryColor,
+                    contentColor = contrastOnColor(primaryColor)
+                ),
+                modifier = Modifier.desktopHandCursor(enabled = title.isNotBlank() && course.isNotBlank())
             ) {
                 Text(if (initialTask != null) "Save & Reschedule" else "Schedule & Save")
             }
         },
         dismissButton = {
-            TextButton(onClick = handleDismiss) {
+            TextButton(onClick = handleDismiss, modifier = Modifier.desktopHandCursor()) {
                 Text("Cancel")
             }
         }

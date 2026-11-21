@@ -30,10 +30,14 @@ import androidx.compose.ui.unit.sp
 import com.lectures.core.util.TimeUtil
 import com.lectures.features.timetable.domain.ActivityCategory
 import com.lectures.features.timetable.domain.CustomEvent
+import com.lectures.ui.components.AdaptiveSheetOrDialog
 import com.lectures.ui.components.DedicatedTimePickerDialog
 import com.lectures.ui.components.RoomFloorBadge
+import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.contrastOnColor
+import com.lectures.ui.rememberLecturesWindow
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun AddActivitySheet(
     initialDayOfWeek: String = TimeUtil.todayName(),
@@ -43,6 +47,7 @@ fun AddActivitySheet(
 ) {
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
+    val windowInfo = rememberLecturesWindow()
 
     val isEditMode = eventToEdit != null
 
@@ -66,12 +71,10 @@ fun AddActivitySheet(
     var showStartTimePicker by remember { mutableStateOf(false) }
     var showEndTimePicker by remember { mutableStateOf(false) }
 
-    ModalBottomSheet(
+    AdaptiveSheetOrDialog(
         onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        dragHandle = { BottomSheetDefaults.DragHandle() }
+        desktopMaxWidth = 620.dp
     ) {
         Column(
             modifier = Modifier
@@ -105,11 +108,14 @@ fun AddActivitySheet(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    IconButton(onClick = {
-                        focusManager.clearFocus()
-                        keyboardController?.hide()
-                        onDismiss()
-                    }) {
+                    IconButton(
+                        onClick = {
+                            focusManager.clearFocus()
+                            keyboardController?.hide()
+                            onDismiss()
+                        },
+                        modifier = Modifier.desktopHandCursor()
+                    ) {
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Close",
@@ -153,36 +159,77 @@ fun AddActivitySheet(
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.height(6.dp))
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    items(ActivityCategory.entries.toTypedArray()) { cat ->
-                        val isSelected = cat == selectedCategory
-                        Surface(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(12.dp))
-                                .clickable { selectedCategory = cat },
-                            shape = RoundedCornerShape(12.dp),
-                            color = if (isSelected) cat.color else cat.color.copy(alpha = 0.1f),
-                            border = if (isSelected) null else BorderStroke(1.dp, cat.color.copy(alpha = 0.4f))
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                if (windowInfo.isTablet) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        ActivityCategory.entries.forEach { cat ->
+                            val isSelected = cat == selectedCategory
+                            val selectedFg = contrastOnColor(cat.color)
+                            Surface(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .desktopHandCursor()
+                                    .clickable { selectedCategory = cat },
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (isSelected) cat.color else cat.color.copy(alpha = 0.1f),
+                                border = if (isSelected) null else BorderStroke(1.dp, cat.color.copy(alpha = 0.4f))
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(10.dp)
-                                        .background(if (isSelected) Color.White else cat.color, CircleShape)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = cat.displayName,
-                                    fontSize = 12.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (isSelected) Color.White else cat.color
-                                )
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(10.dp)
+                                            .background(if (isSelected) selectedFg else cat.color, CircleShape)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = cat.displayName,
+                                        fontSize = 12.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isSelected) selectedFg else cat.color
+                                    )
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        items(ActivityCategory.entries.toTypedArray()) { cat ->
+                            val isSelected = cat == selectedCategory
+                            val selectedFg = contrastOnColor(cat.color)
+                            Surface(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable { selectedCategory = cat },
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (isSelected) cat.color else cat.color.copy(alpha = 0.1f),
+                                border = if (isSelected) null else BorderStroke(1.dp, cat.color.copy(alpha = 0.4f))
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(10.dp)
+                                            .background(if (isSelected) selectedFg else cat.color, CircleShape)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = cat.displayName,
+                                        fontSize = 12.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isSelected) selectedFg else cat.color
+                                    )
+                                }
                             }
                         }
                     }
@@ -198,21 +245,43 @@ fun AddActivitySheet(
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.height(6.dp))
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    items(TimeUtil.DAYS) { day ->
-                        val isSelected = day.equals(selectedDay, ignoreCase = true)
-                        FilterChip(
-                            selected = isSelected,
-                            onClick = { selectedDay = day },
-                            label = { Text(day.take(3), fontSize = 12.sp) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primary,
-                                selectedLabelColor = Color.White
+                if (windowInfo.isTablet) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        TimeUtil.DAYS.forEach { day ->
+                            val isSelected = day.equals(selectedDay, ignoreCase = true)
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = { selectedDay = day },
+                                label = { Text(day.take(3), fontSize = 12.sp) },
+                                modifier = Modifier.desktopHandCursor(),
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                    selectedLabelColor = contrastOnColor(MaterialTheme.colorScheme.primary)
+                                )
                             )
-                        )
+                        }
+                    }
+                } else {
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        items(TimeUtil.DAYS) { day ->
+                            val isSelected = day.equals(selectedDay, ignoreCase = true)
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = { selectedDay = day },
+                                label = { Text(day.take(3), fontSize = 12.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                    selectedLabelColor = contrastOnColor(MaterialTheme.colorScheme.primary)
+                                )
+                            )
+                        }
                     }
                 }
 
@@ -288,24 +357,43 @@ fun AddActivitySheet(
 
                 // Quick time suggestions
                 Spacer(modifier = Modifier.height(6.dp))
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    val presets = listOf(
-                        "08:00 - 09:30" to ("08:00" to "09:30"),
-                        "10:00 - 12:00" to ("10:00" to "12:00"),
-                        "14:00 - 15:30" to ("14:00" to "15:30"),
-                        "16:00 - 18:00" to ("16:00" to "18:00")
-                    )
-                    items(presets) { (label, times) ->
-                        SuggestionChip(
-                            onClick = {
-                                startTime = times.first
-                                endTime = times.second
-                            },
-                            label = { Text(label, fontSize = 11.sp) }
-                        )
+                val presets = listOf(
+                    "08:00 - 09:30" to ("08:00" to "09:30"),
+                    "10:00 - 12:00" to ("10:00" to "12:00"),
+                    "14:00 - 15:30" to ("14:00" to "15:30"),
+                    "16:00 - 18:00" to ("16:00" to "18:00")
+                )
+                if (windowInfo.isTablet) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        presets.forEach { (label, times) ->
+                            SuggestionChip(
+                                onClick = {
+                                    startTime = times.first
+                                    endTime = times.second
+                                },
+                                modifier = Modifier.desktopHandCursor(),
+                                label = { Text(label, fontSize = 11.sp) }
+                            )
+                        }
+                    }
+                } else {
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        items(presets) { (label, times) ->
+                            SuggestionChip(
+                                onClick = {
+                                    startTime = times.first
+                                    endTime = times.second
+                                },
+                                label = { Text(label, fontSize = 11.sp) }
+                            )
+                        }
                     }
                 }
 
@@ -389,10 +477,12 @@ fun AddActivitySheet(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(48.dp)
+                            .desktopHandCursor()
                             .testTag("add_activity_save_button"),
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = selectedCategory.color
+                            containerColor = selectedCategory.color,
+                            contentColor = contrastOnColor(selectedCategory.color)
                         )
                     ) {
                         Icon(if (isEditMode) Icons.Outlined.Check else Icons.Outlined.Add, contentDescription = null)

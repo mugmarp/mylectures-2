@@ -6,6 +6,10 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -22,6 +26,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.components.desktopHoverable
+import com.lectures.ui.contrastOnColor
+import com.lectures.ui.rememberLecturesWindow
 
 @Composable
 fun OnboardingProgressBar(currentStep: Int, totalSteps: Int = 3) {
@@ -49,6 +57,7 @@ fun FacultySelectionScreen(
     onSelectFaculty: (Faculty) -> Unit,
     onBack: () -> Unit
 ) {
+    val windowInfo = rememberLecturesWindow()
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
@@ -59,23 +68,31 @@ fun FacultySelectionScreen(
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column(modifier = Modifier.fillMaxWidth().statusBarsPadding()) {
-                    IconButton(onClick = onBack, modifier = Modifier.padding(start = 12.dp)) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground)
-                    }
-                    OnboardingProgressBar(currentStep = 1)
-                    Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
-                        Text(
-                            text = "Choose your faculty",
-                            fontSize = 28.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                        Text(
-                            text = "Select your academic department",
-                            fontSize = 15.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                Box(
+                    modifier = Modifier.fillMaxWidth().statusBarsPadding(),
+                    contentAlignment = Alignment.TopCenter
+                ) {
+                    Column(modifier = Modifier.widthIn(max = windowInfo.maxReadingWidth).fillMaxWidth()) {
+                        IconButton(
+                            onClick = onBack,
+                            modifier = Modifier.padding(start = 12.dp).desktopHandCursor()
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground)
+                        }
+                        OnboardingProgressBar(currentStep = 1)
+                        Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
+                            Text(
+                                text = "Choose your faculty",
+                                fontSize = 28.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                            Text(
+                                text = "Select your academic department",
+                                fontSize = 15.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             }
@@ -87,16 +104,33 @@ fun FacultySelectionScreen(
                 .padding(innerPadding),
             contentAlignment = Alignment.TopCenter
         ) {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .widthIn(max = 760.dp)
-                    .padding(horizontal = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(vertical = 12.dp)
-            ) {
-                items(FacultyCatalog.faculties) { faculty ->
-                    FacultyCard(faculty = faculty, onClick = { onSelectFaculty(faculty) })
+            if (windowInfo.isTablet) {
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(minSize = 280.dp),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .widthIn(max = windowInfo.maxReadingWidth)
+                        .padding(horizontal = 20.dp),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                    contentPadding = PaddingValues(vertical = 12.dp)
+                ) {
+                    gridItems(FacultyCatalog.faculties) { faculty ->
+                        FacultyCard(faculty = faculty, onClick = { onSelectFaculty(faculty) })
+                    }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .widthIn(max = windowInfo.maxReadingWidth)
+                        .padding(horizontal = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(vertical = 12.dp)
+                ) {
+                    items(FacultyCatalog.faculties) { faculty ->
+                        FacultyCard(faculty = faculty, onClick = { onSelectFaculty(faculty) })
+                    }
                 }
             }
         }
@@ -109,6 +143,7 @@ fun FacultyCard(faculty: Faculty, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
+            .desktopHandCursor()
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -116,8 +151,9 @@ fun FacultyCard(faculty: Faculty, onClick: () -> Unit) {
     ) {
         Row(
             modifier = Modifier
-                .padding(horizontal = 20.dp, vertical = 18.dp)
-                .fillMaxWidth(),
+                .fillMaxWidth()
+                .desktopHoverable()
+                .padding(horizontal = 20.dp, vertical = 18.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
@@ -149,6 +185,7 @@ fun ProgrammeSelectionScreen(
     onSelectProgramme: (Programme) -> Unit,
     onBack: () -> Unit
 ) {
+    val windowInfo = rememberLecturesWindow()
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
@@ -159,34 +196,42 @@ fun ProgrammeSelectionScreen(
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column(modifier = Modifier.fillMaxWidth().statusBarsPadding()) {
-                    IconButton(onClick = onBack, modifier = Modifier.padding(start = 12.dp)) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground)
-                    }
-                    OnboardingProgressBar(currentStep = 2)
-                    Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
-                        Text(
-                            text = "Select your programme",
-                            fontSize = 28.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = MaterialTheme.colorScheme.primaryContainer,
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f))
+                Box(
+                    modifier = Modifier.fillMaxWidth().statusBarsPadding(),
+                    contentAlignment = Alignment.TopCenter
+                ) {
+                    Column(modifier = Modifier.widthIn(max = windowInfo.maxReadingWidth).fillMaxWidth()) {
+                        IconButton(
+                            onClick = onBack,
+                            modifier = Modifier.padding(start = 12.dp).desktopHandCursor()
                         ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground)
+                        }
+                        OnboardingProgressBar(currentStep = 2)
+                        Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
+                            Text(
+                                text = "Select your programme",
+                                fontSize = 28.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f))
                             ) {
-                                Text(
-                                    text = faculty.name,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = faculty.name,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                }
                             }
                         }
                     }
@@ -200,52 +245,71 @@ fun ProgrammeSelectionScreen(
                 .padding(innerPadding),
             contentAlignment = Alignment.TopCenter
         ) {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .widthIn(max = 760.dp)
-                    .padding(horizontal = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(vertical = 12.dp)
-            ) {
-                items(faculty.programmes) { programme ->
-                    Card(
+            val programmeCard: @Composable (Programme) -> Unit = { programme ->
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .desktopHandCursor()
+                        .clickable { onSelectProgramme(programme) },
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                ) {
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(16.dp))
-                            .clickable { onSelectProgramme(programme) },
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                            .desktopHoverable()
+                            .padding(horizontal = 20.dp, vertical = 18.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .padding(horizontal = 20.dp, vertical = 18.dp)
-                                .fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = programme.code,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 16.sp,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = programme.name,
-                                    fontSize = 13.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 2
-                                )
-                            }
-                            Icon(
-                                Icons.AutoMirrored.Filled.ArrowForward,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = programme.code,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = programme.name,
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 2
                             )
                         }
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        )
                     }
+                }
+            }
+
+            if (windowInfo.isTablet) {
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(minSize = 280.dp),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .widthIn(max = windowInfo.maxReadingWidth)
+                        .padding(horizontal = 20.dp),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                    contentPadding = PaddingValues(vertical = 12.dp)
+                ) {
+                    gridItems(faculty.programmes) { programme -> programmeCard(programme) }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .widthIn(max = windowInfo.maxReadingWidth)
+                        .padding(horizontal = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(vertical = 12.dp)
+                ) {
+                    items(faculty.programmes) { programme -> programmeCard(programme) }
                 }
             }
         }
@@ -271,6 +335,8 @@ fun ClassGroupSelectionScreen(
     val initialActiveGroup = remember(programme, resolvedCounts) {
         groups.firstOrNull { (resolvedCounts[it] ?: 0) > 0 } ?: groups.firstOrNull() ?: "${programme.code} I"
     }
+    val windowInfo = rememberLecturesWindow()
+    val primaryInk = contrastOnColor(MaterialTheme.colorScheme.primary)
     var selectedGroup by remember(programme) { mutableStateOf(initialActiveGroup) }
 
     Scaffold(
@@ -283,24 +349,32 @@ fun ClassGroupSelectionScreen(
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column(modifier = Modifier.fillMaxWidth().statusBarsPadding()) {
-                    IconButton(onClick = onBack, modifier = Modifier.padding(start = 12.dp)) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground)
-                    }
-                    OnboardingProgressBar(currentStep = 3)
-                    Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
-                        Text(
-                            text = "Choose your class group",
-                            fontSize = 24.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Select your year and group",
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                Box(
+                    modifier = Modifier.fillMaxWidth().statusBarsPadding(),
+                    contentAlignment = Alignment.TopCenter
+                ) {
+                    Column(modifier = Modifier.widthIn(max = windowInfo.maxReadingWidth).fillMaxWidth()) {
+                        IconButton(
+                            onClick = onBack,
+                            modifier = Modifier.padding(start = 12.dp).desktopHandCursor()
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground)
+                        }
+                        OnboardingProgressBar(currentStep = 3)
+                        Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
+                            Text(
+                                text = "Choose your class group",
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Select your year and group",
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             }
@@ -328,11 +402,15 @@ fun ClassGroupSelectionScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .widthIn(max = 500.dp)
-                            .height(54.dp),
+                            .height(54.dp)
+                            .desktopHandCursor(),
                         shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = primaryInk
+                        )
                     ) {
-                        Text("Continue to Timetable", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        Text("Continue to Timetable", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = primaryInk)
                     }
                 }
             }
@@ -344,15 +422,7 @@ fun ClassGroupSelectionScreen(
                 .padding(innerPadding),
             contentAlignment = Alignment.TopCenter
         ) {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .widthIn(max = 760.dp)
-                    .padding(horizontal = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(vertical = 12.dp)
-            ) {
-            item(key = "program_summary_header") {
+            val summaryHeader: @Composable () -> Unit = {
                 Surface(
                     shape = RoundedCornerShape(12.dp),
                     color = MaterialTheme.colorScheme.primaryContainer,
@@ -378,14 +448,16 @@ fun ClassGroupSelectionScreen(
                     }
                 }
             }
-            items(groups) { group ->
+
+            val groupCard: @Composable (String) -> Unit = { group ->
                 val isSelected = group == selectedGroup
                 val count = resolvedCounts[group] ?: 0
-                
+
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(16.dp))
+                        .desktopHandCursor()
                         .clickable {
                             if (selectedGroup == group) {
                                 onConfirm(group)
@@ -405,8 +477,9 @@ fun ClassGroupSelectionScreen(
                 ) {
                     Row(
                         modifier = Modifier
-                            .padding(20.dp)
-                            .fillMaxWidth(),
+                            .fillMaxWidth()
+                            .desktopHoverable()
+                            .padding(20.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
@@ -422,11 +495,11 @@ fun ClassGroupSelectionScreen(
                                 CLINICAL_PROGRAMMES.contains(programme.code) -> "Clinical hospital rotations (off-campus schedule)"
                                 else -> "0 scheduled timetable entries this semester"
                             }
-                                Text(
-                                    text = subtitle,
-                                    fontSize = 14.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                            Text(
+                                text = subtitle,
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                         Box(
                             modifier = Modifier
@@ -441,7 +514,7 @@ fun ClassGroupSelectionScreen(
                                 Icon(
                                     Icons.Default.Check,
                                     contentDescription = "Selected",
-                                    tint = Color.White,
+                                    tint = primaryInk,
                                     modifier = Modifier.size(18.dp)
                                 )
                             }
@@ -449,7 +522,38 @@ fun ClassGroupSelectionScreen(
                     }
                 }
             }
+
+            if (windowInfo.isTablet) {
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(minSize = 280.dp),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .widthIn(max = windowInfo.maxReadingWidth)
+                        .padding(horizontal = 20.dp),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                    contentPadding = PaddingValues(vertical = 12.dp)
+                ) {
+                    item(key = "program_summary_header", span = { GridItemSpan(maxLineSpan) }) {
+                        summaryHeader()
+                    }
+                    gridItems(groups) { group -> groupCard(group) }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .widthIn(max = windowInfo.maxReadingWidth)
+                        .padding(horizontal = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(vertical = 12.dp)
+                ) {
+                    item(key = "program_summary_header") {
+                        summaryHeader()
+                    }
+                    items(groups) { group -> groupCard(group) }
+                }
+            }
         }
     }
-}
 }

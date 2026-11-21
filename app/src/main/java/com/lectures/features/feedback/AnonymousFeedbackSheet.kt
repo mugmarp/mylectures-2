@@ -45,12 +45,10 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -66,6 +64,9 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lectures.ui.components.AdaptiveSheetOrDialog
+import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.contrastOnColor
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -75,7 +76,6 @@ fun AnonymousFeedbackSheet(
     feedbackManager: FeedbackManager,
     onDismiss: () -> Unit
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -87,11 +87,10 @@ fun AnonymousFeedbackSheet(
 
     val appInstanceId = remember { feedbackManager.getOrCreateAppInstanceId() }
 
-    ModalBottomSheet(
+    AdaptiveSheetOrDialog(
         onDismissRequest = onDismiss,
-        sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surface,
-        dragHandle = null
+        desktopMaxWidth = 600.dp
     ) {
         Column(
             modifier = Modifier
@@ -137,7 +136,10 @@ fun AnonymousFeedbackSheet(
                     }
                 }
 
-                IconButton(onClick = onDismiss) {
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.desktopHandCursor()
+                ) {
                     Icon(Icons.Default.Close, contentDescription = "Close", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
@@ -371,12 +373,13 @@ fun AnonymousFeedbackSheet(
                     enabled = messageText.isNotBlank() && !isSubmitting,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp),
+                        .height(48.dp)
+                        .desktopHandCursor(),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     if (isSubmitting) {
                         CircularProgressIndicator(
-                            color = Color.White,
+                            color = contrastOnColor(MaterialTheme.colorScheme.primary),
                             modifier = Modifier.size(20.dp),
                             strokeWidth = 2.dp
                         )

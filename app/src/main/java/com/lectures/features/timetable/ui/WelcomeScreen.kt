@@ -32,9 +32,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.DialogProperties
 import com.lectures.R
 import com.lectures.ui.LocalAppTheme
 import com.lectures.ui.LocalExtendedColors
+import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.components.onEscapeKey
 import com.lectures.ui.rememberLecturesWindow
 
 @Composable
@@ -64,6 +67,10 @@ fun WelcomeScreen(
     if (showDisclaimerDialog) {
         AlertDialog(
             onDismissRequest = { showDisclaimerDialog = false },
+            properties = DialogProperties(usePlatformDefaultWidth = !windowInfo.preferDesktopDialogs),
+            modifier = Modifier
+                .then(if (windowInfo.preferDesktopDialogs) Modifier.widthIn(min = 420.dp, max = 560.dp) else Modifier)
+                .onEscapeKey { showDisclaimerDialog = false },
             containerColor = if (isDark) DarkSurfaceCard else Color.White,
             icon = { Icon(Icons.Default.VerifiedUser, contentDescription = null, tint = primaryBlue) },
             title = {
@@ -134,6 +141,7 @@ fun WelcomeScreen(
                 Button(
                     onClick = { showDisclaimerDialog = false },
                     shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.desktopHandCursor(),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = primaryBlue,
                         contentColor = MaterialTheme.colorScheme.onPrimary
@@ -149,6 +157,10 @@ fun WelcomeScreen(
     if (showTermsDialog) {
         AlertDialog(
             onDismissRequest = { showTermsDialog = false },
+            properties = DialogProperties(usePlatformDefaultWidth = !windowInfo.preferDesktopDialogs),
+            modifier = Modifier
+                .then(if (windowInfo.preferDesktopDialogs) Modifier.widthIn(min = 420.dp, max = 560.dp) else Modifier)
+                .onEscapeKey { showTermsDialog = false },
             containerColor = if (isDark) DarkSurfaceCard else Color.White,
             icon = { Icon(Icons.Default.Gavel, contentDescription = null, tint = primaryBlue) },
             title = {
@@ -219,6 +231,7 @@ fun WelcomeScreen(
                 Button(
                     onClick = { showTermsDialog = false },
                     shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.desktopHandCursor(),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = primaryBlue,
                         contentColor = MaterialTheme.colorScheme.onPrimary
@@ -230,306 +243,351 @@ fun WelcomeScreen(
         )
     }
 
+    val logoSize = if (windowInfo.isShort) 68.dp else 92.dp
+    val logoImageSize = if (windowInfo.isShort) 54.dp else 76.dp
+
+    val heroHeader: @Composable (Alignment.Horizontal) -> Unit = { horizontalAlign ->
+        Column(
+            horizontalAlignment = horizontalAlign,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Spacer(modifier = Modifier.height(2.dp))
+
+            Surface(
+                modifier = Modifier.size(logoSize),
+                shape = RoundedCornerShape(26.dp),
+                color = cardBg,
+                shadowElevation = 6.dp,
+                border = BorderStroke(1.5.dp, if (isDark) DarkBorderSubtle else Color(0xFFDBEAFE))
+            ) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        painter = painterResource(R.drawable.app_logo),
+                        contentDescription = "Lectures App Logo",
+                        modifier = Modifier
+                            .size(logoImageSize)
+                            .clip(RoundedCornerShape(20.dp))
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Text(
+                text = "Lectures",
+                fontSize = if (windowInfo.isDualPane) 36.sp else 32.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = textPrimary,
+                textAlign = if (horizontalAlign == Alignment.Start) TextAlign.Start else TextAlign.Center,
+                letterSpacing = (-0.5).sp
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .background(
+                        if (isDark) DarkSurfaceContainer.copy(alpha = 0.85f) else Color.White.copy(alpha = 0.9f),
+                        RoundedCornerShape(20.dp)
+                    )
+                    .border(
+                        1.dp,
+                        if (isDark) DarkBorderSubtle else Color(0xFFE2E8F0),
+                        RoundedCornerShape(20.dp)
+                    )
+                    .padding(horizontal = 12.dp, vertical = 4.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(16.dp)
+                        .background(primaryBlue, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.School,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.size(10.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    "The Campus Companion",
+                    color = primaryBlue,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "Offline timetables, vacant study rooms & coursework manager.",
+                fontSize = 13.sp,
+                color = textSecondary,
+                textAlign = if (horizontalAlign == Alignment.Start) TextAlign.Start else TextAlign.Center,
+                lineHeight = 18.sp,
+                modifier = if (horizontalAlign == Alignment.Start) Modifier else Modifier.padding(horizontal = 16.dp)
+            )
+        }
+    }
+
+    val bentoShowcase: @Composable () -> Unit = {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                WelcomeBentoCard(
+                    modifier = Modifier.weight(1f),
+                    icon = Icons.Default.CalendarToday,
+                    iconBg = if (isDark) Color(0xFF1E3A8A).copy(alpha = 0.45f) else Color(0xFFDBEAFE),
+                    iconTint = primaryBlue,
+                    tag = "Timetable",
+                    title = "Your Lectures",
+                    description = "Daily classes, halls & lecturers",
+                    isDark = isDark,
+                    cardBg = cardBg,
+                    textPrimary = textPrimary,
+                    textSecondary = textSecondary
+                )
+
+                WelcomeBentoCard(
+                    modifier = Modifier.weight(1f),
+                    icon = Icons.Default.MeetingRoom,
+                    iconBg = if (isDark) Color(0xFF064E3B).copy(alpha = 0.45f) else Color(0xFFDCFCE7),
+                    iconTint = if (isDark) Color(0xFF34D399) else Color(0xFF059669),
+                    tag = "Campus",
+                    title = "Free Rooms",
+                    description = "Locate empty halls for revision",
+                    isDark = isDark,
+                    cardBg = cardBg,
+                    textPrimary = textPrimary,
+                    textSecondary = textSecondary
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                WelcomeBentoCard(
+                    modifier = Modifier.weight(1f),
+                    icon = Icons.Default.TaskAlt,
+                    iconBg = if (isDark) Color(0xFF78350F).copy(alpha = 0.4f) else Color(0xFFFEF3C7),
+                    iconTint = if (isDark) Color(0xFFFBBF24) else Color(0xFFD97706),
+                    tag = "Tasks",
+                    title = "Coursework",
+                    description = "Track assignments, tests & deadlines",
+                    isDark = isDark,
+                    cardBg = cardBg,
+                    textPrimary = textPrimary,
+                    textSecondary = textSecondary
+                )
+
+                WelcomeBentoCard(
+                    modifier = Modifier.weight(1f),
+                    icon = Icons.Default.School,
+                    iconBg = if (isDark) Color(0xFF581C87).copy(alpha = 0.4f) else Color(0xFFF3E8FF),
+                    iconTint = if (isDark) Color(0xFFA78BFA) else Color(0xFF7C3AED),
+                    tag = "100% Local",
+                    title = "Study Notes",
+                    description = "Write summaries linked to courses",
+                    isDark = isDark,
+                    cardBg = cardBg,
+                    textPrimary = textPrimary,
+                    textSecondary = textSecondary
+                )
+            }
+        }
+    }
+
+    val disclaimerNoticeCard: @Composable () -> Unit = {
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = cardBg,
+            border = BorderStroke(1.dp, if (isDark) DarkBorderSubtle else Color(0xFFCBD5E1)),
+            shadowElevation = 2.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.VerifiedUser,
+                            contentDescription = null,
+                            tint = primaryBlue,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Disclaimer & Terms",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = textPrimary
+                        )
+                    }
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Disclaimer",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = primaryBlue,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .desktopHandCursor()
+                                .clickable { showDisclaimerDialog = true }
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                        Text("•", color = textMuted, fontSize = 10.sp)
+                        Text(
+                            text = "Terms",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = primaryBlue,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .desktopHandCursor()
+                                .clickable { showTermsDialog = true }
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = "Lectures is an independent student companion. Timetable slots and schedules are organized for student study convenience.",
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp,
+                    color = textSecondary
+                )
+            }
+        }
+    }
+
+    val ctaSection: @Composable (Alignment.Horizontal) -> Unit = { horizontalAlign ->
+        Column(
+            horizontalAlignment = horizontalAlign,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Button(
+                onClick = onGetStarted,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+                    .desktopHandCursor()
+                    .testTag("get_started_button"),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = primaryBlue,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                )
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        "Get Started",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = "By clicking Get Started, you agree to our Disclaimer & Terms",
+                fontSize = 11.sp,
+                color = textMuted,
+                textAlign = if (horizontalAlign == Alignment.Start) TextAlign.Start else TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(2.dp))
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(bgGradient),
         contentAlignment = Alignment.Center
     ) {
-        val logoSize = if (windowInfo.isShort) 68.dp else 92.dp
-        val logoImageSize = if (windowInfo.isShort) 54.dp else 76.dp
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .widthIn(max = 680.dp)
-                .statusBarsPadding()
-                .navigationBarsPadding()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = if (windowInfo.isShort) Arrangement.spacedBy(16.dp) else Arrangement.SpaceBetween
-        ) {
-            // 1. Top Hero Header: Prominent Brand Emblem, Name & Tagline
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
+        if (windowInfo.isDualPane) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding()
+                    .navigationBarsPadding()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 32.dp, vertical = 24.dp),
+                contentAlignment = Alignment.Center
             ) {
-                Spacer(modifier = Modifier.height(2.dp))
-
-                Surface(
-                    modifier = Modifier.size(logoSize),
-                    shape = RoundedCornerShape(26.dp),
-                    color = cardBg,
-                    shadowElevation = 6.dp,
-                    border = BorderStroke(1.5.dp, if (isDark) DarkBorderSubtle else Color(0xFFDBEAFE))
-                ) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Image(
-                            painter = painterResource(R.drawable.app_logo),
-                            contentDescription = "Lectures App Logo",
-                            modifier = Modifier
-                                .size(logoImageSize)
-                                .clip(RoundedCornerShape(20.dp))
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // Main App Title (Large & Prominent)
-                Text(
-                    text = "Lectures",
-                    fontSize = 32.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = textPrimary,
-                    textAlign = TextAlign.Center,
-                    letterSpacing = (-0.5).sp
-                )
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                // Subtitle: The Campus Companion
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
-                        .background(
-                            if (isDark) DarkSurfaceContainer.copy(alpha = 0.85f) else Color.White.copy(alpha = 0.9f),
-                            RoundedCornerShape(20.dp)
-                        )
-                        .border(
-                            1.dp,
-                            if (isDark) DarkBorderSubtle else Color(0xFFE2E8F0),
-                            RoundedCornerShape(20.dp)
-                        )
-                        .padding(horizontal = 12.dp, vertical = 4.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(16.dp)
-                            .background(primaryBlue, CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Default.School,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.size(10.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        "The Campus Companion",
-                        color = primaryBlue,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text(
-                    text = "Offline timetables, vacant study rooms & coursework manager.",
-                    fontSize = 13.sp,
-                    color = textSecondary,
-                    textAlign = TextAlign.Center,
-                    lineHeight = 17.sp,
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                )
-            }
-
-            // 2. Core Feature Showcase: 2x2 Bento Grid (Addresses: "view your lectures or so, find free room")
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                // Row 1: Lectures Timetable & Free Rooms Finder
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    WelcomeBentoCard(
-                        modifier = Modifier.weight(1f),
-                        icon = Icons.Default.CalendarToday,
-                        iconBg = if (isDark) Color(0xFF1E3A8A).copy(alpha = 0.45f) else Color(0xFFDBEAFE),
-                        iconTint = primaryBlue,
-                        tag = "Timetable",
-                        title = "Your Lectures",
-                        description = "Daily classes, halls & lecturers",
-                        isDark = isDark,
-                        cardBg = cardBg,
-                        textPrimary = textPrimary,
-                        textSecondary = textSecondary
-                    )
-
-                    WelcomeBentoCard(
-                        modifier = Modifier.weight(1f),
-                        icon = Icons.Default.MeetingRoom,
-                        iconBg = if (isDark) Color(0xFF064E3B).copy(alpha = 0.45f) else Color(0xFFDCFCE7),
-                        iconTint = if (isDark) Color(0xFF34D399) else Color(0xFF059669),
-                        tag = "Campus",
-                        title = "Free Rooms",
-                        description = "Locate empty halls for revision",
-                        isDark = isDark,
-                        cardBg = cardBg,
-                        textPrimary = textPrimary,
-                        textSecondary = textSecondary
-                    )
-                }
-
-                // Row 2: Coursework Tasks & Offline Notes
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    WelcomeBentoCard(
-                        modifier = Modifier.weight(1f),
-                        icon = Icons.Default.TaskAlt,
-                        iconBg = if (isDark) Color(0xFF78350F).copy(alpha = 0.4f) else Color(0xFFFEF3C7),
-                        iconTint = if (isDark) Color(0xFFFBBF24) else Color(0xFFD97706),
-                        tag = "Tasks",
-                        title = "Coursework",
-                        description = "Track assignments, tests & deadlines",
-                        isDark = isDark,
-                        cardBg = cardBg,
-                        textPrimary = textPrimary,
-                        textSecondary = textSecondary
-                    )
-
-                    WelcomeBentoCard(
-                        modifier = Modifier.weight(1f),
-                        icon = Icons.Default.School,
-                        iconBg = if (isDark) Color(0xFF581C87).copy(alpha = 0.4f) else Color(0xFFF3E8FF),
-                        iconTint = if (isDark) Color(0xFFA78BFA) else Color(0xFF7C3AED),
-                        tag = "100% Local",
-                        title = "Study Notes",
-                        description = "Write summaries linked to courses",
-                        isDark = isDark,
-                        cardBg = cardBg,
-                        textPrimary = textPrimary,
-                        textSecondary = textSecondary
-                    )
-                }
-            }
-
-            // 3. Disclaimer & Terms Notice Card
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = cardBg,
-                border = BorderStroke(1.dp, if (isDark) DarkBorderSubtle else Color(0xFFCBD5E1)),
-                shadowElevation = 2.dp,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                Icons.Default.VerifiedUser,
-                                contentDescription = null,
-                                tint = primaryBlue,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "Disclaimer & Terms",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = textPrimary
-                            )
-                        }
-
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "Disclaimer",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = primaryBlue,
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .clickable { showDisclaimerDialog = true }
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                            Text("•", color = textMuted, fontSize = 10.sp)
-                            Text(
-                                text = "Terms",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = primaryBlue,
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .clickable { showTermsDialog = true }
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Text(
-                        text = "Lectures is an independent student companion. Timetable slots and schedules are organized for student study convenience.",
-                        fontSize = 11.sp,
-                        lineHeight = 15.sp,
-                        color = textSecondary
-                    )
-                }
-            }
-
-            // 4. Primary "Get Started" Action Button
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Button(
-                    onClick = onGetStarted,
-                    modifier = Modifier
+                        .widthIn(max = 1080.dp)
                         .fillMaxWidth()
-                        .height(50.dp)
-                        .testTag("get_started_button"),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = primaryBlue,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    )
+                        .testTag("welcome_desktop_showcase"),
+                    horizontalArrangement = Arrangement.spacedBy(32.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(18.dp)
                     ) {
-                        Text(
-                            "Get Started",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimary
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowForward,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.size(18.dp)
-                        )
+                        heroHeader(Alignment.Start)
+                        disclaimerNoticeCard()
+                        ctaSection(Alignment.Start)
+                    }
+
+                    Column(
+                        modifier = Modifier.weight(1.1f),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        bentoShowcase()
                     }
                 }
-
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = "By clicking Get Started, you agree to our Disclaimer & Terms",
-                    fontSize = 11.sp,
-                    color = textMuted,
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(modifier = Modifier.height(2.dp))
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .widthIn(max = 680.dp)
+                    .statusBarsPadding()
+                    .navigationBarsPadding()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = if (windowInfo.isShort) Arrangement.spacedBy(16.dp) else Arrangement.SpaceBetween
+            ) {
+                heroHeader(Alignment.CenterHorizontally)
+                bentoShowcase()
+                disclaimerNoticeCard()
+                ctaSection(Alignment.CenterHorizontally)
             }
         }
     }

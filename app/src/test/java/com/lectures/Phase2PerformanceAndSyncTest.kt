@@ -468,6 +468,10 @@ class Phase2PerformanceAndSyncTest {
 
     @Test
     fun userSettingsSyncManagerPreservesTimestampAndDailyDigest() = runBlocking {
+        app.getSharedPreferences("mustime_settings", Context.MODE_PRIVATE)
+            .edit()
+            .remove("settings_updated_at")
+            .commit()
         val manager = UserSettingsSyncManager(app.etagStore, app.onboardingDataStore)
         val initial = manager.exportCurrentSettings()
         assertEquals("Fresh device settings updatedAt must start at 0L", 0L, initial.updatedAt)

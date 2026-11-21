@@ -181,7 +181,7 @@ fun AdaptiveNavigationRailOrSidebar(
                             IconButton(
                                 onClick = onToggleSidebar,
                                 modifier = Modifier
-                                    .size(40.dp)
+                                    .size(48.dp)
                                     .desktopHandCursor()
                                     .testTag("desktop_sidebar_toggle")
                             ) {
@@ -242,22 +242,31 @@ fun AdaptiveNavigationRailOrSidebar(
                 } else {
                     Box(
                         modifier = Modifier
-                            .size(40.dp)
+                            .size(48.dp)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(primaryBlue)
                             .let { mod ->
                                 if (canToggleSidebar) {
-                                    mod.desktopHandCursor().clickable(onClick = onToggleSidebar)
+                                    mod.desktopHandCursor()
+                                        .clickable(onClick = onToggleSidebar)
+                                        .testTag("desktop_sidebar_toggle")
                                 } else mod
                             },
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = if (canToggleSidebar && sidebarCollapsed) Icons.Default.Menu else Icons.Default.School,
-                            contentDescription = if (canToggleSidebar) "Expand sidebar" else "Lectures",
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.size(20.dp)
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(primaryBlue),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = if (canToggleSidebar && sidebarCollapsed) Icons.Default.Menu else Icons.Default.School,
+                                contentDescription = if (canToggleSidebar) "Expand sidebar" else "Lectures",
+                                tint = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
                     Spacer(modifier = Modifier.height(14.dp))
                 }

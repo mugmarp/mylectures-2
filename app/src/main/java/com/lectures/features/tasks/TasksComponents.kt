@@ -7,6 +7,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -47,6 +49,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -61,6 +65,10 @@ import com.lectures.features.timetable.ui.DarkSurfaceBase
 import com.lectures.features.timetable.ui.DarkSurfaceCard
 import com.lectures.features.timetable.ui.TextMutedLight
 import com.lectures.features.timetable.ui.TextPrimaryLight
+import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.components.desktopHoverable
+import com.lectures.ui.contrastOnColor
+import com.lectures.ui.rememberLecturesWindow
 import java.util.Calendar
 import java.util.Locale
 
@@ -155,14 +163,20 @@ internal fun TasksNotificationPromptBanner(
                 )
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = onActionClick) {
+                TextButton(
+                    onClick = onActionClick,
+                    modifier = Modifier.desktopHandCursor()
+                ) {
                     Text(
                         if (!areNotificationsAllowed) "Allow" else "Settings",
                         fontWeight = FontWeight.Bold,
                         color = if (isDark) Color(0xFFFBBF24) else Color(0xFFB45309)
                     )
                 }
-                IconButton(onClick = onDismiss) {
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.desktopHandCursor()
+                ) {
                     Icon(
                         Icons.Default.Close,
                         contentDescription = "Dismiss",
@@ -184,6 +198,7 @@ internal fun TasksSearchField(
     borderColor: Color,
     textPrimary: Color,
     textSecondary: Color,
+    focusRequester: FocusRequester? = null,
     onQueryChange: (String) -> Unit
 ) {
     OutlinedTextField(
@@ -192,7 +207,9 @@ internal fun TasksSearchField(
         placeholder = { Text("Search by title or course...", fontSize = 14.sp, color = textSecondary) },
         leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = textSecondary, modifier = Modifier.size(20.dp)) },
         shape = RoundedCornerShape(20.dp),
+        singleLine = true,
         modifier = Modifier
+            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
             .fillMaxWidth()
             .height(52.dp),
         colors = OutlinedTextFieldDefaults.colors(
@@ -206,6 +223,7 @@ internal fun TasksSearchField(
     )
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun TasksFilterChipsRow(
     assignments: List<Assignment>,
@@ -217,67 +235,82 @@ internal fun TasksFilterChipsRow(
     textSecondary: Color,
     onFilterSelected: (String) -> Unit
 ) {
-    LazyRow(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        val filters = listOf("All", "Pending", "Overdue", "Completed", "High Priority")
-        items(filters) { filter ->
-            val isSelected = selectedFilter == filter
-            val count = when (filter) {
-                "Pending" -> assignments.count { !it.completed }
-                "Overdue" -> assignments.count { !it.completed && getTaskDueStatus(it.dueDate, it.completed) == TaskDueStatus.OVERDUE }
-                "Completed" -> assignments.count { it.completed }
-                "High Priority" -> assignments.count { !it.completed && it.priority.equals("High", ignoreCase = true) }
-                else -> assignments.size
-            }
-            val isOverdueFilter = filter == "Overdue"
-            val chipBg = when {
-                isSelected && isOverdueFilter -> Color(0xFFDC2626)
-                isSelected -> primaryColor
-                isOverdueFilter && count > 0 -> if (isDark) Color(0xFF7F1D1D).copy(alpha = 0.4f) else Color(0xFFFEE2E2)
-                else -> cardBg
-            }
-            val chipBorder = when {
-                isSelected && isOverdueFilter -> Color(0xFFDC2626)
-                isSelected -> primaryColor
-                isOverdueFilter && count > 0 -> if (isDark) Color(0xFFB91C1C) else Color(0xFFFCA5A5)
-                else -> borderColor
-            }
-            val chipTextColor = when {
-                isSelected && isOverdueFilter -> Color.White
-                isSelected -> MaterialTheme.colorScheme.onPrimary
-                isOverdueFilter && count > 0 -> if (isDark) Color(0xFFFCA5A5) else Color(0xFFDC2626)
-                else -> textSecondary
-            }
+    val windowInfo = rememberLecturesWindow()
+    val filters = listOf("All", "Pending", "Overdue", "Completed", "High Priority")
 
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(chipBg)
-                    .border(1.dp, chipBorder, RoundedCornerShape(16.dp))
-                    .clickable { onFilterSelected(filter) }
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (isOverdueFilter && count > 0 && !isSelected) {
-                        Icon(
-                            Icons.Default.WarningAmber,
-                            contentDescription = null,
-                            tint = chipTextColor,
-                            modifier = Modifier.size(13.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                    }
-                    Text(
-                        text = "$filter ($count)",
-                        fontSize = 13.sp,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                        color = chipTextColor
+    val chipContent: @Composable (String) -> Unit = { filter ->
+        val isSelected = selectedFilter == filter
+        val count = when (filter) {
+            "Pending" -> assignments.count { !it.completed }
+            "Overdue" -> assignments.count { !it.completed && getTaskDueStatus(it.dueDate, it.completed) == TaskDueStatus.OVERDUE }
+            "Completed" -> assignments.count { it.completed }
+            "High Priority" -> assignments.count { !it.completed && it.priority.equals("High", ignoreCase = true) }
+            else -> assignments.size
+        }
+        val isOverdueFilter = filter == "Overdue"
+        val chipBg = when {
+            isSelected && isOverdueFilter -> Color(0xFFDC2626)
+            isSelected -> primaryColor
+            isOverdueFilter && count > 0 -> if (isDark) Color(0xFF7F1D1D).copy(alpha = 0.4f) else Color(0xFFFEE2E2)
+            else -> cardBg
+        }
+        val chipBorder = when {
+            isSelected && isOverdueFilter -> Color(0xFFDC2626)
+            isSelected -> primaryColor
+            isOverdueFilter && count > 0 -> if (isDark) Color(0xFFB91C1C) else Color(0xFFFCA5A5)
+            else -> borderColor
+        }
+        val chipTextColor = when {
+            isSelected && isOverdueFilter -> contrastOnColor(Color(0xFFDC2626))
+            isSelected -> contrastOnColor(primaryColor)
+            isOverdueFilter && count > 0 -> if (isDark) Color(0xFFFCA5A5) else Color(0xFFDC2626)
+            else -> textSecondary
+        }
+
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(16.dp))
+                .background(chipBg)
+                .border(1.dp, chipBorder, RoundedCornerShape(16.dp))
+                .desktopHandCursor()
+                .clickable { onFilterSelected(filter) }
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (isOverdueFilter && count > 0 && !isSelected) {
+                    Icon(
+                        Icons.Default.WarningAmber,
+                        contentDescription = null,
+                        tint = chipTextColor,
+                        modifier = Modifier.size(13.dp)
                     )
+                    Spacer(modifier = Modifier.width(4.dp))
                 }
+                Text(
+                    text = "$filter ($count)",
+                    fontSize = 13.sp,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                    color = chipTextColor
+                )
             }
+        }
+    }
+
+    if (windowInfo.isTablet) {
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            filters.forEach { filter -> chipContent(filter) }
+        }
+    } else {
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(filters) { filter -> chipContent(filter) }
         }
     }
 }
@@ -378,9 +411,16 @@ fun TaskCard(
         ),
         modifier = modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .desktopHandCursor()
             .clickable(onClick = onEdit)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .desktopHoverable()
+                .padding(16.dp)
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.Top,
@@ -401,6 +441,7 @@ fun TaskCard(
                                 CircleShape
                             )
                             .background(if (task.completed) primaryColor else Color.Transparent)
+                            .desktopHandCursor()
                             .clickable(onClick = onToggleComplete),
                         contentAlignment = Alignment.Center
                     ) {
@@ -456,7 +497,7 @@ fun TaskCard(
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onEdit) {
+                    IconButton(onClick = onEdit, modifier = Modifier.desktopHandCursor()) {
                         Icon(
                             imageVector = Icons.Outlined.Edit,
                             contentDescription = "Edit or Reschedule Task",
@@ -465,7 +506,7 @@ fun TaskCard(
                         )
                     }
 
-                    IconButton(onClick = onDelete) {
+                    IconButton(onClick = onDelete, modifier = Modifier.desktopHandCursor()) {
                         Icon(
                             Icons.Default.DeleteOutline,
                             contentDescription = "Delete",

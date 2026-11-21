@@ -28,6 +28,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lectures.ui.LocalAppTheme
 import com.lectures.ui.components.RoomFloorBadge
+import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.components.desktopHoverable
 
 @Composable
 fun TimelineClassCard(
@@ -52,12 +54,14 @@ fun TimelineClassCard(
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
             .shadow(elevation = 2.dp, shape = TimelineCardShape)
+            .clip(TimelineCardShape)
             .background(cardBg, TimelineCardShape)
             .border(
                 width = if (session.hasConflict) 2.dp else 1.dp,
                 color = if (session.hasConflict) Color(0xFFDC2626) else borderSubtle,
                 shape = TimelineCardShape
             )
+            .desktopHandCursor()
             .clickable(onClick = onClick)
     ) {
         Box(
@@ -72,6 +76,7 @@ fun TimelineClassCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .desktopHoverable()
                 .padding(start = 18.dp, top = 16.dp, end = 16.dp, bottom = 16.dp)
         ) {
             Row(
@@ -101,7 +106,7 @@ fun TimelineClassCard(
                     }
                 }
 
-                IconButton(onClick = onToggleAlarm) {
+                IconButton(onClick = onToggleAlarm, modifier = Modifier.desktopHandCursor()) {
                     Icon(
                         imageVector = Icons.Outlined.Notifications,
                         contentDescription = "Set Reminder",
@@ -249,7 +254,9 @@ fun TimelineClassCard(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
                         .background(noteBg, RoundedCornerShape(10.dp))
+                        .desktopHandCursor()
                         .clickable(onClick = onAttachedNoteClick)
                         .padding(horizontal = 10.dp, vertical = 7.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,

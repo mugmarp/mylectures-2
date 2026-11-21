@@ -22,6 +22,8 @@ import com.lectures.core.util.rememberLifecycleGatedClockPulse
 import com.lectures.features.timetable.domain.LectureNote
 import com.lectures.features.timetable.ui.DarkBorderSubtle
 import com.lectures.features.timetable.ui.DarkSurfaceCard
+import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.components.desktopHoverable
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -56,13 +58,20 @@ fun NoteCardItem(
     Card(
         modifier = modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .desktopHandCursor()
             .clickable(onClick = onOpen),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = if (isDark) DarkSurfaceCard else Color.White),
         border = BorderStroke(1.dp, if (isDark) DarkBorderSubtle else Color(0xFFE2E8F0)),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .desktopHoverable()
+                .padding(16.dp)
+        ) {
             // Tag Row with Pins and Menu
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -118,7 +127,9 @@ fun NoteCardItem(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(
                         onClick = onTogglePin,
-                        modifier = Modifier.minimumInteractiveComponentSize()
+                        modifier = Modifier
+                            .minimumInteractiveComponentSize()
+                            .desktopHandCursor()
                     ) {
                         Icon(
                             if (note.isPinned) Icons.Default.PushPin else Icons.Outlined.PushPin,
@@ -131,7 +142,9 @@ fun NoteCardItem(
                     Box {
                         IconButton(
                             onClick = { showMenu = true },
-                            modifier = Modifier.minimumInteractiveComponentSize()
+                            modifier = Modifier
+                                .minimumInteractiveComponentSize()
+                                .desktopHandCursor()
                         ) {
                             Icon(
                                 Icons.Default.MoreVert,

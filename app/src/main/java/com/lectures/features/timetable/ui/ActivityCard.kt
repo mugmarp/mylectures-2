@@ -27,6 +27,8 @@ import com.lectures.core.util.rememberLiveClockPulse
 import com.lectures.features.timetable.domain.ActivityCategory
 import com.lectures.features.timetable.domain.CustomEvent
 import com.lectures.ui.components.RoomFloorBadge
+import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.components.desktopHoverable
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -55,6 +57,7 @@ fun ActivityCard(
                 color = if (progress.isOngoing) catColor else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
                 shape = RoundedCornerShape(16.dp)
             )
+            .desktopHandCursor()
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
@@ -76,6 +79,7 @@ fun ActivityCard(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .desktopHoverable()
                     .padding(start = 20.dp, top = 16.dp, end = 16.dp, bottom = 16.dp)
             ) {
                 // Top row: Category Pill + Ongoing Live Badge + Delete Action
@@ -121,7 +125,8 @@ fun ActivityCard(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (onEdit != null) {
                             IconButton(
-                                onClick = onEdit
+                                onClick = onEdit,
+                                modifier = Modifier.desktopHandCursor()
                             ) {
                                 Icon(
                                     imageVector = Icons.Outlined.Edit,
@@ -134,7 +139,8 @@ fun ActivityCard(
 
                         if (onDelete != null) {
                             IconButton(
-                                onClick = onDelete
+                                onClick = onDelete,
+                                modifier = Modifier.desktopHandCursor()
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.DeleteOutline,

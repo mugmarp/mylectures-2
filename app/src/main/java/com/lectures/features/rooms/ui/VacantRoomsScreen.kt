@@ -44,7 +44,6 @@ import com.lectures.TimetableApplication
 import com.lectures.core.util.TimeUtil
 import com.lectures.features.rooms.BuildingLevel
 import com.lectures.features.rooms.RoomType
-import com.lectures.features.rooms.RoomVacancyStatus
 import com.lectures.features.rooms.SuggestionValue
 import com.lectures.features.rooms.UniversityDirectory
 import com.lectures.features.timetable.ui.*
@@ -53,6 +52,7 @@ import com.lectures.ui.components.DedicatedDayPickerDialog
 import com.lectures.ui.components.DedicatedTimePickerDialog
 import com.lectures.ui.components.FloatingIslandTopBar
 import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.contrastOnColor
 import com.lectures.ui.rememberLecturesWindow
 import java.util.Calendar
 import java.util.Locale
@@ -249,11 +249,11 @@ fun VacantRoomsScreen(
     }
     val occupiedCount = vacancyStatuses.count { it.isOccupied && it.room.isStudyFriendly }
     val windowInfo = rememberLecturesWindow()
-    val isDesktopWorkspace = windowInfo.widthDp >= 1000
+    val showDesktopSplit = windowInfo.widthDp >= 1000
+    val accentColor = MaterialTheme.colorScheme.primary
     val selectedRoomForSchedule = remember(selectedRoomIdForSchedule, vacancyStatuses) {
         selectedRoomIdForSchedule?.let { id -> vacancyStatuses.firstOrNull { it.room.id == id } }
     }
-    val accentColor = MaterialTheme.colorScheme.primary
 
     val resetAllFilters: () -> Unit = {
         val now = Calendar.getInstance()
@@ -267,13 +267,6 @@ fun VacantRoomsScreen(
         hideLibrary = false
         freeOnly = false
         selectedCategory = "All"
-    }
-
-    val selectLiveNow: () -> Unit = {
-        val now = Calendar.getInstance()
-        queryDay = TimeUtil.todayName()
-        queryTime = String.format(Locale.US, "%02d:%02d", now.get(Calendar.HOUR_OF_DAY), now.get(Calendar.MINUTE))
-        isLiveNow = true
     }
 
     Scaffold(
@@ -314,7 +307,7 @@ fun VacantRoomsScreen(
                             Icon(
                                 imageVector = Icons.Outlined.MeetingRoom,
                                 contentDescription = null,
-                                tint = com.lectures.ui.contrastOnColor(accentColor),
+                                tint = contrastOnColor(accentColor),
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -348,7 +341,13 @@ fun VacantRoomsScreen(
                             color = if (isLiveNow) StatusGreenLive.copy(alpha = 0.12f) else accentColor.copy(alpha = 0.12f),
                             modifier = Modifier
                                 .desktopHandCursor()
-                                .clickable { showFilterSheet = true }
+                                .clickable {
+                                    if (showDesktopSplit) {
+                                        showTimePicker = true
+                                    } else {
+                                        showFilterSheet = true
+                                    }
+                                }
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -378,7 +377,17 @@ fun VacantRoomsScreen(
                     }
                     if (!isLiveNow) {
                         IconButton(
-                            onClick = selectLiveNow,
+                            onClick = {
+                                val nowCal = Calendar.getInstance()
+                                queryDay = TimeUtil.todayName()
+                                queryTime = String.format(
+                                    Locale.US,
+                                    "%02d:%02d",
+                                    nowCal.get(Calendar.HOUR_OF_DAY),
+                                    nowCal.get(Calendar.MINUTE)
+                                )
+                                isLiveNow = true
+                            },
                             modifier = Modifier.desktopHandCursor()
                         ) {
                             Icon(
@@ -389,7 +398,7 @@ fun VacantRoomsScreen(
                             )
                         }
                     }
-                    if (!isDesktopWorkspace) {
+                    if (!showDesktopSplit) {
                         IconButton(
                             onClick = { showFilterSheet = true },
                             modifier = Modifier.desktopHandCursor()
@@ -413,33 +422,33 @@ fun VacantRoomsScreen(
             }
         }
     ) { padding ->
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.TopCenter
-        ) {
-            if (isDesktopWorkspace) {
-                val containerMaxW = if (windowInfo.isExtraLargeWidth) 1560.dp else windowInfo.maxReadingWidth
+        if (showDesktopSplit) {
+            val containerMaxWidth = if (windowInfo.isExtraLargeWidth) 1560.dp else windowInfo.maxReadingWidth
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.TopCenter
+            ) {
                 Row(
                     modifier = Modifier
-                        .widthIn(max = containerMaxW)
+                        .widthIn(max = containerMaxWidth)
                         .fillMaxSize()
                         .padding(
-                            start = 16.dp,
-                            end = 16.dp,
                             top = padding.calculateTopPadding() + 8.dp,
-                            bottom = padding.calculateBottomPadding() + 12.dp
+                            start = 16.dp,
+                            end = 16.dp
                         ),
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // ZONE 1: Persistent Left Filter Rail (268dp)
+                    // ZONE 1: Persistent Left Filter Rail
                     Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = surfaceColor,
+                        border = BorderStroke(1.dp, borderSubtle),
                         modifier = Modifier
                             .width(268.dp)
                             .fillMaxHeight()
-                            .testTag("vacant_rooms_filter_rail"),
-                        shape = RoundedCornerShape(20.dp),
-                        color = surfaceColor,
-                        border = BorderStroke(1.dp, borderSubtle)
+                            .padding(bottom = padding.calculateBottomPadding() + 16.dp)
+                            .testTag("vacant_rooms_filter_rail")
                     ) {
                         Column(
                             modifier = Modifier
@@ -459,7 +468,17 @@ fun VacantRoomsScreen(
                                 showApplyButton = false,
                                 onDismiss = {},
                                 onResetAll = resetAllFilters,
-                                onSelectLiveNow = selectLiveNow,
+                                onSelectLiveNow = {
+                                    val now = Calendar.getInstance()
+                                    queryDay = TimeUtil.todayName()
+                                    queryTime = String.format(
+                                        Locale.US,
+                                        "%02d:%02d",
+                                        now.get(Calendar.HOUR_OF_DAY),
+                                        now.get(Calendar.MINUTE)
+                                    )
+                                    isLiveNow = true
+                                },
                                 onOpenDayPicker = { showDayPicker = true },
                                 onOpenTimePicker = {
                                     isLiveNow = false
@@ -477,120 +496,131 @@ fun VacantRoomsScreen(
                         }
                     }
 
-                    // ZONE 2: Adaptive Multi-Column Room Grid
-                    LazyVerticalGrid(
-                        columns = GridCells.Adaptive(minSize = 265.dp),
+                    // ZONE 2: Center Search, Chips & Adaptive Multi-Column Room Grid
+                    Column(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
-                            .testTag("vacant_rooms_grid_pane"),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                        contentPadding = PaddingValues(bottom = 16.dp)
+                            .testTag("vacant_rooms_grid_pane")
                     ) {
-                        item(span = { GridItemSpan(maxLineSpan) }, key = "search_and_quick_filters") {
-                            VacantRoomsSearchAndFilters(
-                                searchQuery = searchQuery,
-                                onSearchQueryChange = { searchQuery = it },
-                                selectedCampus = selectedCampus,
-                                selectedBuilding = selectedBuilding,
-                                defaultScope = defaultScope,
-                                campusBuildings = campusBuildings,
-                                campusDropdownExpanded = campusDropdownExpanded,
-                                onCampusDropdownExpandedChange = { campusDropdownExpanded = it },
-                                buildingDropdownExpanded = buildingDropdownExpanded,
-                                onBuildingDropdownExpandedChange = { buildingDropdownExpanded = it },
-                                onCampusSelected = { campus, building ->
-                                    selectedCampus = campus
-                                    selectedBuilding = building
-                                },
-                                onBuildingSelected = { building, campus ->
-                                    selectedBuilding = building
-                                    if (campus != null) selectedCampus = campus
-                                },
-                                freeOnly = freeOnly,
-                                onToggleFreeOnly = { freeOnly = !freeOnly },
-                                categories = categories,
-                                selectedCategory = selectedCategory,
-                                onCategorySelected = { selectedCategory = it },
-                                isDefaultResetDismissed = isDefaultResetDismissed,
-                                onResetToDefaultScope = {
-                                    selectedCampus = defaultScope.campus
-                                    selectedBuilding = defaultScope.buildingCode
-                                },
-                                isDark = isDark,
-                                isNarrow = windowInfo.isNarrow
-                            )
-                        }
+                        VacantRoomsSearchAndFilters(
+                            searchQuery = searchQuery,
+                            onSearchQueryChange = { searchQuery = it },
+                            selectedCampus = selectedCampus,
+                            selectedBuilding = selectedBuilding,
+                            defaultScope = defaultScope,
+                            campusBuildings = campusBuildings,
+                            campusDropdownExpanded = campusDropdownExpanded,
+                            onCampusDropdownExpandedChange = { campusDropdownExpanded = it },
+                            buildingDropdownExpanded = buildingDropdownExpanded,
+                            onBuildingDropdownExpandedChange = { buildingDropdownExpanded = it },
+                            onCampusSelected = { campus, building ->
+                                selectedCampus = campus
+                                selectedBuilding = building
+                            },
+                            onBuildingSelected = { building, campus ->
+                                selectedBuilding = building
+                                if (campus != null) selectedCampus = campus
+                            },
+                            freeOnly = freeOnly,
+                            onToggleFreeOnly = { freeOnly = !freeOnly },
+                            categories = categories,
+                            selectedCategory = selectedCategory,
+                            onCategorySelected = { selectedCategory = it },
+                            isDefaultResetDismissed = isDefaultResetDismissed,
+                            onResetToDefaultScope = {
+                                selectedCampus = defaultScope.campus
+                                selectedBuilding = defaultScope.buildingCode
+                            },
+                            isDark = isDark,
+                            isNarrow = false
+                        )
 
-                        item(span = { GridItemSpan(maxLineSpan) }, key = "status_summary_row") {
-                            RoomStatusSummaryRow(
-                                isLiveNow = isLiveNow,
-                                freeCount = freeCount,
-                                occupiedCount = occupiedCount,
-                                queryDay = queryDay,
-                                queryTime = queryTime,
-                                selectedBuilding = selectedBuilding,
-                                selectedCampus = selectedCampus,
-                                isDark = isDark,
-                                textMuted = textMuted
-                            )
-                        }
+                        Spacer(modifier = Modifier.height(10.dp))
 
-                        if (filteredRooms.isEmpty()) {
-                            item(span = { GridItemSpan(maxLineSpan) }, key = "empty_rooms") {
-                                EmptyRoomsFilterCard(
+                        VacantRoomsStatusSummaryRow(
+                            isLiveNow = isLiveNow,
+                            queryDay = queryDay,
+                            queryTime = queryTime,
+                            freeCount = freeCount,
+                            occupiedCount = occupiedCount,
+                            selectedBuilding = selectedBuilding,
+                            selectedCampus = selectedCampus,
+                            isDark = isDark,
+                            textMuted = textMuted
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        LazyVerticalGrid(
+                            columns = GridCells.Adaptive(minSize = 250.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth(),
+                            contentPadding = PaddingValues(bottom = padding.calculateBottomPadding() + 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            if (filteredRooms.isEmpty()) {
+                                item(span = { GridItemSpan(maxLineSpan) }, key = "empty_rooms_desktop") {
+                                    VacantRoomsEmptyStateCard(
+                                        surfaceColor = surfaceColor,
+                                        borderSubtle = borderSubtle,
+                                        textPrimary = textPrimary,
+                                        textMuted = textMuted,
+                                        hasActiveFilters = searchQuery.isNotBlank() || freeOnly || selectedLevel != null,
+                                        onClearFilters = {
+                                            searchQuery = ""
+                                            freeOnly = false
+                                            selectedLevel = null
+                                        }
+                                    )
+                                }
+                            } else {
+                                items(filteredRooms, key = { it.room.id }) { status ->
+                                    RoomVacancyCard(
+                                        status = status,
+                                        isDark = isDark,
+                                        showCampus = selectedCampus == null,
+                                        selectedBuilding = selectedBuilding,
+                                        isSelected = status.room.id == selectedRoomIdForSchedule,
+                                        modifier = Modifier.animateItem(),
+                                        onClick = { selectedRoomIdForSchedule = status.room.id }
+                                    )
+                                }
+                            }
+
+                            item(span = { GridItemSpan(maxLineSpan) }, key = "data_provenance_notice_desktop") {
+                                VacantRoomsProvenanceNotice(
                                     surfaceColor = surfaceColor,
                                     borderSubtle = borderSubtle,
-                                    textPrimary = textPrimary,
-                                    textMuted = textMuted,
-                                    canClear = searchQuery.isNotBlank() || freeOnly || selectedLevel != null,
-                                    onClear = {
-                                        searchQuery = ""
-                                        freeOnly = false
-                                        selectedLevel = null
-                                    }
+                                    accentColor = accentColor,
+                                    textMuted = textMuted
                                 )
                             }
-                        } else {
-                            items(filteredRooms, key = { it.room.id }) { status ->
-                                RoomVacancyCard(
-                                    status = status,
-                                    isDark = isDark,
-                                    showCampus = selectedCampus == null,
-                                    selectedBuilding = selectedBuilding,
-                                    isSelected = status.room.id == selectedRoomIdForSchedule,
-                                    modifier = Modifier.animateItem(),
-                                    onClick = { selectedRoomIdForSchedule = status.room.id }
-                                )
-                            }
-                        }
-
-                        item(span = { GridItemSpan(maxLineSpan) }, key = "data_provenance_notice") {
-                            RoomCatalogProvenanceCard(
-                                surfaceColor = surfaceColor,
-                                borderSubtle = borderSubtle,
-                                accentColor = accentColor,
-                                textMuted = textMuted
-                            )
                         }
                     }
 
                     // ZONE 3: Docked Right Room Schedule Inspector
                     if (windowInfo.isAtLeastLarge || selectedRoomForSchedule != null) {
-                        val inspectorWidth = if (windowInfo.isExtraLargeWidth) 356.dp else 320.dp
+                        val inspectorWidth = when {
+                            windowInfo.isExtraLargeWidth -> 360.dp
+                            windowInfo.isAtLeastLarge -> 320.dp
+                            else -> 300.dp
+                        }
                         Box(
                             modifier = Modifier
                                 .width(inspectorWidth)
                                 .fillMaxHeight()
+                                .padding(bottom = padding.calculateBottomPadding() + 16.dp)
                                 .testTag("vacant_rooms_inspector_pane")
                         ) {
                             if (selectedRoomForSchedule != null) {
                                 Surface(
-                                    modifier = Modifier.fillMaxSize(),
                                     shape = RoundedCornerShape(20.dp),
                                     color = surfaceColor,
-                                    border = BorderStroke(1.dp, borderSubtle)
+                                    border = BorderStroke(1.dp, borderSubtle),
+                                    modifier = Modifier.fillMaxSize()
                                 ) {
                                     RoomScheduleInspectorContent(
                                         status = selectedRoomForSchedule,
@@ -609,19 +639,25 @@ fun VacantRoomsScreen(
                         }
                     }
                 }
-            } else {
-                // Compact (<600dp) & Medium/Expanded (<1000dp) adaptive grid/list
+            }
+        } else {
+            // Phones (< 600dp) and Medium/Compact Landscape Tablets (< 1000dp)
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.TopCenter
+            ) {
                 LazyVerticalGrid(
-                    columns = if (windowInfo.isTablet) GridCells.Adaptive(minSize = 280.dp) else GridCells.Fixed(1),
+                    columns = if (windowInfo.isTablet) GridCells.Adaptive(minSize = 265.dp) else GridCells.Fixed(1),
                     modifier = Modifier
                         .widthIn(max = windowInfo.maxReadingWidth)
-                        .fillMaxSize()
-                        .padding(horizontal = 16.dp),
+                        .fillMaxSize(),
                     contentPadding = PaddingValues(
+                        start = 16.dp,
+                        end = 16.dp,
                         top = padding.calculateTopPadding() + 6.dp,
-                        bottom = padding.calculateBottomPadding() + 20.dp
+                        bottom = padding.calculateBottomPadding() + 16.dp
                     ),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     item(span = { GridItemSpan(maxLineSpan) }, key = "search_and_quick_filters") {
@@ -660,12 +696,12 @@ fun VacantRoomsScreen(
                     }
 
                     item(span = { GridItemSpan(maxLineSpan) }, key = "status_summary_row") {
-                        RoomStatusSummaryRow(
+                        VacantRoomsStatusSummaryRow(
                             isLiveNow = isLiveNow,
-                            freeCount = freeCount,
-                            occupiedCount = occupiedCount,
                             queryDay = queryDay,
                             queryTime = queryTime,
+                            freeCount = freeCount,
+                            occupiedCount = occupiedCount,
                             selectedBuilding = selectedBuilding,
                             selectedCampus = selectedCampus,
                             isDark = isDark,
@@ -675,13 +711,13 @@ fun VacantRoomsScreen(
 
                     if (filteredRooms.isEmpty()) {
                         item(span = { GridItemSpan(maxLineSpan) }, key = "empty_rooms") {
-                            EmptyRoomsFilterCard(
+                            VacantRoomsEmptyStateCard(
                                 surfaceColor = surfaceColor,
                                 borderSubtle = borderSubtle,
                                 textPrimary = textPrimary,
                                 textMuted = textMuted,
-                                canClear = searchQuery.isNotBlank() || freeOnly || selectedLevel != null,
-                                onClear = {
+                                hasActiveFilters = searchQuery.isNotBlank() || freeOnly || selectedLevel != null,
+                                onClearFilters = {
                                     searchQuery = ""
                                     freeOnly = false
                                     selectedLevel = null
@@ -703,19 +739,22 @@ fun VacantRoomsScreen(
                     }
 
                     item(span = { GridItemSpan(maxLineSpan) }, key = "data_provenance_notice") {
-                        RoomCatalogProvenanceCard(
-                            surfaceColor = surfaceColor,
-                            borderSubtle = borderSubtle,
-                            accentColor = accentColor,
-                            textMuted = textMuted
-                        )
+                        Column {
+                            VacantRoomsProvenanceNotice(
+                                surfaceColor = surfaceColor,
+                                borderSubtle = borderSubtle,
+                                accentColor = accentColor,
+                                textMuted = textMuted
+                            )
+                            Spacer(modifier = Modifier.height(24.dp))
+                        }
                     }
                 }
             }
         }
     }
 
-    if (showFilterSheet) {
+    if (showFilterSheet && !showDesktopSplit) {
         VacantRoomsFilterSheet(
             queryDay = queryDay,
             queryTime = queryTime,
@@ -727,7 +766,12 @@ fun VacantRoomsScreen(
             isDark = isDark,
             onDismiss = { showFilterSheet = false },
             onResetAll = resetAllFilters,
-            onSelectLiveNow = selectLiveNow,
+            onSelectLiveNow = {
+                val now = Calendar.getInstance()
+                queryDay = TimeUtil.todayName()
+                queryTime = String.format(Locale.US, "%02d:%02d", now.get(Calendar.HOUR_OF_DAY), now.get(Calendar.MINUTE))
+                isLiveNow = true
+            },
             onOpenDayPicker = { showDayPicker = true },
             onOpenTimePicker = {
                 isLiveNow = false
@@ -767,7 +811,7 @@ fun VacantRoomsScreen(
         )
     }
 
-    if (!isDesktopWorkspace) {
+    if (!showDesktopSplit) {
         selectedRoomForSchedule?.let { status ->
             RoomScheduleDetailDialog(
                 status = status,
@@ -780,12 +824,12 @@ fun VacantRoomsScreen(
 }
 
 @Composable
-private fun RoomStatusSummaryRow(
+private fun VacantRoomsStatusSummaryRow(
     isLiveNow: Boolean,
-    freeCount: Int,
-    occupiedCount: Int,
     queryDay: String,
     queryTime: String,
+    freeCount: Int,
+    occupiedCount: Int,
     selectedBuilding: String?,
     selectedCampus: String?,
     isDark: Boolean,
@@ -838,13 +882,13 @@ private fun RoomStatusSummaryRow(
 }
 
 @Composable
-private fun EmptyRoomsFilterCard(
+private fun VacantRoomsEmptyStateCard(
     surfaceColor: Color,
     borderSubtle: Color,
     textPrimary: Color,
     textMuted: Color,
-    canClear: Boolean,
-    onClear: () -> Unit
+    hasActiveFilters: Boolean,
+    onClearFilters: () -> Unit
 ) {
     Surface(
         shape = RoundedCornerShape(16.dp),
@@ -878,10 +922,10 @@ private fun EmptyRoomsFilterCard(
                 color = textMuted,
                 textAlign = TextAlign.Center
             )
-            if (canClear) {
+            if (hasActiveFilters) {
                 Spacer(modifier = Modifier.height(14.dp))
                 OutlinedButton(
-                    onClick = onClear,
+                    onClick = onClearFilters,
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.desktopHandCursor()
                 ) {
@@ -893,7 +937,7 @@ private fun EmptyRoomsFilterCard(
 }
 
 @Composable
-private fun RoomCatalogProvenanceCard(
+private fun VacantRoomsProvenanceNotice(
     surfaceColor: Color,
     borderSubtle: Color,
     accentColor: Color,
@@ -927,4 +971,3 @@ private fun RoomCatalogProvenanceCard(
         }
     }
 }
-

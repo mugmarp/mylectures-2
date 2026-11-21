@@ -28,9 +28,16 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -64,7 +71,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isMetaPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -89,6 +104,8 @@ import com.lectures.ui.Chrome
 import com.lectures.ui.LocalAppTheme
 import com.lectures.ui.components.AcademicProfileSheet
 import com.lectures.ui.components.FloatingIslandTopBar
+import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.contrastOnColor
 import com.lectures.ui.rememberLecturesWindow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flowOf
@@ -235,18 +252,42 @@ fun TasksScreen(
     val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val listBottomPadding = Chrome.listBottomPadding(navBarBottom, windowInfo.useNavigationRail)
     val listState = rememberLazyListState()
+    val gridState = rememberLazyGridState()
+    val searchFocusRequester = remember { FocusRequester() }
+    val primaryInk = contrastOnColor(primaryColor)
 
-    LaunchedEffect(highlightTaskId, filteredTasks) {
+    LaunchedEffect(highlightTaskId, filteredTasks, windowInfo.isExtraLargeWidth) {
         val targetId = highlightTaskId ?: return@LaunchedEffect
         val index = filteredTasks.indexOfFirst { it.id == targetId }
         if (index != -1) {
-            listState.animateScrollToItem((index + 3).coerceAtLeast(0))
+            if (windowInfo.isDualPane && windowInfo.isExtraLargeWidth) {
+                gridState.animateScrollToItem((index + 2).coerceAtLeast(0))
+            } else {
+                listState.animateScrollToItem((index + 3).coerceAtLeast(0))
+            }
         }
     }
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         containerColor = bg,
+        modifier = Modifier.onKeyEvent { event ->
+            if (event.type == KeyEventType.KeyDown) {
+                val modPressed = event.isCtrlPressed || event.isMetaPressed
+                when {
+                    modPressed && event.key == Key.N -> {
+                        editingTaskId = null
+                        showAddDialog = true
+                        true
+                    }
+                    modPressed && event.key == Key.F -> {
+                        try { searchFocusRequester.requestFocus() } catch (_: Exception) {}
+                        true
+                    }
+                    else -> false
+                }
+            } else false
+        },
         floatingActionButton = {
             if (windowInfo.collapseFab) {
                 FloatingActionButton(
@@ -255,11 +296,12 @@ fun TasksScreen(
                         showAddDialog = true
                     },
                     containerColor = primaryColor,
-                    contentColor = Color.White,
+                    contentColor = primaryInk,
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier
                         .navigationBarsPadding()
                         .padding(bottom = Chrome.fabBottomPadding(windowInfo.useNavigationRail))
+                        .desktopHandCursor()
                         .testTag("add_task_fab")
                 ) {
                     Icon(Icons.Default.Add, contentDescription = "Add Task", modifier = Modifier.size(24.dp))
@@ -271,13 +313,14 @@ fun TasksScreen(
                         showAddDialog = true
                     },
                     containerColor = primaryColor,
-                    contentColor = Color.White,
+                    contentColor = primaryInk,
                     shape = RoundedCornerShape(16.dp),
                     icon = { Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(20.dp)) },
                     text = { Text(text = "Add Task", fontWeight = FontWeight.SemiBold, fontSize = 14.sp) },
                     modifier = Modifier
                         .navigationBarsPadding()
                         .padding(bottom = Chrome.fabBottomPadding(windowInfo.useNavigationRail))
+                        .desktopHandCursor()
                         .testTag("add_task_fab")
                 )
             }
@@ -293,7 +336,7 @@ fun TasksScreen(
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (onBack != null) {
-                            IconButton(onClick = onBack) {
+                            IconButton(onClick = onBack, modifier = Modifier.desktopHandCursor()) {
                                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = textPrimary)
                             }
                             Spacer(modifier = Modifier.width(4.dp))
@@ -305,7 +348,7 @@ fun TasksScreen(
                                     .background(primaryColor),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(Icons.Default.TaskAlt, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                                Icon(Icons.Default.TaskAlt, contentDescription = null, tint = primaryInk, modifier = Modifier.size(20.dp))
                             }
                             Spacer(modifier = Modifier.width(12.dp))
                         }
@@ -320,7 +363,9 @@ fun TasksScreen(
 
                     IconButton(
                         onClick = { showProfileSheet = true },
-                        modifier = Modifier.testTag("topbar_academic_info_btn")
+                        modifier = Modifier
+                            .desktopHandCursor()
+                            .testTag("topbar_academic_info_btn")
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.Menu,
@@ -340,34 +385,41 @@ fun TasksScreen(
                 .padding(top = innerPadding.calculateTopPadding())
         ) {
             if ((!areNotificationsAllowed || isTaskChannelBlocked) && !isNotificationBannerDismissed) {
-                TasksNotificationPromptBanner(
-                    isDark = isDark,
-                    areNotificationsAllowed = areNotificationsAllowed,
-                    onActionClick = {
-                        if (!areNotificationsAllowed) {
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                val activity = context as? Activity
-                                val shouldShowRationale = activity != null &&
-                                    ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.POST_NOTIFICATIONS)
-                                val canLaunchRuntime = !NotificationPermissionHelper.hasPromptedNotificationPermission(context) || shouldShowRationale
-                                if (canLaunchRuntime) {
-                                    NotificationPermissionHelper.setPromptedNotificationPermission(context, true)
-                                    permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(modifier = Modifier.widthIn(max = windowInfo.maxReadingWidth)) {
+                        TasksNotificationPromptBanner(
+                            isDark = isDark,
+                            areNotificationsAllowed = areNotificationsAllowed,
+                            onActionClick = {
+                                if (!areNotificationsAllowed) {
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                        val activity = context as? Activity
+                                        val shouldShowRationale = activity != null &&
+                                            ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.POST_NOTIFICATIONS)
+                                        val canLaunchRuntime = !NotificationPermissionHelper.hasPromptedNotificationPermission(context) || shouldShowRationale
+                                        if (canLaunchRuntime) {
+                                            NotificationPermissionHelper.setPromptedNotificationPermission(context, true)
+                                            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                        } else {
+                                            NotificationPermissionHelper.openAppNotificationSettings(context)
+                                        }
+                                    } else {
+                                        NotificationPermissionHelper.openAppNotificationSettings(context)
+                                    }
                                 } else {
-                                    NotificationPermissionHelper.openAppNotificationSettings(context)
+                                    NotificationPermissionHelper.openChannelSettings(context, NotificationHelper.CHANNEL_ACADEMIC_TASKS)
                                 }
-                            } else {
-                                NotificationPermissionHelper.openAppNotificationSettings(context)
+                            },
+                            onDismiss = {
+                                isNotificationBannerDismissed = true
+                                NotificationPermissionHelper.setTaskBannerDismissed(context, true)
                             }
-                        } else {
-                            NotificationPermissionHelper.openChannelSettings(context, NotificationHelper.CHANNEL_ACADEMIC_TASKS)
-                        }
-                    },
-                    onDismiss = {
-                        isNotificationBannerDismissed = true
-                        NotificationPermissionHelper.setTaskBannerDismissed(context, true)
+                        )
                     }
-                )
+                }
             }
 
             AnimatedVisibility(
@@ -376,23 +428,29 @@ fun TasksScreen(
                 exit = fadeOut()
             ) {
                 uiState.messageSnackbar?.let { msg ->
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 20.dp, vertical = 4.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (isDark) Color(0xFF334155) else Color(0xFF1E293B)
-                        )
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                        Card(
+                            modifier = Modifier
+                                .widthIn(max = windowInfo.maxReadingWidth)
+                                .fillMaxWidth()
+                                .padding(horizontal = 20.dp, vertical = 4.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isDark) Color(0xFF334155) else Color(0xFF1E293B)
+                            )
                         ) {
-                            Text(msg, color = Color.White, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                            IconButton(onClick = { viewModel.clearMessage() }) {
-                                Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = Color.White, modifier = Modifier.size(14.dp))
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(msg, color = Color.White, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                                IconButton(onClick = { viewModel.clearMessage() }, modifier = Modifier.desktopHandCursor()) {
+                                    Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = Color.White, modifier = Modifier.size(14.dp))
+                                }
                             }
                         }
                     }
@@ -413,85 +471,163 @@ fun TasksScreen(
                     }
                 }
             } else if (windowInfo.isDualPane) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 24.dp),
-                    horizontalArrangement = Arrangement.spacedBy(24.dp)
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.TopCenter
                 ) {
-                    Column(
+                    Row(
                         modifier = Modifier
-                            .widthIn(max = 380.dp)
-                            .weight(1f)
-                            .padding(top = 4.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                            .widthIn(max = windowInfo.maxReadingWidth)
+                            .fillMaxSize()
+                            .padding(horizontal = 24.dp),
+                        horizontalArrangement = Arrangement.spacedBy(24.dp)
                     ) {
-                        TaskProgressDashboard(
-                            assignments = assignments,
-                            currentFilter = uiState.selectedFilter,
-                            onFilterChange = { viewModel.setFilter(it) }
-                        )
-                    }
-
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier
-                            .weight(1.6f)
-                            .fillMaxHeight(),
-                        verticalArrangement = Arrangement.spacedBy(14.dp),
-                        contentPadding = PaddingValues(top = 4.dp, bottom = listBottomPadding + 96.dp)
-                    ) {
-                        item(key = "search_field_item") {
-                            TasksSearchField(
-                                query = uiState.searchQuery,
-                                isDark = isDark,
-                                primaryColor = primaryColor,
-                                cardBg = cardBg,
-                                borderColor = borderColor,
-                                textPrimary = textPrimary,
-                                textSecondary = textSecondary,
-                                onQueryChange = { viewModel.setSearchQuery(it) }
-                            )
-                        }
-                        item(key = "filter_chips_item") {
-                            TasksFilterChipsRow(
+                        Column(
+                            modifier = Modifier
+                                .widthIn(max = 380.dp)
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .verticalScroll(rememberScrollState())
+                                .padding(top = 4.dp, bottom = listBottomPadding),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            TaskProgressDashboard(
                                 assignments = assignments,
-                                selectedFilter = uiState.selectedFilter,
-                                isDark = isDark,
-                                primaryColor = primaryColor,
-                                cardBg = cardBg,
-                                borderColor = borderColor,
-                                textSecondary = textSecondary,
-                                onFilterSelected = { viewModel.setFilter(it) }
+                                currentFilter = uiState.selectedFilter,
+                                onFilterChange = { viewModel.setFilter(it) }
                             )
                         }
-                        if (filteredTasks.isEmpty()) {
-                            item(key = "empty_tasks_state_dual") {
-                                TasksEmptyStateCard(
-                                    searchQuery = uiState.searchQuery,
-                                    selectedFilter = uiState.selectedFilter,
-                                    primaryColor = primaryColor,
-                                    textPrimary = textPrimary,
-                                    textSecondary = textSecondary
-                                )
+
+                        if (windowInfo.isExtraLargeWidth) {
+                            LazyVerticalGrid(
+                                state = gridState,
+                                columns = GridCells.Fixed(2),
+                                modifier = Modifier
+                                    .weight(1.75f)
+                                    .fillMaxHeight()
+                                    .testTag("tasks_desktop_grid"),
+                                verticalArrangement = Arrangement.spacedBy(14.dp),
+                                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                contentPadding = PaddingValues(top = 4.dp, bottom = listBottomPadding + 96.dp)
+                            ) {
+                                item(key = "search_field_item", span = { GridItemSpan(maxLineSpan) }) {
+                                    TasksSearchField(
+                                        query = uiState.searchQuery,
+                                        isDark = isDark,
+                                        primaryColor = primaryColor,
+                                        cardBg = cardBg,
+                                        borderColor = borderColor,
+                                        textPrimary = textPrimary,
+                                        textSecondary = textSecondary,
+                                        focusRequester = searchFocusRequester,
+                                        onQueryChange = { viewModel.setSearchQuery(it) }
+                                    )
+                                }
+                                item(key = "filter_chips_item", span = { GridItemSpan(maxLineSpan) }) {
+                                    TasksFilterChipsRow(
+                                        assignments = assignments,
+                                        selectedFilter = uiState.selectedFilter,
+                                        isDark = isDark,
+                                        primaryColor = primaryColor,
+                                        cardBg = cardBg,
+                                        borderColor = borderColor,
+                                        textSecondary = textSecondary,
+                                        onFilterSelected = { viewModel.setFilter(it) }
+                                    )
+                                }
+                                if (filteredTasks.isEmpty()) {
+                                    item(key = "empty_tasks_state_grid", span = { GridItemSpan(maxLineSpan) }) {
+                                        TasksEmptyStateCard(
+                                            searchQuery = uiState.searchQuery,
+                                            selectedFilter = uiState.selectedFilter,
+                                            primaryColor = primaryColor,
+                                            textPrimary = textPrimary,
+                                            textSecondary = textSecondary
+                                        )
+                                    }
+                                } else {
+                                    gridItems(filteredTasks, key = { it.id }) { task ->
+                                        TaskCard(
+                                            task = task,
+                                            isDark = isDark,
+                                            isHighlighted = task.id == highlightTaskId,
+                                            modifier = Modifier.animateItem(),
+                                            onToggleComplete = { viewModel.toggleComplete(task) },
+                                            onEdit = {
+                                                editingTaskId = task.id
+                                                showAddDialog = true
+                                            },
+                                            onDelete = { deleteTaskId = task.id }
+                                        )
+                                    }
+                                    item(key = "tasks_bottom_clearance_spacer_grid", span = { GridItemSpan(maxLineSpan) }) {
+                                        Spacer(modifier = Modifier.height(24.dp))
+                                    }
+                                }
                             }
                         } else {
-                            items(filteredTasks, key = { it.id }) { task ->
-                                TaskCard(
-                                    task = task,
-                                    isDark = isDark,
-                                    isHighlighted = task.id == highlightTaskId,
-                                    modifier = Modifier.animateItem(),
-                                    onToggleComplete = { viewModel.toggleComplete(task) },
-                                    onEdit = {
-                                        editingTaskId = task.id
-                                        showAddDialog = true
-                                    },
-                                    onDelete = { deleteTaskId = task.id }
-                                )
-                            }
-                            item(key = "tasks_bottom_clearance_spacer_dual") {
-                                Spacer(modifier = Modifier.height(24.dp))
+                            LazyColumn(
+                                state = listState,
+                                modifier = Modifier
+                                    .weight(1.6f)
+                                    .fillMaxHeight(),
+                                verticalArrangement = Arrangement.spacedBy(14.dp),
+                                contentPadding = PaddingValues(top = 4.dp, bottom = listBottomPadding + 96.dp)
+                            ) {
+                                item(key = "search_field_item") {
+                                    TasksSearchField(
+                                        query = uiState.searchQuery,
+                                        isDark = isDark,
+                                        primaryColor = primaryColor,
+                                        cardBg = cardBg,
+                                        borderColor = borderColor,
+                                        textPrimary = textPrimary,
+                                        textSecondary = textSecondary,
+                                        focusRequester = searchFocusRequester,
+                                        onQueryChange = { viewModel.setSearchQuery(it) }
+                                    )
+                                }
+                                item(key = "filter_chips_item") {
+                                    TasksFilterChipsRow(
+                                        assignments = assignments,
+                                        selectedFilter = uiState.selectedFilter,
+                                        isDark = isDark,
+                                        primaryColor = primaryColor,
+                                        cardBg = cardBg,
+                                        borderColor = borderColor,
+                                        textSecondary = textSecondary,
+                                        onFilterSelected = { viewModel.setFilter(it) }
+                                    )
+                                }
+                                if (filteredTasks.isEmpty()) {
+                                    item(key = "empty_tasks_state_dual") {
+                                        TasksEmptyStateCard(
+                                            searchQuery = uiState.searchQuery,
+                                            selectedFilter = uiState.selectedFilter,
+                                            primaryColor = primaryColor,
+                                            textPrimary = textPrimary,
+                                            textSecondary = textSecondary
+                                        )
+                                    }
+                                } else {
+                                    items(filteredTasks, key = { it.id }) { task ->
+                                        TaskCard(
+                                            task = task,
+                                            isDark = isDark,
+                                            isHighlighted = task.id == highlightTaskId,
+                                            modifier = Modifier.animateItem(),
+                                            onToggleComplete = { viewModel.toggleComplete(task) },
+                                            onEdit = {
+                                                editingTaskId = task.id
+                                                showAddDialog = true
+                                            },
+                                            onDelete = { deleteTaskId = task.id }
+                                        )
+                                    }
+                                    item(key = "tasks_bottom_clearance_spacer_dual") {
+                                        Spacer(modifier = Modifier.height(24.dp))
+                                    }
+                                }
                             }
                         }
                     }
@@ -527,6 +663,7 @@ fun TasksScreen(
                                 borderColor = borderColor,
                                 textPrimary = textPrimary,
                                 textSecondary = textSecondary,
+                                focusRequester = searchFocusRequester,
                                 onQueryChange = { viewModel.setSearchQuery(it) }
                             )
                         }
@@ -646,13 +783,17 @@ fun TasksScreen(
                         viewModel.deleteAssignment(task.id)
                         deleteTaskId = null
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    ),
+                    modifier = Modifier.desktopHandCursor()
                 ) {
-                    Text("Delete", color = Color.White)
+                    Text("Delete", color = MaterialTheme.colorScheme.onError)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { deleteTaskId = null }) {
+                TextButton(onClick = { deleteTaskId = null }, modifier = Modifier.desktopHandCursor()) {
                     Text("Cancel", color = textSecondary)
                 }
             }
