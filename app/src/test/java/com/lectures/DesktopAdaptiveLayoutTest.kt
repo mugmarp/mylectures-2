@@ -7,6 +7,9 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertWidthIsAtLeast
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -14,6 +17,8 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import com.lectures.features.account.AccountScreen
@@ -220,11 +225,18 @@ class DesktopAdaptiveLayoutTest {
     fun notesDashboardAndEditorRenderDesktopQuickPreviewAndThreeZoneSplit() {
         runBlocking {
             app.repository.saveNote(
-                naturalKey = "note_desktop_test_1",
-                content = "## Concurrency\nMutexes and semaphores prevent race conditions.",
+                naturalKey = "CSC3101|note_desktop_test_1",
+                content = "## Concurrency\n- [ ] Review mutexes\nMutexes and semaphores prevent race conditions.",
                 title = "Operating Systems Lecture 4",
                 tag = "Lecture",
                 attachedClass = "CSC3101"
+            )
+            app.repository.saveNote(
+                naturalKey = "CSC3204|note_desktop_test_2",
+                content = "## Indexing\nB+ trees for disk pages.",
+                title = "Algorithms & Indexing",
+                tag = "Revision",
+                attachedClass = "CSC3204"
             )
         }
 
@@ -240,11 +252,63 @@ class DesktopAdaptiveLayoutTest {
             composeRule.onAllNodesWithTag("notes_quick_preview_pane").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithTag("notes_quick_preview_pane").assertIsDisplayed()
+        composeRule.onNodeWithTag("notes_sort_button").assertIsDisplayed().performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("Title A–Z").assertIsDisplayed().performClick()
+        composeRule.waitForIdle()
+
+        // After Title A-Z sort, scroll/select "Operating Systems Lecture 4" card to inspect and toggle its checklist
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithTag("notes_desktop_grid").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithTag("notes_desktop_grid")
+            .performScrollToNode(hasTestTag("note_card_CSC3101|note_desktop_test_1"))
+        composeRule.onNodeWithTag("note_card_CSC3101|note_desktop_test_1").performClick()
+        composeRule.mainClock.advanceTimeBy(500)
+        composeRule.waitUntil(timeoutMillis = 3_000) {
+            composeRule.onAllNodes(
+                hasText("Review mutexes") and hasAnyAncestor(hasTestTag("notes_quick_preview_pane"))
+            ).fetchSemanticsNodes().isNotEmpty()
+        }
+
+        // Toggle checklist item directly inside preview pane (0/1 tasks -> 1/1 tasks)
+        composeRule.onNode(
+            hasText("Review mutexes") and hasAnyAncestor(hasTestTag("notes_quick_preview_pane"))
+        ).performClick()
+        composeRule.waitUntil(timeoutMillis = 3_000) {
+            composeRule.onAllNodes(
+                hasText("1/1 tasks") and hasAnyAncestor(hasTestTag("notes_quick_preview_pane"))
+            ).fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNode(
+            hasText("1/1 tasks") and hasAnyAncestor(hasTestTag("notes_quick_preview_pane"))
+        ).assertIsDisplayed()
+        composeRule.onNode(
+            hasText("1/1 tasks") and hasAnyAncestor(hasTestTag("note_card_CSC3101|note_desktop_test_1")),
+            useUnmergedTree = true
+        ).assertExists()
+
+        // Copy button & close preview -> Show Top Note restore flow
+        composeRule.onNodeWithTag("notes_preview_copy_btn")
+            .assertIsDisplayed()
+            .assertWidthIsAtLeast(48.dp)
+            .assertHeightIsAtLeast(48.dp)
+            .performClick()
+        composeRule.onNodeWithTag("notes_preview_close_btn")
+            .assertIsDisplayed()
+            .assertWidthIsAtLeast(48.dp)
+            .assertHeightIsAtLeast(48.dp)
+            .performClick()
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithText("Show Top Note").assertIsDisplayed().performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("notes_preview_edit_btn").assertIsDisplayed().assertHeightIsAtLeast(48.dp)
     }
 
     @Test
     @Config(qualifiers = "w1280dp-h800dp")
-    fun noteEditorShowsSplitTabLivePreviewAndInspectorSimultaneouslyOnDesktop() {
+    fun noteEditorShowsSplitTabLivePreviewCollapsibleInspectorAndUnsavedWikiLinkGuardOnDesktop() {
         composeRule.setContent {
             CompositionLocalProvider(LocalConfiguration provides configuredCopy(1280, 800)) {
                 AppTheme(themeMode = ThemeMode.DARK) {
@@ -252,6 +316,7 @@ class DesktopAdaptiveLayoutTest {
                         initialNote = null,
                         availableCourses = listOf(CourseOption("CSC3101", "Operating Systems", "#2563EB")),
                         timetableClasses = emptyList(),
+                        onWikiLinkClick = {},
                         onSave = { _, _, _, _, _, _, _, _, _ -> },
                         onCancel = {}
                     )
@@ -267,6 +332,83 @@ class DesktopAdaptiveLayoutTest {
         composeRule.onNodeWithTag("note_content_editor").assertIsDisplayed()
         composeRule.onNodeWithTag("note_live_preview_pane").assertIsDisplayed()
         composeRule.onNodeWithTag("note_editor_inspector").assertIsDisplayed()
+        composeRule.onNodeWithTag("note_editor_copy_md_btn")
+            .assertIsDisplayed()
+            .assertWidthIsAtLeast(48.dp)
+            .assertHeightIsAtLeast(48.dp)
+        composeRule.onNodeWithTag("note_save_button").assertIsDisplayed()
+
+        // Collapse and restore right inspector drawer
+        composeRule.onNodeWithTag("note_editor_inspector_toggle")
+            .assertIsDisplayed()
+            .assertWidthIsAtLeast(48.dp)
+            .assertHeightIsAtLeast(48.dp)
+            .performClick()
+        composeRule.waitForIdle()
+        assertEquals(0, composeRule.onAllNodesWithTag("note_editor_inspector").fetchSemanticsNodes().size)
+
+        composeRule.onNodeWithTag("note_editor_inspector_toggle").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("note_editor_inspector").assertIsDisplayed()
+
+        // Typing content displays Unsaved badge and protects WikiLink clicks with a Save/Discard dialog
+        composeRule.onNodeWithTag("note_content_editor").performTextInput("[[Algorithms]]")
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("note_unsaved_badge").assertIsDisplayed()
+        composeRule.onNode(
+            hasText("Algorithms") and hasAnyAncestor(hasTestTag("note_live_preview_pane"))
+        ).assertIsDisplayed().performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("Save & Open").assertIsDisplayed()
+        composeRule.onNodeWithText("Cancel").performClick()
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp")
+    fun compactMobileNotesDashboardAndEditorPreserveCompactLayoutAndTouchTargets() {
+        runBlocking {
+            app.repository.saveNote(
+                naturalKey = "CSC3101|mobile_test_1",
+                content = "# Lecture 1\nBinary heaps run in O(log n).",
+                title = "Data Structures Recap",
+                tag = "Study Guide",
+                attachedClass = "CSC3101: Data Structures · Monday, 08:00 – 10:00"
+            )
+        }
+
+        composeRule.setContent {
+            CompositionLocalProvider(LocalConfiguration provides configuredCopy(360, 800)) {
+                AppTheme(themeMode = ThemeMode.LIGHT) {
+                    NotesScreen()
+                }
+            }
+        }
+
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithTag("note_card_CSC3101|mobile_test_1").fetchSemanticsNodes().isNotEmpty()
+        }
+
+        // Mobile should NOT show desktop preview pane, should show sort button & FAB with 48dp+ bounds
+        assertEquals(0, composeRule.onAllNodesWithTag("notes_quick_preview_pane").fetchSemanticsNodes().size)
+        composeRule.onNodeWithTag("topbar_academic_info_btn")
+            .assertIsDisplayed()
+            .assertWidthIsAtLeast(48.dp)
+            .assertHeightIsAtLeast(48.dp)
+        composeRule.onNodeWithTag("notes_sort_button")
+            .assertIsDisplayed()
+            .assertWidthIsAtLeast(48.dp)
+            .assertHeightIsAtLeast(48.dp)
+        composeRule.onNodeWithTag("add_note_fab").assertIsDisplayed()
+
+        // Single tap opens NoteEditor immediately in compact mode (no desktop split/inspector clutter)
+        composeRule.onNodeWithTag("note_card_CSC3101|mobile_test_1").performClick()
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithTag("note_save_button").fetchSemanticsNodes().isNotEmpty()
+        }
+        assertEquals(0, composeRule.onAllNodesWithTag("note_editor_split_tab").fetchSemanticsNodes().size)
+        assertEquals(0, composeRule.onAllNodesWithTag("note_editor_inspector").fetchSemanticsNodes().size)
+        composeRule.onNodeWithTag("note_editor_write_tab").assertIsDisplayed()
+        composeRule.onNodeWithTag("note_editor_preview_tab").assertIsDisplayed()
         composeRule.onNodeWithTag("note_save_button").assertIsDisplayed()
     }
 

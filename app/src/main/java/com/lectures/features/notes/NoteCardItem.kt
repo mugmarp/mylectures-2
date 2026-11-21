@@ -1,8 +1,9 @@
 package com.lectures.features.notes
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -14,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -22,17 +24,21 @@ import com.lectures.core.util.rememberLifecycleGatedClockPulse
 import com.lectures.features.timetable.domain.LectureNote
 import com.lectures.features.timetable.ui.DarkBorderSubtle
 import com.lectures.features.timetable.ui.DarkSurfaceCard
+import com.lectures.ui.LocalExtendedColors
 import com.lectures.ui.components.desktopHandCursor
 import com.lectures.ui.components.desktopHoverable
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun NoteCardItem(
     note: LectureNote,
     courseCode: String,
     isDark: Boolean = false,
+    isSelected: Boolean = false,
+    enableDoubleClickEdit: Boolean = false,
     modifier: Modifier = Modifier,
     onOpen: () -> Unit,
     onEdit: () -> Unit = onOpen,
@@ -40,6 +46,8 @@ fun NoteCardItem(
     onDelete: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
+    val ext = LocalExtendedColors.current
+    val accent = MaterialTheme.colorScheme.primary
 
     val categoryTag = note.tag ?: "Lecture"
 
@@ -60,11 +68,24 @@ fun NoteCardItem(
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .desktopHandCursor()
-            .clickable(onClick = onOpen),
+            .combinedClickable(
+                onClick = onOpen,
+                onDoubleClick = if (enableDoubleClickEdit) onEdit else null
+            )
+            .testTag("note_card_${note.naturalKey}"),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = if (isDark) DarkSurfaceCard else Color.White),
-        border = BorderStroke(1.dp, if (isDark) DarkBorderSubtle else Color(0xFFE2E8F0)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        colors = CardDefaults.cardColors(
+            containerColor = when {
+                isSelected -> if (isDark) accent.copy(alpha = 0.14f) else accent.copy(alpha = 0.06f)
+                isDark -> DarkSurfaceCard
+                else -> Color.White
+            }
+        ),
+        border = BorderStroke(
+            width = if (isSelected) 2.dp else 1.dp,
+            color = if (isSelected) accent else if (isDark) DarkBorderSubtle else ext.borderSubtle
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isSelected) 3.dp else 1.dp)
     ) {
         Column(
             modifier = Modifier
@@ -104,11 +125,20 @@ fun NoteCardItem(
                             .background(tagBg)
                             .padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
-                        Text(categoryTag, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = tagText)
+                        Text(
+                            categoryTag,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = tagText,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
 
                     Box(
                         modifier = Modifier
+                            .weight(1f, fill = false)
                             .clip(RoundedCornerShape(8.dp))
                             .background(if (isDark) com.lectures.features.timetable.ui.DarkSurfaceContainer else Color(0xFFF1F5F9))
                             .padding(horizontal = 8.dp, vertical = 4.dp)
@@ -116,7 +146,7 @@ fun NoteCardItem(
                         Text(
                             scheduleTag,
                             fontSize = 11.sp,
-                            color = if (isDark) Color(0xFF94A3B8) else Color(0xFF475569),
+                            color = ext.textSecondary,
                             fontWeight = FontWeight.Medium,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -128,13 +158,13 @@ fun NoteCardItem(
                     IconButton(
                         onClick = onTogglePin,
                         modifier = Modifier
-                            .minimumInteractiveComponentSize()
+                            .size(48.dp)
                             .desktopHandCursor()
                     ) {
                         Icon(
                             if (note.isPinned) Icons.Default.PushPin else Icons.Outlined.PushPin,
                             contentDescription = if (note.isPinned) "Unpin Note" else "Pin Note",
-                            tint = if (note.isPinned) MaterialTheme.colorScheme.primary else (if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8)),
+                            tint = if (note.isPinned) accent else ext.textMuted,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -143,13 +173,13 @@ fun NoteCardItem(
                         IconButton(
                             onClick = { showMenu = true },
                             modifier = Modifier
-                                .minimumInteractiveComponentSize()
+                                .size(48.dp)
                                 .desktopHandCursor()
                         ) {
                             Icon(
                                 Icons.Default.MoreVert,
                                 contentDescription = "Options",
-                                tint = Color(0xFF94A3B8),
+                                tint = ext.textMuted,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -164,15 +194,37 @@ fun NoteCardItem(
                                     showMenu = false
                                     onEdit()
                                 },
-                                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
+                                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+                                modifier = Modifier.desktopHandCursor()
                             )
                             DropdownMenuItem(
-                                text = { Text("Delete Note", color = Color(0xFFDC2626)) },
+                                text = { Text(if (note.isPinned) "Unpin Note" else "Pin Note") },
+                                onClick = {
+                                    showMenu = false
+                                    onTogglePin()
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        if (note.isPinned) Icons.Default.PushPin else Icons.Outlined.PushPin,
+                                        contentDescription = null
+                                    )
+                                },
+                                modifier = Modifier.desktopHandCursor()
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Delete Note", color = MaterialTheme.colorScheme.error) },
                                 onClick = {
                                     showMenu = false
                                     onDelete()
                                 },
-                                leadingIcon = { Icon(Icons.Default.DeleteOutline, contentDescription = null, tint = Color(0xFFDC2626)) }
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Default.DeleteOutline,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
+                                },
+                                modifier = Modifier.desktopHandCursor()
                             )
                         }
                     }
@@ -219,7 +271,8 @@ fun NoteCardItem(
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.weight(1f, fill = false)
                 ) {
                     val accentColor = MaterialTheme.colorScheme.primary
                     if (note.alarmMinutes != null) {
@@ -241,7 +294,9 @@ fun NoteCardItem(
                                     "${note.alarmMinutes}m alert",
                                     fontSize = 11.sp,
                                     color = accentColor,
-                                    fontWeight = FontWeight.SemiBold
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
+                                    softWrap = false
                                 )
                             }
                         }
@@ -271,12 +326,16 @@ fun NoteCardItem(
                                     "$done/$total tasks",
                                     fontSize = 11.sp,
                                     color = if (isComplete) (if (isDark) Color(0xFF6EE7B7) else Color(0xFF15803D)) else accentColor,
-                                    fontWeight = FontWeight.SemiBold
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
+                                    softWrap = false
                                 )
                             }
                         }
                     }
                 }
+
+                Spacer(modifier = Modifier.width(8.dp))
 
                 if (!note.attachmentName.isNullOrBlank()) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -291,7 +350,9 @@ fun NoteCardItem(
                             if (note.attachmentPath != null) "1 File" else "Name only",
                             fontSize = 11.sp,
                             color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            softWrap = false
                         )
                     }
                 } else {
@@ -310,7 +371,9 @@ fun NoteCardItem(
                     Text(
                         text = relativeTime,
                         fontSize = 11.sp,
-                        color = Color(0xFF94A3B8)
+                        color = Color(0xFF94A3B8),
+                        maxLines = 1,
+                        softWrap = false
                     )
                 }
             }

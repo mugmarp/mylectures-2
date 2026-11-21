@@ -35,8 +35,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isMetaPressed
 import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -46,6 +47,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lectures.TimetableApplication
 import com.lectures.core.alarm.AlarmScheduler
@@ -57,6 +59,7 @@ import com.lectures.ui.LocalExtendedColors
 import com.lectures.ui.components.AcademicProfileSheet
 import com.lectures.ui.components.FloatingIslandTopBar
 import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.components.onEscapeKey
 import com.lectures.ui.contrastOnColor
 import com.lectures.ui.rememberLecturesWindow
 import kotlinx.coroutines.delay
@@ -83,6 +86,7 @@ fun NotesScreen(
     }
 
     val isDark = LocalAppTheme.current.isDark
+    val windowInfo = rememberLecturesWindow()
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val classAlarmScheduler = remember(context) { AlarmScheduler(context) }
@@ -151,7 +155,14 @@ fun NotesScreen(
                 val target = viewModel.findNoteByTitle(linkTitle)
                 if (target != null) {
                     editingNoteKey = target.naturalKey
-                    editingInitialTab = if (target.content.isNotBlank()) NoteEditorTab.PREVIEW else NoteEditorTab.WRITE
+                    editingInitialTab = if (windowInfo.isDualPane) {
+                        NoteEditorTab.SPLIT
+                    } else if (target.content.isNotBlank()) {
+                        NoteEditorTab.PREVIEW
+                    } else {
+                        NoteEditorTab.WRITE
+                    }
+                    isEditing = true
                 } else {
                     Toast.makeText(context, "Linked note \"$linkTitle\" not found", Toast.LENGTH_SHORT).show()
                 }
@@ -179,42 +190,76 @@ fun NotesScreen(
         return
     }
 
-    val windowInfo = rememberLecturesWindow()
     val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val listBottomPadding = Chrome.listBottomPadding(navBarBottom, windowInfo.useNavigationRail)
     val listState = rememberLazyListState()
     val searchFocusRequester = remember { FocusRequester() }
     var desktopPreviewKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var desktopPreviewDismissed by rememberSaveable { mutableStateOf(false) }
 
     val startCreateNote = {
         focusManager.clearFocus()
         keyboardController?.hide()
         editingNoteKey = null
-        editingInitialTab = NoteEditorTab.WRITE
+        editingInitialTab = if (windowInfo.isDualPane) NoteEditorTab.SPLIT else NoteEditorTab.WRITE
         isEditing = true
     }
 
-    val desktopPreviewNote = remember(desktopPreviewKey, uiState.filteredNotes, uiState.notes) {
-        val target = desktopPreviewKey ?: return@remember null
-        uiState.notes.firstOrNull { it.naturalKey == target }
-            ?: uiState.filteredNotes.firstOrNull { it.naturalKey == target }
+    val openNoteInEditor: (LectureNote, NoteEditorTab?) -> Unit = { target, tabOverride ->
+        focusManager.clearFocus()
+        keyboardController?.hide()
+        editingNoteKey = target.naturalKey
+        editingInitialTab = tabOverride ?: if (windowInfo.isDualPane) {
+            NoteEditorTab.SPLIT
+        } else if (target.content.isNotBlank()) {
+            NoteEditorTab.PREVIEW
+        } else {
+            NoteEditorTab.WRITE
+        }
+        isEditing = true
+    }
+
+    val activePreviewNote = remember(desktopPreviewKey, desktopPreviewDismissed, uiState.filteredNotes, uiState.notes) {
+        if (desktopPreviewDismissed) {
+            null
+        } else {
+            val target = desktopPreviewKey
+            if (target != null) {
+                uiState.filteredNotes.firstOrNull { it.naturalKey == target }
+                    ?: uiState.notes.firstOrNull { it.naturalKey == target }
+                    ?: uiState.filteredNotes.firstOrNull()
+            } else {
+                uiState.filteredNotes.firstOrNull()
+            }
+        }
     }
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        modifier = Modifier.onKeyEvent { event ->
+        modifier = Modifier.onPreviewKeyEvent { event ->
             if (event.type == KeyEventType.KeyDown) {
+                val cmd = event.isCtrlPressed || event.isMetaPressed
                 when {
-                    event.isCtrlPressed && event.key == Key.N -> {
+                    cmd && event.key == Key.N -> {
                         startCreateNote()
                         true
                     }
-                    event.isCtrlPressed && event.key == Key.F -> {
+                    cmd && event.key == Key.F -> {
                         try { searchFocusRequester.requestFocus() } catch (_: Exception) {}
                         true
                     }
-                    event.key == Key.Escape && desktopPreviewKey != null -> {
+                    cmd && event.key == Key.E && activePreviewNote != null -> {
+                        openNoteInEditor(activePreviewNote, NoteEditorTab.SPLIT)
+                        true
+                    }
+                    event.key == Key.Escape && uiState.searchQuery.isNotEmpty() -> {
+                        viewModel.onSearchQueryChanged("")
+                        focusManager.clearFocus()
+                        true
+                    }
+                    event.key == Key.Escape && activePreviewNote != null -> {
                         desktopPreviewKey = null
+                        desktopPreviewDismissed = true
                         true
                     }
                     else -> false
@@ -233,6 +278,7 @@ fun NotesScreen(
                         .navigationBarsPadding()
                         .padding(bottom = Chrome.fabBottomPadding(windowInfo.useNavigationRail))
                         .desktopHandCursor()
+                        .testTag("add_note_fab")
                 ) {
                     Icon(Icons.Default.Add, contentDescription = "Add Note", modifier = Modifier.size(24.dp))
                 }
@@ -247,6 +293,7 @@ fun NotesScreen(
                         .navigationBarsPadding()
                         .padding(bottom = Chrome.fabBottomPadding(windowInfo.useNavigationRail))
                         .desktopHandCursor()
+                        .testTag("add_note_fab")
                 ) {
                     Icon(Icons.Default.Add, contentDescription = "Add Note", modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(8.dp))
@@ -263,7 +310,10 @@ fun NotesScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
                         Box(
                             modifier = Modifier
                                 .size(38.dp)
@@ -279,13 +329,16 @@ fun NotesScreen(
                             )
                         }
                         Spacer(modifier = Modifier.width(12.dp))
-                        Column {
+                        Column(modifier = Modifier.weight(1f)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
                                     "Academic Notes",
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 17.sp,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f, fill = false)
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Box(
@@ -298,7 +351,9 @@ fun NotesScreen(
                                         "${uiState.filteredNotes.size} active",
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.primary
+                                        color = MaterialTheme.colorScheme.primary,
+                                        maxLines = 1,
+                                        softWrap = false
                                     )
                                 }
                             }
@@ -307,7 +362,9 @@ fun NotesScreen(
                                 Text(
                                     uiState.userProgramme,
                                     fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                         }
@@ -315,7 +372,10 @@ fun NotesScreen(
 
                     IconButton(
                         onClick = { showProfileSheet = true },
-                        modifier = Modifier.testTag("topbar_academic_info_btn")
+                        modifier = Modifier
+                            .size(48.dp)
+                            .desktopHandCursor()
+                            .testTag("topbar_academic_info_btn")
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.Menu,
@@ -349,6 +409,7 @@ fun NotesScreen(
                     searchQuery = uiState.searchQuery,
                     isDark = isDark,
                     focusRequester = searchFocusRequester,
+                    showDesktopShortcutHint = windowInfo.isDesktop,
                     onSearchQueryChange = { viewModel.onSearchQueryChanged(it) },
                     onClearSearch = {
                         viewModel.onSearchQueryChanged("")
@@ -380,11 +441,14 @@ fun NotesScreen(
                     base
                 }
 
-                if (filterChips.size > 1) {
+                if (filterChips.size > 1 || windowInfo.isTablet) {
                     NotesFilterChipsStrip(
                         filterChips = filterChips,
                         selectedFilter = uiState.selectedFilter,
-                        onFilterSelected = { viewModel.onFilterSelected(it) }
+                        onFilterSelected = { viewModel.onFilterSelected(it) },
+                        isTabletOrDesktop = windowInfo.isTablet,
+                        sortOrder = uiState.sortOrder,
+                        onSortOrderSelected = { viewModel.onSortOrderSelected(it) }
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                 }
@@ -424,7 +488,8 @@ fun NotesScreen(
                             columns = GridCells.Adaptive(minSize = 290.dp),
                             modifier = Modifier
                                 .weight(1f)
-                                .fillMaxHeight(),
+                                .fillMaxHeight()
+                                .testTag("notes_desktop_grid"),
                             contentPadding = PaddingValues(bottom = listBottomPadding),
                             horizontalArrangement = Arrangement.spacedBy(14.dp),
                             verticalArrangement = Arrangement.spacedBy(14.dp)
@@ -441,50 +506,52 @@ fun NotesScreen(
                                 }
 
                                 items(notes, key = { it.naturalKey }) { note ->
-                                    val isSelected = desktopPreviewKey == note.naturalKey
-                                    Box(
-                                        modifier = if (isSelected) {
-                                            Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(16.dp))
-                                        } else Modifier
-                                    ) {
-                                        NoteCardItem(
-                                            note = note,
-                                            courseCode = courseCode,
-                                            isDark = isDark,
-                                            modifier = Modifier.animateItem(),
-                                            onOpen = { desktopPreviewKey = note.naturalKey },
-                                            onEdit = {
-                                                focusManager.clearFocus()
-                                                keyboardController?.hide()
-                                                editingNoteKey = note.naturalKey
-                                                editingInitialTab = NoteEditorTab.SPLIT
-                                                isEditing = true
-                                            },
-                                            onTogglePin = { viewModel.togglePin(note.naturalKey) },
-                                            onDelete = { deleteNoteKey = note.naturalKey }
-                                        )
-                                    }
+                                    val isSelected = activePreviewNote?.naturalKey == note.naturalKey
+                                    NoteCardItem(
+                                        note = note,
+                                        courseCode = courseCode,
+                                        isDark = isDark,
+                                        isSelected = isSelected,
+                                        enableDoubleClickEdit = true,
+                                        modifier = Modifier.animateItem(),
+                                        onOpen = {
+                                            desktopPreviewKey = note.naturalKey
+                                            desktopPreviewDismissed = false
+                                        },
+                                        onEdit = { openNoteInEditor(note, NoteEditorTab.SPLIT) },
+                                        onTogglePin = { viewModel.togglePin(note.naturalKey) },
+                                        onDelete = { deleteNoteKey = note.naturalKey }
+                                    )
                                 }
                             }
                         }
 
                         val readerWidth = if (windowInfo.isExtraLargeWidth) 460.dp else 390.dp
                         NotesDesktopPreviewPane(
-                            note = desktopPreviewNote ?: uiState.filteredNotes.firstOrNull(),
-                            onEdit = { selected ->
-                                focusManager.clearFocus()
-                                keyboardController?.hide()
-                                editingNoteKey = selected.naturalKey
-                                editingInitialTab = NoteEditorTab.SPLIT
-                                isEditing = true
-                            },
+                            note = activePreviewNote,
+                            onEdit = { selected -> openNoteInEditor(selected, NoteEditorTab.SPLIT) },
                             onTogglePin = { selected -> viewModel.togglePin(selected.naturalKey) },
                             onDelete = { selected -> deleteNoteKey = selected.naturalKey },
-                            onClearSelection = if (desktopPreviewKey != null) ({ desktopPreviewKey = null }) else null,
+                            onToggleChecklist = { selected, lineIndex ->
+                                viewModel.toggleChecklist(selected.naturalKey, lineIndex)
+                            },
+                            onClearSelection = if (activePreviewNote != null) {
+                                {
+                                    desktopPreviewKey = null
+                                    desktopPreviewDismissed = true
+                                }
+                            } else null,
+                            onRestoreSelection = if (desktopPreviewDismissed && uiState.filteredNotes.isNotEmpty()) {
+                                {
+                                    desktopPreviewDismissed = false
+                                    desktopPreviewKey = uiState.filteredNotes.first().naturalKey
+                                }
+                            } else null,
                             onWikiLinkClick = { linkTitle ->
                                 val target = viewModel.findNoteByTitle(linkTitle)
                                 if (target != null) {
                                     desktopPreviewKey = target.naturalKey
+                                    desktopPreviewDismissed = false
                                 } else {
                                     Toast.makeText(context, "Linked note \"$linkTitle\" not found", Toast.LENGTH_SHORT).show()
                                 }
@@ -595,6 +662,10 @@ fun NotesScreen(
         val target = noteToDelete
         AlertDialog(
             onDismissRequest = { deleteNoteKey = null },
+            properties = DialogProperties(usePlatformDefaultWidth = !windowInfo.preferDesktopDialogs),
+            modifier = Modifier
+                .widthIn(min = 340.dp, max = 460.dp)
+                .onEscapeKey { deleteNoteKey = null },
             icon = {
                 Icon(
                     Icons.Outlined.DeleteOutline,
@@ -614,15 +685,22 @@ fun NotesScreen(
                             attachmentPath = target.attachmentPath,
                             context = context
                         )
+                        if (desktopPreviewKey == target.naturalKey) {
+                            desktopPreviewKey = null
+                        }
                         deleteNoteKey = null
                     },
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    modifier = Modifier.desktopHandCursor()
                 ) {
                     Text("Delete", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { deleteNoteKey = null }) {
+                TextButton(
+                    onClick = { deleteNoteKey = null },
+                    modifier = Modifier.desktopHandCursor()
+                ) {
                     Text("Cancel")
                 }
             }

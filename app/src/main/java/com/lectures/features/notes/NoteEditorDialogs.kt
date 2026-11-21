@@ -7,11 +7,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -19,6 +22,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -43,8 +47,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.DialogProperties
 import com.lectures.features.timetable.domain.TimetableEntry
 import com.lectures.ui.components.RoomFloorBadge
+import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.components.desktopHoverable
+import com.lectures.ui.components.onEscapeKey
+import com.lectures.ui.rememberLecturesWindow
 import java.util.Locale
 
 private val INVALID_ROOM_MARKERS = listOf("TBA", "TBD", "NONE", "N/A")
@@ -54,8 +63,13 @@ internal fun DiscardNoteConfirmDialog(
     onDiscard: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val windowInfo = rememberLecturesWindow()
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = !windowInfo.preferDesktopDialogs),
+        modifier = Modifier
+            .widthIn(min = 320.dp, max = 440.dp)
+            .onEscapeKey(onDismiss),
         icon = {
             Icon(
                 Icons.Outlined.WarningAmber,
@@ -79,14 +93,75 @@ internal fun DiscardNoteConfirmDialog(
         confirmButton = {
             TextButton(
                 onClick = onDiscard,
-                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                modifier = Modifier.desktopHandCursor()
             ) {
                 Text("Discard", fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(onClick = onDismiss, modifier = Modifier.desktopHandCursor()) {
                 Text("Keep Editing")
+            }
+        }
+    )
+}
+
+@Composable
+internal fun UnsavedWikiLinkNavigationDialog(
+    targetTitle: String,
+    onSaveAndOpen: () -> Unit,
+    onDiscardAndOpen: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val windowInfo = rememberLecturesWindow()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = !windowInfo.preferDesktopDialogs),
+        modifier = Modifier
+            .widthIn(min = 320.dp, max = 480.dp)
+            .onEscapeKey(onDismiss),
+        icon = {
+            Icon(
+                Icons.Outlined.Link,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+            )
+        },
+        title = {
+            Text(
+                text = "Open \"[[$targetTitle]]\"?",
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        },
+        text = {
+            Text(
+                text = "You have unsaved changes in this note. Save before opening the linked note so your edits are kept.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = onSaveAndOpen,
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.desktopHandCursor()
+            ) {
+                Text("Save & Open", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                TextButton(
+                    onClick = onDiscardAndOpen,
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    modifier = Modifier.desktopHandCursor()
+                ) {
+                    Text("Discard & Open")
+                }
+                TextButton(onClick = onDismiss, modifier = Modifier.desktopHandCursor()) {
+                    Text("Cancel")
+                }
             }
         }
     )
@@ -99,14 +174,21 @@ internal fun NoteCoursePickerDialog(
     onSelectCourse: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val windowInfo = rememberLecturesWindow()
+    val fallbackPrimary = MaterialTheme.colorScheme.primary
     var customCourseCode by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = !windowInfo.preferDesktopDialogs),
+        modifier = Modifier
+            .widthIn(min = 320.dp, max = if (windowInfo.isAtLeastLarge) 520.dp else 460.dp)
+            .onEscapeKey(onDismiss),
         title = { Text("Select Course", fontWeight = FontWeight.Bold) },
         text = {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .heightIn(max = 420.dp)
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -120,6 +202,8 @@ internal fun NoteCoursePickerDialog(
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .desktopHandCursor()
                             .clickable {
                                 onSelectCourse(course.code)
                                 onDismiss()
@@ -135,8 +219,10 @@ internal fun NoteCoursePickerDialog(
                     ) {
                         Row(
                             modifier = Modifier
-                                .padding(12.dp)
-                                .fillMaxWidth(),
+                                .fillMaxWidth()
+                                .defaultMinSize(minHeight = 48.dp)
+                                .desktopHoverable()
+                                .padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Box(
@@ -144,7 +230,7 @@ internal fun NoteCoursePickerDialog(
                                     .size(10.dp)
                                     .clip(CircleShape)
                                     .background(
-                                        try { Color(android.graphics.Color.parseColor(course.color)) } catch (_: Exception) { Color(0xFF2563EB) }
+                                        try { Color(android.graphics.Color.parseColor(course.color)) } catch (_: Exception) { fallbackPrimary }
                                     )
                             )
                             Spacer(modifier = Modifier.width(10.dp))
@@ -177,7 +263,8 @@ internal fun NoteCoursePickerDialog(
                                 onDismiss()
                             }
                         },
-                        enabled = customCourseCode.isNotBlank()
+                        enabled = customCourseCode.isNotBlank(),
+                        modifier = Modifier.desktopHandCursor(customCourseCode.isNotBlank())
                     ) {
                         Text("Set")
                     }
@@ -185,7 +272,7 @@ internal fun NoteCoursePickerDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(onClick = onDismiss, modifier = Modifier.desktopHandCursor()) {
                 Text("Cancel")
             }
         }
@@ -198,6 +285,7 @@ internal fun NoteTagPickerDialog(
     onSelectTag: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val windowInfo = rememberLecturesWindow()
     val standardTags = remember {
         listOf(
             "Lecture" to "General classroom notes & discussions",
@@ -213,11 +301,16 @@ internal fun NoteTagPickerDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = !windowInfo.preferDesktopDialogs),
+        modifier = Modifier
+            .widthIn(min = 320.dp, max = if (windowInfo.isAtLeastLarge) 520.dp else 460.dp)
+            .onEscapeKey(onDismiss),
         title = { Text("Select Note Category", fontWeight = FontWeight.Bold) },
         text = {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .heightIn(max = 420.dp)
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -225,6 +318,8 @@ internal fun NoteTagPickerDialog(
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .desktopHandCursor()
                             .clickable {
                                 onSelectTag(tagName)
                                 onDismiss()
@@ -238,7 +333,13 @@ internal fun NoteTagPickerDialog(
                             }
                         )
                     ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .defaultMinSize(minHeight = 48.dp)
+                                .desktopHoverable()
+                                .padding(12.dp)
+                        ) {
                             Text("🏷️ $tagName", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                             Text(desc, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
@@ -266,7 +367,8 @@ internal fun NoteTagPickerDialog(
                                 onDismiss()
                             }
                         },
-                        enabled = customTagInput.isNotBlank()
+                        enabled = customTagInput.isNotBlank(),
+                        modifier = Modifier.desktopHandCursor(customTagInput.isNotBlank())
                     ) {
                         Text("Set")
                     }
@@ -274,7 +376,7 @@ internal fun NoteTagPickerDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(onClick = onDismiss, modifier = Modifier.desktopHandCursor()) {
                 Text("Cancel")
             }
         }
@@ -290,13 +392,19 @@ internal fun NoteClassPickerDialog(
     onAttachClass: (attachedText: String, attachedLoc: String, lecturerName: String) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val windowInfo = rememberLecturesWindow()
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = !windowInfo.preferDesktopDialogs),
+        modifier = Modifier
+            .widthIn(min = 320.dp, max = if (windowInfo.isAtLeastLarge) 540.dp else 460.dp)
+            .onEscapeKey(onDismiss),
         title = { Text("Attach Timetable Class", fontWeight = FontWeight.Bold) },
         text = {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .heightIn(max = 420.dp)
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -307,7 +415,10 @@ internal fun NoteClassPickerDialog(
                             onDismiss()
                         },
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .defaultMinSize(minHeight = 48.dp)
+                            .desktopHandCursor()
                     ) {
                         Icon(Icons.Default.Clear, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
@@ -329,15 +440,24 @@ internal fun NoteClassPickerDialog(
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .desktopHandCursor()
                                 .clickable {
                                     val classText = "${entry.courseCode}: ${entry.courseTitle} · ${entry.day}, ${entry.startTime} – ${entry.endTime}"
                                     val locText = if (validRoom != null) "📍 $validRoom" else ""
                                     onAttachClass(classText, locText, entry.lecturer?.trim().orEmpty())
                                     onDismiss()
                                 },
+                            shape = RoundedCornerShape(10.dp),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                         ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .defaultMinSize(minHeight = 48.dp)
+                                    .desktopHoverable()
+                                    .padding(12.dp)
+                            ) {
                                 Text("${entry.courseCode} · ${entry.courseTitle}", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                 val roomPart = if (validRoom != null) " · $validRoom" else ""
                                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -354,7 +474,7 @@ internal fun NoteClassPickerDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(onClick = onDismiss, modifier = Modifier.desktopHandCursor()) {
                 Text("Close")
             }
         }
@@ -367,8 +487,13 @@ internal fun NoteTemplateConfirmDialog(
     onConfirmReplace: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val windowInfo = rememberLecturesWindow()
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = !windowInfo.preferDesktopDialogs),
+        modifier = Modifier
+            .widthIn(min = 320.dp, max = 460.dp)
+            .onEscapeKey(onDismiss),
         icon = {
             Icon(
                 Icons.Outlined.AutoAwesome,
@@ -387,13 +512,14 @@ internal fun NoteTemplateConfirmDialog(
         confirmButton = {
             Button(
                 onClick = onConfirmReplace,
-                shape = RoundedCornerShape(10.dp)
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.desktopHandCursor()
             ) {
                 Text("Replace Content")
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(onClick = onDismiss, modifier = Modifier.desktopHandCursor()) {
                 Text("Keep Current")
             }
         }
@@ -406,9 +532,14 @@ internal fun CustomPreClassAlertDialog(
     onApply: (Int) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val windowInfo = rememberLecturesWindow()
     var customReminderText by remember(initialMinutesText) { mutableStateOf(initialMinutesText) }
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = !windowInfo.preferDesktopDialogs),
+        modifier = Modifier
+            .widthIn(min = 320.dp, max = 420.dp)
+            .onEscapeKey(onDismiss),
         title = { Text("Custom Pre-Class Alert", fontWeight = FontWeight.Bold) },
         text = {
             Column {
@@ -424,18 +555,22 @@ internal fun CustomPreClassAlertDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = {
-                val parsed = customReminderText.toIntOrNull()?.coerceIn(1, 1440)
-                if (parsed != null) onApply(parsed)
-                onDismiss()
-            }) {
+            TextButton(
+                onClick = {
+                    val parsed = customReminderText.toIntOrNull()?.coerceIn(1, 1440)
+                    if (parsed != null) onApply(parsed)
+                    onDismiss()
+                },
+                modifier = Modifier.desktopHandCursor()
+            ) {
                 Text("Apply", fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(onClick = onDismiss, modifier = Modifier.desktopHandCursor()) {
                 Text("Cancel")
             }
         }
     )
 }
+

@@ -17,6 +17,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.components.desktopHoverable
 
 data class MarkdownCheatItem(
     val title: String,
@@ -185,7 +187,12 @@ fun MarkdownHelpContent(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            IconButton(onClick = onDismiss) {
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .size(48.dp)
+                    .desktopHandCursor()
+            ) {
                 Icon(Icons.Default.Close, contentDescription = "Close")
             }
         }
@@ -208,7 +215,12 @@ fun MarkdownHelpContent(
                     ),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .desktopHoverable(pointerIcon = androidx.compose.ui.input.pointer.PointerIcon.Default)
+                            .padding(14.dp)
+                    ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -218,15 +230,19 @@ fun MarkdownHelpContent(
                                 text = item.title,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 14.sp,
-                                color = MaterialTheme.colorScheme.primary
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.weight(1f)
                             )
+                            Spacer(modifier = Modifier.width(8.dp))
                             OutlinedButton(
                                 onClick = { onInsertSnippet(item.snippetToInsert) },
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                                 shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier.height(28.dp)
+                                modifier = Modifier
+                                    .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                                    .desktopHandCursor()
                             ) {
-                                Text("Insert", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                Text("Insert", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                             }
                         }
 

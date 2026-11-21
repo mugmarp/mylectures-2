@@ -20,6 +20,13 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 
+enum class NoteSortOrder(val label: String) {
+    PINNED_FIRST("Pinned & Recent"),
+    RECENT("Newest Edited"),
+    TITLE_ASC("Title A–Z"),
+    COURSE("By Course")
+}
+
 data class NotesUiState(
     val isLoading: Boolean = true,
     val notes: List<LectureNote> = emptyList(),
@@ -28,6 +35,7 @@ data class NotesUiState(
     val timetableClasses: List<TimetableEntry> = emptyList(),
     val searchQuery: String = "",
     val selectedFilter: String = "All Notes",
+    val sortOrder: NoteSortOrder = NoteSortOrder.PINNED_FIRST,
     val userProgramme: String = "",
     val userMessage: String? = null,
     val errorMessage: String? = null
@@ -98,7 +106,8 @@ class NotesViewModel(
 
                 val currentSearch = _uiState.value.searchQuery
                 val currentFilter = _uiState.value.selectedFilter
-                val filtered = applyFilterAndSearch(notesList, currentSearch, currentFilter)
+                val currentSort = _uiState.value.sortOrder
+                val filtered = applyFilterAndSearch(notesList, currentSearch, currentFilter, currentSort)
 
                 _uiState.value = _uiState.value.copy(
                     notes = notesList,
@@ -113,17 +122,28 @@ class NotesViewModel(
     }
 
     fun onSearchQueryChanged(query: String) {
-        val filtered = applyFilterAndSearch(_uiState.value.notes, query, _uiState.value.selectedFilter)
-        _uiState.value = _uiState.value.copy(
+        val state = _uiState.value
+        val filtered = applyFilterAndSearch(state.notes, query, state.selectedFilter, state.sortOrder)
+        _uiState.value = state.copy(
             searchQuery = query,
             filteredNotes = filtered
         )
     }
 
     fun onFilterSelected(filter: String) {
-        val filtered = applyFilterAndSearch(_uiState.value.notes, _uiState.value.searchQuery, filter)
-        _uiState.value = _uiState.value.copy(
+        val state = _uiState.value
+        val filtered = applyFilterAndSearch(state.notes, state.searchQuery, filter, state.sortOrder)
+        _uiState.value = state.copy(
             selectedFilter = filter,
+            filteredNotes = filtered
+        )
+    }
+
+    fun onSortOrderSelected(order: NoteSortOrder) {
+        val state = _uiState.value
+        val filtered = applyFilterAndSearch(state.notes, state.searchQuery, state.selectedFilter, order)
+        _uiState.value = state.copy(
+            sortOrder = order,
             filteredNotes = filtered
         )
     }
@@ -131,9 +151,10 @@ class NotesViewModel(
     private fun applyFilterAndSearch(
         notes: List<LectureNote>,
         query: String,
-        filter: String
+        filter: String,
+        sortOrder: NoteSortOrder = NoteSortOrder.PINNED_FIRST
     ): List<LectureNote> {
-        return notes.filter { note ->
+        val matched = notes.filter { note ->
             val courseCode = note.naturalKey.split("|").firstOrNull() ?: ""
             val matchesFilter = when {
                 filter == "All Notes" || filter.isBlank() -> true
@@ -155,7 +176,24 @@ class NotesViewModel(
             }
 
             matchesFilter && matchesSearch
-        }.sortedWith(compareByDescending<LectureNote> { it.isPinned }.thenByDescending { it.updatedAt })
+        }
+
+        return when (sortOrder) {
+            NoteSortOrder.PINNED_FIRST -> matched.sortedWith(
+                compareByDescending<LectureNote> { it.isPinned }.thenByDescending { it.updatedAt }
+            )
+            NoteSortOrder.RECENT -> matched.sortedByDescending { it.updatedAt }
+            NoteSortOrder.TITLE_ASC -> matched.sortedWith(
+                compareByDescending<LectureNote> { it.isPinned }
+                    .thenBy(String.CASE_INSENSITIVE_ORDER) { it.title?.ifBlank { "Untitled Note" } ?: "Academic Note" }
+            )
+            NoteSortOrder.COURSE -> matched.sortedWith(
+                compareBy<LectureNote, String>(String.CASE_INSENSITIVE_ORDER) {
+                    it.naturalKey.split("|").firstOrNull().orEmpty()
+                }.thenByDescending { it.isPinned }
+                    .thenByDescending { it.updatedAt }
+            )
+        }
     }
 
     fun findNoteByTitle(targetTitle: String): LectureNote? {

@@ -254,7 +254,12 @@ fun NoteTemplatesContent(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            IconButton(onClick = onDismiss, modifier = Modifier.desktopHandCursor()) {
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .size(48.dp)
+                    .desktopHandCursor()
+            ) {
                 Icon(Icons.Default.Close, contentDescription = "Close")
             }
         }
@@ -272,7 +277,8 @@ fun NoteTemplatesContent(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .desktopHoverable()
+                        .clip(RoundedCornerShape(14.dp))
+                        .desktopHandCursor()
                         .clickable { onSelectTemplate(template) },
                     shape = RoundedCornerShape(14.dp),
                     colors = CardDefaults.cardColors(
@@ -283,6 +289,7 @@ fun NoteTemplatesContent(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .desktopHoverable()
                             .padding(14.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {

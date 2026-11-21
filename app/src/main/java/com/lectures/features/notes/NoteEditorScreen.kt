@@ -1,7 +1,11 @@
 package com.lectures.features.notes
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -9,13 +13,17 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -30,17 +38,20 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
+import androidx.compose.material.icons.automirrored.outlined.MenuOpen
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -55,6 +66,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -66,8 +78,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isMetaPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -83,12 +104,6 @@ import com.lectures.TimetableApplication
 import com.lectures.core.storage.AttachmentStore
 import com.lectures.features.timetable.domain.LectureNote
 import com.lectures.features.timetable.domain.TimetableEntry
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.isCtrlPressed
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onPreviewKeyEvent
-import androidx.compose.ui.input.key.type
 import com.lectures.ui.Chrome
 import com.lectures.ui.LocalAppTheme
 import com.lectures.ui.LocalExtendedColors
@@ -168,7 +183,7 @@ private fun continueMarkdownListOnNewline(oldText: String, newVal: TextFieldValu
     return newVal
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun NoteEditorScreen(
     initialNote: LectureNote? = null,
@@ -242,11 +257,13 @@ fun NoteEditorScreen(
     var attachmentName by rememberSaveable(noteKey) { mutableStateOf(initialAttachment) }
     var attachmentPath by rememberSaveable(noteKey) { mutableStateOf(initialAttachmentPath) }
     val windowInfo = rememberLecturesWindow()
-    val useDesktopSplitWorkspace = windowInfo.widthDp >= 1000
+    val useDesktopSplitWorkspace = windowInfo.isDualPane
     var currentTab by rememberSaveable(noteKey, initialTab) {
         mutableStateOf(if (useDesktopSplitWorkspace) NoteEditorTab.SPLIT else initialTab)
     }
     var desktopDrawer by rememberSaveable(noteKey) { mutableStateOf(DesktopInspectorDrawer.DETAILS) }
+    var showDesktopInspector by rememberSaveable(noteKey) { mutableStateOf(windowInfo.widthDp >= 1120) }
+    val editorFocusRequester = remember { FocusRequester() }
 
     val context = LocalContext.current
     val isDark = LocalAppTheme.current.isDark
@@ -324,6 +341,7 @@ fun NoteEditorScreen(
     var showTagPicker by rememberSaveable(noteKey) { mutableStateOf(false) }
     var showTemplatesSheet by rememberSaveable(noteKey) { mutableStateOf(false) }
     var pendingTemplate by remember { mutableStateOf<NoteTemplate?>(null) }
+    var pendingWikiLink by remember { mutableStateOf<String?>(null) }
     var showHelpSheet by rememberSaveable(noteKey) { mutableStateOf(false) }
     var showDiscardConfirmDialog by rememberSaveable(noteKey) { mutableStateOf(false) }
     var showProfileSheet by rememberSaveable(noteKey) { mutableStateOf(false) }
@@ -524,6 +542,33 @@ fun NoteEditorScreen(
         }
     }
 
+    val handleWikiLinkRequest: (String) -> Unit = { linkTitle ->
+        if (isModified) {
+            pendingWikiLink = linkTitle
+        } else {
+            cleanupOrphanedAttachments(initialAttachmentPath)
+            onWikiLinkClick?.invoke(linkTitle)
+        }
+    }
+
+    if (pendingWikiLink != null) {
+        val targetLink = pendingWikiLink!!
+        UnsavedWikiLinkNavigationDialog(
+            targetTitle = targetLink,
+            onSaveAndOpen = {
+                pendingWikiLink = null
+                saveNoteAction()
+                onWikiLinkClick?.invoke(targetLink)
+            },
+            onDiscardAndOpen = {
+                pendingWikiLink = null
+                cleanupOrphanedAttachments(initialAttachmentPath)
+                onWikiLinkClick?.invoke(targetLink)
+            },
+            onDismiss = { pendingWikiLink = null }
+        )
+    }
+
     val effectiveTab = if (!useDesktopSplitWorkspace && currentTab == NoteEditorTab.SPLIT) NoteEditorTab.WRITE else currentTab
 
     Scaffold(
@@ -531,19 +576,54 @@ fun NoteEditorScreen(
         containerColor = MaterialTheme.colorScheme.background,
         modifier = Modifier.onPreviewKeyEvent { event ->
             if (event.type == KeyEventType.KeyDown) {
+                val cmd = event.isCtrlPressed || event.isMetaPressed
+                val canEditText = effectiveTab != NoteEditorTab.PREVIEW
                 when {
-                    event.isCtrlPressed && event.key == Key.S -> {
+                    cmd && event.key == Key.S -> {
                         saveNoteAction()
                         true
                     }
+                    cmd && canEditText && event.key == Key.B -> {
+                        applyMarkdown("**", "**", "Bold text")
+                        true
+                    }
+                    cmd && canEditText && event.key == Key.I -> {
+                        applyMarkdown("*", "*", "Italic text")
+                        true
+                    }
+                    cmd && canEditText && event.key == Key.K -> {
+                        applyMarkdown("[[", "]]", "Course Note")
+                        true
+                    }
+                    cmd && event.key == Key.Slash -> {
+                        if (useDesktopSplitWorkspace) {
+                            if (showDesktopInspector && desktopDrawer == DesktopInspectorDrawer.GUIDE) {
+                                desktopDrawer = DesktopInspectorDrawer.DETAILS
+                            } else {
+                                showDesktopInspector = true
+                                desktopDrawer = DesktopInspectorDrawer.GUIDE
+                            }
+                        } else {
+                            showHelpSheet = !showHelpSheet
+                        }
+                        true
+                    }
                     event.key == Key.Escape -> {
-                        if (useDesktopSplitWorkspace && desktopDrawer != DesktopInspectorDrawer.DETAILS) {
-                            desktopDrawer = DesktopInspectorDrawer.DETAILS
-                            true
-                        } else if (!showTemplatesSheet && !showHelpSheet && !showCoursePickerModal && !showTagPicker && !showClassPicker && !showCustomReminderDialog && !showDiscardConfirmDialog) {
-                            handleBackPress()
-                            true
-                        } else false
+                        when {
+                            pendingWikiLink != null -> {
+                                pendingWikiLink = null
+                                true
+                            }
+                            useDesktopSplitWorkspace && showDesktopInspector && desktopDrawer != DesktopInspectorDrawer.DETAILS -> {
+                                desktopDrawer = DesktopInspectorDrawer.DETAILS
+                                true
+                            }
+                            !showTemplatesSheet && !showHelpSheet && !showCoursePickerModal && !showTagPicker && !showClassPicker && !showCustomReminderDialog && !showDiscardConfirmDialog -> {
+                                handleBackPress()
+                                true
+                            }
+                            else -> false
+                        }
                     }
                     else -> false
                 }
@@ -569,7 +649,12 @@ fun NoteEditorScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.weight(1f, fill = false)
                         ) {
-                            IconButton(onClick = handleBackPress, modifier = Modifier.desktopHandCursor()) {
+                            IconButton(
+                                onClick = handleBackPress,
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .desktopHandCursor()
+                            ) {
                                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onSurface)
                             }
                             Spacer(modifier = Modifier.width(2.dp))
@@ -581,6 +666,32 @@ fun NoteEditorScreen(
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
+                            if (isModified) {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                if (windowInfo.isTablet) {
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+                                        modifier = Modifier.testTag("note_unsaved_badge")
+                                    ) {
+                                        Text(
+                                            text = "Unsaved",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                } else {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(7.dp)
+                                            .clip(CircleShape)
+                                            .background(MaterialTheme.colorScheme.primary)
+                                            .testTag("note_unsaved_badge")
+                                    )
+                                }
+                            }
                         }
 
                         Spacer(modifier = Modifier.width(6.dp))
@@ -599,6 +710,7 @@ fun NoteEditorScreen(
                                     if (useDesktopSplitWorkspace) {
                                         Box(
                                             modifier = Modifier
+                                                .defaultMinSize(minHeight = 32.dp)
                                                 .clip(RoundedCornerShape(10.dp))
                                                 .background(if (effectiveTab == NoteEditorTab.SPLIT) MaterialTheme.colorScheme.primary else Color.Transparent)
                                                 .desktopHandCursor()
@@ -618,6 +730,7 @@ fun NoteEditorScreen(
 
                                     Box(
                                         modifier = Modifier
+                                            .defaultMinSize(minHeight = if (useDesktopSplitWorkspace) 32.dp else 0.dp)
                                             .clip(RoundedCornerShape(10.dp))
                                             .background(if (effectiveTab == NoteEditorTab.WRITE) MaterialTheme.colorScheme.primary else Color.Transparent)
                                             .desktopHandCursor()
@@ -653,6 +766,7 @@ fun NoteEditorScreen(
 
                                     Box(
                                         modifier = Modifier
+                                            .defaultMinSize(minHeight = if (useDesktopSplitWorkspace) 32.dp else 0.dp)
                                             .clip(RoundedCornerShape(10.dp))
                                             .background(if (effectiveTab == NoteEditorTab.PREVIEW) MaterialTheme.colorScheme.primary else Color.Transparent)
                                             .desktopHandCursor()
@@ -683,6 +797,44 @@ fun NoteEditorScreen(
                                             }
                                         }
                                     }
+                                }
+                            }
+
+                            if (windowInfo.isTablet) {
+                                IconButton(
+                                    onClick = {
+                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                        clipboard.setPrimaryClip(ClipData.newPlainText(title.ifBlank { selectedCourse }, contentValue.text))
+                                        Toast.makeText(context, "Markdown copied to clipboard", Toast.LENGTH_SHORT).show()
+                                    },
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .desktopHandCursor()
+                                        .testTag("note_editor_copy_md_btn")
+                                ) {
+                                    Icon(
+                                        Icons.Outlined.ContentCopy,
+                                        contentDescription = "Copy Markdown",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+
+                            if (useDesktopSplitWorkspace) {
+                                IconButton(
+                                    onClick = { showDesktopInspector = !showDesktopInspector },
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .desktopHandCursor()
+                                        .testTag("note_editor_inspector_toggle")
+                                ) {
+                                    Icon(
+                                        Icons.AutoMirrored.Outlined.MenuOpen,
+                                        contentDescription = if (showDesktopInspector) "Hide Inspector" else "Show Inspector",
+                                        tint = if (showDesktopInspector) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(20.dp)
+                                    )
                                 }
                             }
 
@@ -780,60 +932,80 @@ fun NoteEditorScreen(
 
                         Spacer(modifier = Modifier.height(6.dp))
 
-                        LazyRow(
+                        FlowRow(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            item {
-                                AssistChip(
-                                    onClick = { showCoursePickerModal = true },
-                                    label = { Text(if (selectedCourse.isNotBlank()) "📚 $selectedCourse" else "📚 Select Course", fontWeight = FontWeight.SemiBold, fontSize = 12.sp) },
-                                    trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp)) },
-                                    shape = RoundedCornerShape(12.dp)
-                                )
-                            }
-                            item {
-                                AssistChip(
-                                    onClick = { showTagPicker = true },
-                                    label = { Text("🏷️ $tag", fontSize = 12.sp, fontWeight = FontWeight.Medium) },
-                                    trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(14.dp)) },
-                                    shape = RoundedCornerShape(12.dp)
-                                )
-                            }
-                            item {
-                                AssistChip(
-                                    onClick = {
-                                        desktopDrawer = if (desktopDrawer == DesktopInspectorDrawer.TEMPLATES) DesktopInspectorDrawer.DETAILS else DesktopInspectorDrawer.TEMPLATES
-                                    },
-                                    leadingIcon = { Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(15.dp)) },
-                                    label = { Text("Templates", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary) },
-                                    shape = RoundedCornerShape(12.dp)
-                                )
-                            }
-                            item {
-                                AssistChip(
-                                    onClick = {
-                                        desktopDrawer = if (desktopDrawer == DesktopInspectorDrawer.GUIDE) DesktopInspectorDrawer.DETAILS else DesktopInspectorDrawer.GUIDE
-                                    },
-                                    leadingIcon = { Icon(Icons.AutoMirrored.Outlined.HelpOutline, contentDescription = null, modifier = Modifier.size(14.dp)) },
-                                    label = { Text("Guide", fontSize = 12.sp, fontWeight = FontWeight.Medium) },
-                                    shape = RoundedCornerShape(12.dp)
-                                )
-                            }
-                            item {
-                                AssistChip(
-                                    onClick = { showClassPicker = true },
-                                    label = {
-                                        Text(
-                                            if (attachedClassText.isNotBlank()) "📍 ${attachedClassText.substringBefore(" · ").take(18)}" else "📍 Attach Class",
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.Medium
-                                        )
-                                    },
-                                    shape = RoundedCornerShape(12.dp)
-                                )
-                            }
+                            AssistChip(
+                                onClick = { showCoursePickerModal = true },
+                                label = { Text(if (selectedCourse.isNotBlank()) "📚 $selectedCourse" else "📚 Select Course", fontWeight = FontWeight.SemiBold, fontSize = 12.sp) },
+                                trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.desktopHandCursor()
+                            )
+                            AssistChip(
+                                onClick = { showTagPicker = true },
+                                label = { Text("🏷️ $tag", fontSize = 12.sp, fontWeight = FontWeight.Medium) },
+                                trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(14.dp)) },
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.desktopHandCursor()
+                            )
+                            AssistChip(
+                                onClick = {
+                                    if (showDesktopInspector && desktopDrawer == DesktopInspectorDrawer.TEMPLATES) {
+                                        desktopDrawer = DesktopInspectorDrawer.DETAILS
+                                    } else {
+                                        showDesktopInspector = true
+                                        desktopDrawer = DesktopInspectorDrawer.TEMPLATES
+                                    }
+                                },
+                                leadingIcon = { Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(15.dp)) },
+                                label = { Text("Templates", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary) },
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.desktopHandCursor()
+                            )
+                            AssistChip(
+                                onClick = {
+                                    if (showDesktopInspector && desktopDrawer == DesktopInspectorDrawer.GUIDE) {
+                                        desktopDrawer = DesktopInspectorDrawer.DETAILS
+                                    } else {
+                                        showDesktopInspector = true
+                                        desktopDrawer = DesktopInspectorDrawer.GUIDE
+                                    }
+                                },
+                                leadingIcon = { Icon(Icons.AutoMirrored.Outlined.HelpOutline, contentDescription = null, modifier = Modifier.size(14.dp)) },
+                                label = { Text("Guide", fontSize = 12.sp, fontWeight = FontWeight.Medium) },
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.desktopHandCursor()
+                            )
+                            AssistChip(
+                                onClick = { showClassPicker = true },
+                                label = {
+                                    Text(
+                                        if (attachedClassText.isNotBlank()) "📍 ${attachedClassText.substringBefore(" · ").take(18)}" else "📍 Attach Class",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                },
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.desktopHandCursor()
+                            )
+                            AssistChip(
+                                onClick = {
+                                    if (canScheduleClassAlert) {
+                                        showCustomReminderDialog = true
+                                    } else {
+                                        showClassPicker = true
+                                    }
+                                },
+                                label = {
+                                    val alertText = if (selectedAlarmMinutes != null) "⏰ ${selectedAlarmMinutes}m alert" else "⏰ Add Alert"
+                                    Text(alertText, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                                },
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.desktopHandCursor()
+                            )
                         }
 
                         Spacer(modifier = Modifier.height(10.dp))
@@ -874,6 +1046,12 @@ fun NoteEditorScreen(
                                                 .weight(1f)
                                                 .fillMaxHeight()
                                                 .verticalScroll(rememberScrollState())
+                                                .clickable(
+                                                    interactionSource = remember { MutableInteractionSource() },
+                                                    indication = null
+                                                ) {
+                                                    try { editorFocusRequester.requestFocus() } catch (_: Exception) {}
+                                                }
                                         ) {
                                             BasicTextField(
                                                 value = contentValue,
@@ -883,12 +1061,13 @@ fun NoteEditorScreen(
                                                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                                                 modifier = Modifier
                                                     .fillMaxWidth()
-                                                    .heightIn(min = 320.dp)
+                                                    .heightIn(min = 360.dp)
+                                                    .focusRequester(editorFocusRequester)
                                                     .testTag("note_content_editor"),
                                                 decorationBox = { innerTextField ->
                                                     if (contentValue.text.isEmpty()) {
                                                         Text(
-                                                            "Start taking lecture notes, revision points, or checklists...\n• Live Markdown highlighting & live right preview\n• Ctrl+S to save quickly",
+                                                            "Start taking lecture notes, revision points, or checklists...\n• Live Markdown highlighting & live right preview\n• Ctrl+S to save · Ctrl+B/I/K to format",
                                                             fontSize = 14.sp,
                                                             lineHeight = 22.sp,
                                                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
@@ -947,7 +1126,7 @@ fun NoteEditorScreen(
                                             MarkdownViewer(
                                                 markdown = contentValue.text,
                                                 onToggleChecklist = toggleChecklistInPreview,
-                                                onWikiLinkClick = onWikiLinkClick,
+                                                onWikiLinkClick = handleWikiLinkRequest,
                                                 onUrlClick = openUrlAction
                                             )
                                         }
@@ -965,7 +1144,7 @@ fun NoteEditorScreen(
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Icon(Icons.Outlined.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(13.dp))
                                         Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Ctrl+S Save · Esc Back", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("Ctrl+S Save · Ctrl+B/I/K Format · Esc Back", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                     Text("$wordsCount words · $charsCount chars", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
@@ -973,106 +1152,116 @@ fun NoteEditorScreen(
                         }
                     }
 
-                    // RIGHT DOCKED INSPECTOR PANE (Details / Inline Templates / Inline Formatting Guide)
-                    val inspectorWidth = if (windowInfo.isExtraLargeWidth) 340.dp else 300.dp
-                    Surface(
-                        shape = RoundedCornerShape(18.dp),
-                        color = MaterialTheme.colorScheme.surface,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
-                        modifier = Modifier
-                            .width(inspectorWidth)
-                            .fillMaxHeight()
-                            .testTag("note_editor_inspector")
-                    ) {
-                        Column(modifier = Modifier.fillMaxSize()) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 10.dp, vertical = 8.dp),
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                listOf(
-                                    DesktopInspectorDrawer.DETAILS to "Details",
-                                    DesktopInspectorDrawer.TEMPLATES to "Templates",
-                                    DesktopInspectorDrawer.GUIDE to "Guide"
-                                ).forEach { (drawerMode, label) ->
-                                    val active = desktopDrawer == drawerMode
-                                    FilterChip(
-                                        selected = active,
-                                        onClick = { desktopDrawer = drawerMode },
-                                        label = { Text(label, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold) },
-                                        modifier = Modifier.weight(1f).desktopHandCursor()
-                                    )
-                                }
-                            }
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-                            when (desktopDrawer) {
-                                DesktopInspectorDrawer.DETAILS -> {
-                                    Column(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .verticalScroll(rememberScrollState())
-                                            .padding(14.dp),
-                                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                                    ) {
-                                        if (attachedClassText.isNotBlank()) {
-                                            AttachedTimetableClassCard(
-                                                attachedClassText = attachedClassText,
-                                                attachedLocation = attachedLocation,
-                                                lecturer = lecturer,
-                                                onClick = { showClassPicker = true }
-                                            )
-                                        }
-                                        PreClassAlertReminderCard(
-                                            canScheduleClassAlert = canScheduleClassAlert,
-                                            selectedAlarmMinutes = selectedAlarmMinutes,
-                                            onOpenClassPicker = { showClassPicker = true },
-                                            onSelectAlarmMinutes = { selectedAlarmMinutes = it },
-                                            onOpenCustomDialog = { showCustomReminderDialog = true }
-                                        )
-                                        NoteAttachmentsSection(
-                                            isCopyingAttachment = isCopyingAttachment,
-                                            attachmentName = attachmentName,
-                                            attachmentPath = attachmentPath,
-                                            onPickDocument = {
-                                                documentPickerLauncher.launch(
-                                                    arrayOf(
-                                                        "application/pdf",
-                                                        "application/msword",
-                                                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                                                        "application/vnd.ms-powerpoint",
-                                                        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-                                                        "text/*"
-                                                    )
+                    // RIGHT DOCKED INSPECTOR PANE (Collapsible; Details / Inline Templates / Inline Formatting Guide)
+                    if (showDesktopInspector) {
+                        val inspectorWidth = if (windowInfo.isExtraLargeWidth) 340.dp else 300.dp
+                        Surface(
+                            shape = RoundedCornerShape(18.dp),
+                            color = MaterialTheme.colorScheme.surface,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
+                            modifier = Modifier
+                                .width(inspectorWidth)
+                                .fillMaxHeight()
+                                .testTag("note_editor_inspector")
+                        ) {
+                            Column(modifier = Modifier.fillMaxSize()) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    listOf(
+                                        DesktopInspectorDrawer.DETAILS to "Details",
+                                        DesktopInspectorDrawer.TEMPLATES to "Templates",
+                                        DesktopInspectorDrawer.GUIDE to "Guide"
+                                    ).forEach { (drawerMode, label) ->
+                                        val active = desktopDrawer == drawerMode
+                                        FilterChip(
+                                            selected = active,
+                                            onClick = { desktopDrawer = drawerMode },
+                                            label = {
+                                                Text(
+                                                    label,
+                                                    fontSize = 11.5.sp,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
                                                 )
                                             },
-                                            onPickPhoto = {
-                                                photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                                            },
-                                            onOpenAttachment = openAttachmentAction,
-                                            onRemoveAttachment = {
-                                                attachmentName = ""
-                                                attachmentPath = null
-                                            }
+                                            modifier = Modifier.weight(1f).desktopHandCursor()
                                         )
                                     }
                                 }
-                                DesktopInspectorDrawer.TEMPLATES -> {
-                                    NoteTemplatesContent(
-                                        onDismiss = { desktopDrawer = DesktopInspectorDrawer.DETAILS },
-                                        onSelectTemplate = { tpl ->
-                                            if (contentValue.text.isBlank()) applyTemplate(tpl) else pendingTemplate = tpl
-                                        },
-                                        modifier = Modifier.weight(1f).padding(14.dp)
-                                    )
-                                }
-                                DesktopInspectorDrawer.GUIDE -> {
-                                    MarkdownHelpContent(
-                                        onDismiss = { desktopDrawer = DesktopInspectorDrawer.DETAILS },
-                                        onInsertSnippet = insertSnippet,
-                                        modifier = Modifier.weight(1f).padding(14.dp)
-                                    )
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                                when (desktopDrawer) {
+                                    DesktopInspectorDrawer.DETAILS -> {
+                                        Column(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .verticalScroll(rememberScrollState())
+                                                .padding(14.dp),
+                                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                                        ) {
+                                            if (attachedClassText.isNotBlank()) {
+                                                AttachedTimetableClassCard(
+                                                    attachedClassText = attachedClassText,
+                                                    attachedLocation = attachedLocation,
+                                                    lecturer = lecturer,
+                                                    onClick = { showClassPicker = true }
+                                                )
+                                            }
+                                            PreClassAlertReminderCard(
+                                                canScheduleClassAlert = canScheduleClassAlert,
+                                                selectedAlarmMinutes = selectedAlarmMinutes,
+                                                onOpenClassPicker = { showClassPicker = true },
+                                                onSelectAlarmMinutes = { selectedAlarmMinutes = it },
+                                                onOpenCustomDialog = { showCustomReminderDialog = true }
+                                            )
+                                            NoteAttachmentsSection(
+                                                isCopyingAttachment = isCopyingAttachment,
+                                                attachmentName = attachmentName,
+                                                attachmentPath = attachmentPath,
+                                                onPickDocument = {
+                                                    documentPickerLauncher.launch(
+                                                        arrayOf(
+                                                            "application/pdf",
+                                                            "application/msword",
+                                                            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                                            "application/vnd.ms-powerpoint",
+                                                            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                                                            "text/*"
+                                                        )
+                                                    )
+                                                },
+                                                onPickPhoto = {
+                                                    photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                                },
+                                                onOpenAttachment = openAttachmentAction,
+                                                onRemoveAttachment = {
+                                                    attachmentName = ""
+                                                    attachmentPath = null
+                                                }
+                                            )
+                                        }
+                                    }
+                                    DesktopInspectorDrawer.TEMPLATES -> {
+                                        NoteTemplatesContent(
+                                            onDismiss = { desktopDrawer = DesktopInspectorDrawer.DETAILS },
+                                            onSelectTemplate = { tpl ->
+                                                if (contentValue.text.isBlank()) applyTemplate(tpl) else pendingTemplate = tpl
+                                            },
+                                            modifier = Modifier.weight(1f).padding(14.dp)
+                                        )
+                                    }
+                                    DesktopInspectorDrawer.GUIDE -> {
+                                        MarkdownHelpContent(
+                                            onDismiss = { desktopDrawer = DesktopInspectorDrawer.DETAILS },
+                                            onInsertSnippet = insertSnippet,
+                                            modifier = Modifier.weight(1f).padding(14.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -1182,7 +1371,13 @@ fun NoteEditorScreen(
                     }
                     item {
                         AssistChip(
-                            onClick = { showCustomReminderDialog = true },
+                            onClick = {
+                                if (canScheduleClassAlert) {
+                                    showCustomReminderDialog = true
+                                } else {
+                                    showClassPicker = true
+                                }
+                            },
                             label = {
                                 val alertText = if (selectedAlarmMinutes != null) "⏰ ${selectedAlarmMinutes}m alert" else "⏰ Add Alert"
                                 Text(alertText, fontSize = 12.sp, fontWeight = FontWeight.Medium)
@@ -1200,7 +1395,20 @@ fun NoteEditorScreen(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
                 ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
+                    Column(
+                        modifier = Modifier
+                            .padding(14.dp)
+                            .let { mod ->
+                                if (currentTab == NoteEditorTab.WRITE) {
+                                    mod.clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null
+                                    ) {
+                                        try { editorFocusRequester.requestFocus() } catch (_: Exception) {}
+                                    }
+                                } else mod
+                            }
+                    ) {
                         if (currentTab == NoteEditorTab.WRITE) {
                             MarkdownFormattingToolbar(
                                 isDark = isDark,
@@ -1222,7 +1430,11 @@ fun NoteEditorScreen(
                                 visualTransformation = liveTransformation,
                                 textStyle = TextStyle(fontSize = 15.sp, lineHeight = 24.sp, color = MaterialTheme.colorScheme.onSurface),
                                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                                modifier = Modifier.fillMaxWidth().heightIn(min = 180.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 180.dp)
+                                    .focusRequester(editorFocusRequester)
+                                    .testTag("note_content_editor"),
                                 decorationBox = { innerTextField ->
                                     if (contentValue.text.isEmpty()) {
                                         Text(
@@ -1268,7 +1480,7 @@ fun NoteEditorScreen(
                             MarkdownViewer(
                                 markdown = contentValue.text,
                                 onToggleChecklist = toggleChecklistInPreview,
-                                onWikiLinkClick = onWikiLinkClick,
+                                onWikiLinkClick = handleWikiLinkRequest,
                                 onUrlClick = { rawUrl ->
                                     val safeUrl = if (rawUrl.startsWith("http://", ignoreCase = true) || rawUrl.startsWith("https://", ignoreCase = true)) {
                                         rawUrl

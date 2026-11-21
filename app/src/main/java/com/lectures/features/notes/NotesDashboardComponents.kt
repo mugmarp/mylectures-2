@@ -1,47 +1,71 @@
 package com.lectures.features.notes
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Notes
+import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.SearchOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import android.content.Intent
-import android.net.Uri
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.PushPin
-import androidx.compose.material.icons.outlined.DeleteOutline
-import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.lectures.core.storage.AttachmentStore
 import com.lectures.features.timetable.domain.LectureNote
 import com.lectures.features.timetable.ui.DarkBorderSubtle
 import com.lectures.features.timetable.ui.DarkSurfaceCard
 import com.lectures.ui.LocalExtendedColors
 import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.components.desktopHoverable
 import com.lectures.ui.contrastOnColor
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 internal fun NotesSearchBarCard(
@@ -50,8 +74,10 @@ internal fun NotesSearchBarCard(
     onSearchQueryChange: (String) -> Unit,
     onClearSearch: () -> Unit,
     focusRequester: FocusRequester? = null,
+    showDesktopShortcutHint: Boolean = false,
     modifier: Modifier = Modifier
 ) {
+    val ext = LocalExtendedColors.current
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -64,7 +90,7 @@ internal fun NotesSearchBarCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = 16.dp, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
@@ -94,11 +120,23 @@ internal fun NotesSearchBarCard(
                 ),
                 modifier = Modifier
                     .weight(1f)
-                    .let { if (focusRequester != null) it.focusRequester(focusRequester) else it },
+                    .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
+                    .onPreviewKeyEvent { event ->
+                        if (event.type == KeyEventType.KeyDown && event.key == Key.Escape && searchQuery.isNotEmpty()) {
+                            onClearSearch()
+                            true
+                        } else false
+                    }
+                    .testTag("notes_search_input"),
                 singleLine = true
             )
             if (searchQuery.isNotBlank()) {
-                IconButton(onClick = onClearSearch, modifier = Modifier.desktopHandCursor()) {
+                IconButton(
+                    onClick = onClearSearch,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .desktopHandCursor()
+                ) {
                     Icon(
                         Icons.Default.Close,
                         contentDescription = "Clear search",
@@ -106,37 +144,184 @@ internal fun NotesSearchBarCard(
                         modifier = Modifier.size(16.dp)
                     )
                 }
+            } else if (showDesktopShortcutHint) {
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = ext.surfaceElevated,
+                    border = BorderStroke(1.dp, ext.borderSubtle)
+                ) {
+                    Text(
+                        text = "^F",
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = ext.textMuted,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
             }
         }
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun NotesFilterChipsStrip(
     filterChips: List<Pair<String, Int>>,
     selectedFilter: String,
-    onFilterSelected: (String) -> Unit
+    onFilterSelected: (String) -> Unit,
+    isTabletOrDesktop: Boolean = false,
+    sortOrder: NoteSortOrder = NoteSortOrder.PINNED_FIRST,
+    onSortOrderSelected: (NoteSortOrder) -> Unit = {}
 ) {
-    LazyRow(
-        modifier = Modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(horizontal = 20.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        items(filterChips.size) { index ->
-            val (label, count) = filterChips[index]
-            val selected = selectedFilter.equals(label, ignoreCase = true)
-            FilterChip(
-                selected = selected,
-                onClick = { onFilterSelected(label) },
-                label = {
-                    Text(
-                        text = "$label ($count)",
-                        fontSize = 12.sp,
-                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+    val ext = LocalExtendedColors.current
+    var sortMenuExpanded by remember { mutableStateOf(false) }
+
+    if (isTabletOrDesktop) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Top
+        ) {
+            FlowRow(
+                modifier = Modifier.weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                filterChips.forEach { (label, count) ->
+                    val selected = selectedFilter.equals(label, ignoreCase = true)
+                    FilterChip(
+                        selected = selected,
+                        onClick = { onFilterSelected(label) },
+                        label = {
+                            Text(
+                                text = "$label ($count)",
+                                fontSize = 12.sp,
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+                            )
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.desktopHandCursor()
                     )
-                },
-                shape = RoundedCornerShape(12.dp)
-            )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Box {
+                AssistChip(
+                    onClick = { sortMenuExpanded = true },
+                    leadingIcon = {
+                        Icon(
+                            Icons.AutoMirrored.Outlined.Sort,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = ext.textSecondary
+                        )
+                    },
+                    label = {
+                        Text(
+                            text = sortOrder.label,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    },
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .desktopHandCursor()
+                        .testTag("notes_sort_button")
+                )
+
+                DropdownMenu(
+                    expanded = sortMenuExpanded,
+                    onDismissRequest = { sortMenuExpanded = false }
+                ) {
+                    NoteSortOrder.entries.forEach { option ->
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = option.label,
+                                    fontWeight = if (option == sortOrder) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (option == sortOrder) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                )
+                            },
+                            onClick = {
+                                sortMenuExpanded = false
+                                onSortOrderSelected(option)
+                            },
+                            modifier = Modifier.desktopHandCursor()
+                        )
+                    }
+                }
+            }
+        }
+    } else {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 20.dp, end = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            LazyRow(
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(end = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(filterChips.size) { index ->
+                    val (label, count) = filterChips[index]
+                    val selected = selectedFilter.equals(label, ignoreCase = true)
+                    FilterChip(
+                        selected = selected,
+                        onClick = { onFilterSelected(label) },
+                        label = {
+                            Text(
+                                text = "$label ($count)",
+                                fontSize = 12.sp,
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+                            )
+                        },
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                }
+            }
+
+            Box {
+                IconButton(
+                    onClick = { sortMenuExpanded = true },
+                    modifier = Modifier
+                        .size(48.dp)
+                        .testTag("notes_sort_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Outlined.Sort,
+                        contentDescription = "Sort notes (${sortOrder.label})",
+                        tint = if (sortOrder != NoteSortOrder.PINNED_FIRST) MaterialTheme.colorScheme.primary else ext.textSecondary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                DropdownMenu(
+                    expanded = sortMenuExpanded,
+                    onDismissRequest = { sortMenuExpanded = false }
+                ) {
+                    NoteSortOrder.entries.forEach { option ->
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = option.label,
+                                    fontWeight = if (option == sortOrder) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (option == sortOrder) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                )
+                            },
+                            onClick = {
+                                sortMenuExpanded = false
+                                onSortOrderSelected(option)
+                            }
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -167,7 +352,12 @@ internal fun NotesFeedbackBanners(
                         fontSize = 13.sp,
                         modifier = Modifier.weight(1f)
                     )
-                    IconButton(onClick = onDismiss) {
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .desktopHandCursor()
+                    ) {
                         Icon(
                             Icons.Default.Close,
                             contentDescription = "Dismiss",
@@ -201,7 +391,12 @@ internal fun NotesFeedbackBanners(
                         fontSize = 13.sp,
                         modifier = Modifier.weight(1f)
                     )
-                    IconButton(onClick = onDismiss) {
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .desktopHandCursor()
+                    ) {
                         Icon(
                             Icons.Default.Close,
                             contentDescription = "Dismiss",
@@ -276,7 +471,8 @@ internal fun NotesEmptyStateView(
                 Spacer(modifier = Modifier.height(16.dp))
                 OutlinedButton(
                     onClick = onClearFilters,
-                    shape = RoundedCornerShape(20.dp)
+                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier.desktopHandCursor()
                 ) {
                     Text("Clear Search & Filters", fontSize = 13.sp)
                 }
@@ -285,7 +481,8 @@ internal fun NotesEmptyStateView(
                 Button(
                     onClick = onCreateNote,
                     shape = RoundedCornerShape(20.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                    modifier = Modifier.desktopHandCursor()
                 ) {
                     Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
@@ -304,18 +501,20 @@ internal fun NotesCourseGroupHeader(
     isDark: Boolean,
     modifier: Modifier = Modifier
 ) {
+    val ext = LocalExtendedColors.current
     val courseInfo = availableCourses.find { it.code.equals(courseCode, ignoreCase = true) }
     val courseTitle = courseInfo?.title ?: "Academic Course"
+    val fallbackPrimary = MaterialTheme.colorScheme.primary
     val dotColor = courseInfo?.color?.let {
-        try { Color(android.graphics.Color.parseColor(it)) } catch (_: Exception) { Color(0xFF2563EB) }
-    } ?: Color(0xFF2563EB)
+        try { Color(android.graphics.Color.parseColor(it)) } catch (_: Exception) { fallbackPrimary }
+    } ?: fallbackPrimary
 
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
             Box(
                 modifier = Modifier
                     .size(10.dp)
@@ -327,13 +526,16 @@ internal fun NotesCourseGroupHeader(
                 text = "$courseCode · $courseTitle",
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
-                color = if (isDark) Color.White else Color(0xFF0F172A)
+                color = ext.textPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
+        Spacer(modifier = Modifier.width(8.dp))
         Text(
             text = "$notesCount note${if (notesCount > 1) "s" else ""}",
             fontSize = 12.sp,
-            color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
+            color = ext.textMuted
         )
     }
 }
@@ -344,7 +546,9 @@ internal fun NotesDesktopPreviewPane(
     onEdit: (LectureNote) -> Unit,
     onTogglePin: (LectureNote) -> Unit,
     onDelete: (LectureNote) -> Unit,
+    onToggleChecklist: ((LectureNote, Int) -> Unit)? = null,
     onClearSelection: (() -> Unit)? = null,
+    onRestoreSelection: (() -> Unit)? = null,
     onWikiLinkClick: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -366,20 +570,48 @@ internal fun NotesDesktopPreviewPane(
                     .padding(24.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = "Select any note card to read it here or open the Split Markdown Editor.",
-                    fontSize = 13.sp,
-                    color = ext.textMuted,
-                    textAlign = TextAlign.Center
-                )
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Outlined.Notes,
+                        contentDescription = null,
+                        tint = accent.copy(alpha = 0.7f),
+                        modifier = Modifier.size(36.dp)
+                    )
+                    Text(
+                        text = "Select any note card to read it here, or double-click a card to jump into the Split Markdown Editor.",
+                        fontSize = 13.sp,
+                        color = ext.textMuted,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 19.sp
+                    )
+                    if (onRestoreSelection != null) {
+                        OutlinedButton(
+                            onClick = onRestoreSelection,
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.desktopHandCursor()
+                        ) {
+                            Text("Show Top Note", fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
             }
         } else {
             val courseCode = note.naturalKey.split("|").firstOrNull()?.ifBlank { "General" } ?: "General"
+            val formattedDate = remember(note.updatedAt) {
+                SimpleDateFormat("MMM d, yyyy · HH:mm", Locale.getDefault()).format(Date(note.updatedAt))
+            }
+            val checklistProgress = remember(note.content) {
+                MarkdownUtils.countChecklistProgress(note.content)
+            }
+
             Column(modifier = Modifier.fillMaxSize()) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 18.dp, vertical = 12.dp),
+                        .padding(start = 18.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -409,6 +641,8 @@ internal fun NotesDesktopPreviewPane(
                                     text = note.tag.orEmpty(),
                                     fontSize = 11.sp,
                                     color = ext.textSecondary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                                 )
                             }
@@ -417,8 +651,28 @@ internal fun NotesDesktopPreviewPane(
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton(
+                            onClick = {
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                clipboard.setPrimaryClip(ClipData.newPlainText(note.title ?: courseCode, note.content))
+                                Toast.makeText(context, "Markdown copied to clipboard", Toast.LENGTH_SHORT).show()
+                            },
+                            modifier = Modifier
+                                .size(48.dp)
+                                .desktopHandCursor()
+                                .testTag("notes_preview_copy_btn")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.ContentCopy,
+                                contentDescription = "Copy Markdown",
+                                tint = ext.textMuted,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        IconButton(
                             onClick = { onTogglePin(note) },
-                            modifier = Modifier.desktopHandCursor()
+                            modifier = Modifier
+                                .size(48.dp)
+                                .desktopHandCursor()
                         ) {
                             Icon(
                                 imageVector = if (note.isPinned) Icons.Default.PushPin else Icons.Outlined.PushPin,
@@ -429,7 +683,9 @@ internal fun NotesDesktopPreviewPane(
                         }
                         IconButton(
                             onClick = { onDelete(note) },
-                            modifier = Modifier.desktopHandCursor()
+                            modifier = Modifier
+                                .size(48.dp)
+                                .desktopHandCursor()
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.DeleteOutline,
@@ -441,7 +697,10 @@ internal fun NotesDesktopPreviewPane(
                         if (onClearSelection != null) {
                             IconButton(
                                 onClick = onClearSelection,
-                                modifier = Modifier.desktopHandCursor()
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .desktopHandCursor()
+                                    .testTag("notes_preview_close_btn")
                             ) {
                                 Icon(Icons.Default.Close, contentDescription = "Close preview", tint = ext.textMuted, modifier = Modifier.size(18.dp))
                             }
@@ -465,6 +724,48 @@ internal fun NotesDesktopPreviewPane(
                         color = ext.textPrimary
                     )
 
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Updated $formattedDate",
+                            fontSize = 11.5.sp,
+                            color = ext.textMuted
+                        )
+                        if (note.alarmMinutes != null) {
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = accent.copy(alpha = 0.12f)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Icon(Icons.Default.NotificationsActive, contentDescription = null, tint = accent, modifier = Modifier.size(11.dp))
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                    Text("${note.alarmMinutes}m alert", fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold, color = accent)
+                                }
+                            }
+                        }
+                        if (checklistProgress != null) {
+                            val (done, total) = checklistProgress
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = if (done == total) ext.successBg else ext.surfaceElevated
+                            ) {
+                                Text(
+                                    text = "$done/$total tasks",
+                                    fontSize = 10.5.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = if (done == total) ext.successText else ext.textSecondary,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                    }
+
                     if (!note.attachedClass.isNullOrBlank()) {
                         Surface(
                             shape = RoundedCornerShape(10.dp),
@@ -482,6 +783,69 @@ internal fun NotesDesktopPreviewPane(
                         }
                     }
 
+                    if (!note.attachmentName.isNullOrBlank()) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = ext.surfaceElevated,
+                            border = BorderStroke(1.dp, ext.borderSubtle),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .let { mod ->
+                                    if (!note.attachmentPath.isNullOrBlank()) {
+                                        mod.desktopHoverable().clickable {
+                                            val uri = AttachmentStore.contentUriFor(context, note.attachmentPath)
+                                            if (uri != null) {
+                                                val intent = Intent(Intent.ACTION_VIEW).apply {
+                                                    setDataAndType(uri, context.contentResolver.getType(uri) ?: "*/*")
+                                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                                }
+                                                try {
+                                                    context.startActivity(intent)
+                                                } catch (_: Exception) {
+                                                    Toast.makeText(context, "No app can open this attachment", Toast.LENGTH_SHORT).show()
+                                                }
+                                            }
+                                        }
+                                    } else mod
+                                }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.AttachFile,
+                                    contentDescription = null,
+                                    tint = accent,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = note.attachmentName,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = ext.textPrimary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = if (note.attachmentPath != null) "Click to open attached file" else "Attachment name saved",
+                                        fontSize = 10.5.sp,
+                                        color = ext.textMuted
+                                    )
+                                }
+                                Icon(
+                                    imageVector = Icons.Default.Description,
+                                    contentDescription = null,
+                                    tint = ext.textMuted,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    }
+
                     HorizontalDivider(color = ext.borderSubtle.copy(alpha = 0.6f))
 
                     if (note.content.isBlank()) {
@@ -493,6 +857,7 @@ internal fun NotesDesktopPreviewPane(
                     } else {
                         MarkdownViewer(
                             markdown = note.content,
+                            onToggleChecklist = onToggleChecklist?.let { cb -> { lineIdx -> cb(note, lineIdx) } },
                             onWikiLinkClick = onWikiLinkClick,
                             onUrlClick = { rawUrl ->
                                 val safe = if (rawUrl.startsWith("http://", true) || rawUrl.startsWith("https://", true)) rawUrl else "https://$rawUrl"
@@ -510,7 +875,11 @@ internal fun NotesDesktopPreviewPane(
                 ) {
                     Button(
                         onClick = { onEdit(note) },
-                        modifier = Modifier.fillMaxWidth().height(44.dp).desktopHandCursor(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .desktopHandCursor()
+                            .testTag("notes_preview_edit_btn"),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = accent,
                             contentColor = contrastOnColor(accent)
@@ -526,4 +895,3 @@ internal fun NotesDesktopPreviewPane(
         }
     }
 }
-

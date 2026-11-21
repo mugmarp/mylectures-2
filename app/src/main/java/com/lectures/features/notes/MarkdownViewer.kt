@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.DisableSelection
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.filled.*
@@ -33,6 +35,8 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lectures.ui.LocalAppTheme
+import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.components.desktopHoverable
 
 @Composable
 fun MarkdownViewer(
@@ -63,10 +67,11 @@ fun MarkdownViewer(
         return
     }
 
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
+    SelectionContainer(modifier = modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
         blocks.forEach { block ->
             when (block) {
                 // 1. Headers (H1 to H6)
@@ -323,32 +328,36 @@ fun MarkdownViewer(
                                 .padding(14.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "FORMULA / EQUATION",
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isDark) Color(0xFF60A5FA) else Color(0xFF2563EB),
-                                    letterSpacing = 0.5.sp
-                                )
-                                IconButton(
-                                    onClick = {
-                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                        clipboard.setPrimaryClip(ClipData.newPlainText("Formula", block.formula))
-                                        Toast.makeText(context, "Formula copied", Toast.LENGTH_SHORT).show()
-                                    },
-                                    modifier = Modifier.minimumInteractiveComponentSize()
+                            DisableSelection {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(
-                                        Icons.Outlined.ContentCopy,
-                                        contentDescription = "Copy formula",
-                                        tint = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
-                                        modifier = Modifier.size(18.dp)
+                                    Text(
+                                        text = "FORMULA / EQUATION",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isDark) Color(0xFF60A5FA) else Color(0xFF2563EB),
+                                        letterSpacing = 0.5.sp
                                     )
+                                    IconButton(
+                                        onClick = {
+                                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                            clipboard.setPrimaryClip(ClipData.newPlainText("Formula", block.formula))
+                                            Toast.makeText(context, "Formula copied", Toast.LENGTH_SHORT).show()
+                                        },
+                                        modifier = Modifier
+                                            .size(48.dp)
+                                            .desktopHandCursor()
+                                    ) {
+                                        Icon(
+                                            Icons.Outlined.ContentCopy,
+                                            contentDescription = "Copy formula",
+                                            tint = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
                                 }
                             }
                             Spacer(modifier = Modifier.height(6.dp))
@@ -375,10 +384,13 @@ fun MarkdownViewer(
                             .fillMaxWidth()
                             .defaultMinSize(minHeight = 48.dp)
                             .clip(RoundedCornerShape(8.dp))
-                            .clickable(enabled = onToggleChecklist != null) {
-                                onToggleChecklist?.invoke(block.lineIndex)
+                            .let { mod ->
+                                if (onToggleChecklist != null) {
+                                    mod.desktopHoverable()
+                                        .clickable { onToggleChecklist.invoke(block.lineIndex) }
+                                } else mod
                             }
-                            .padding(vertical = 4.dp, horizontal = 2.dp),
+                            .padding(vertical = 4.dp, horizontal = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Checkbox(
@@ -454,19 +466,21 @@ fun MarkdownViewer(
                             .padding(start = (block.indentLevel * 16).dp, top = 2.dp, bottom = 2.dp),
                         verticalAlignment = Alignment.Top
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .padding(top = 2.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primaryContainer)
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = block.number,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
+                        DisableSelection {
+                            Box(
+                                modifier = Modifier
+                                    .padding(top = 2.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primaryContainer)
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = block.number,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
                         }
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
@@ -537,31 +551,35 @@ fun MarkdownViewer(
                         )
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = (block.language ?: "CODE").uppercase(java.util.Locale.ROOT),
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF38BDF8)
-                                )
-                                IconButton(
-                                    onClick = {
-                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                        clipboard.setPrimaryClip(ClipData.newPlainText("Code", block.code))
-                                        Toast.makeText(context, "Code copied to clipboard", Toast.LENGTH_SHORT).show()
-                                    },
-                                    modifier = Modifier.minimumInteractiveComponentSize()
+                            DisableSelection {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(
-                                        Icons.Outlined.ContentCopy,
-                                        contentDescription = "Copy code",
-                                        tint = Color(0xFF94A3B8),
-                                        modifier = Modifier.size(18.dp)
+                                    Text(
+                                        text = (block.language ?: "CODE").uppercase(java.util.Locale.ROOT),
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF38BDF8)
                                     )
+                                    IconButton(
+                                        onClick = {
+                                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                            clipboard.setPrimaryClip(ClipData.newPlainText("Code", block.code))
+                                            Toast.makeText(context, "Code copied to clipboard", Toast.LENGTH_SHORT).show()
+                                        },
+                                        modifier = Modifier
+                                            .size(48.dp)
+                                            .desktopHandCursor()
+                                    ) {
+                                        Icon(
+                                            Icons.Outlined.ContentCopy,
+                                            contentDescription = "Copy code",
+                                            tint = Color(0xFF94A3B8),
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
                                 }
                             }
                             Spacer(modifier = Modifier.height(4.dp))
@@ -608,6 +626,7 @@ fun MarkdownViewer(
                 }
             }
         }
+    }
     }
 }
 
