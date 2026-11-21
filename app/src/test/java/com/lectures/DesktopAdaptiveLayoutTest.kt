@@ -468,6 +468,14 @@ class DesktopAdaptiveLayoutTest {
 
         composeRule.onNodeWithTag("settings_category_rail").assertIsDisplayed()
         composeRule.onNodeWithTag("settings_detail_pane").assertIsDisplayed()
+        assertEquals(0, composeRule.onAllNodesWithTag("settings_quick_theme_dark").fetchSemanticsNodes().size)
+
+        composeRule.onNodeWithTag("settings_appearance_card")
+            .performScrollTo()
+            .assertIsDisplayed()
+            .performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("theme_mode_dark").assertIsDisplayed()
 
         composeRule.onNodeWithTag("settings_category_NOTIFICATIONS").performClick()
         composeRule.waitForIdle()

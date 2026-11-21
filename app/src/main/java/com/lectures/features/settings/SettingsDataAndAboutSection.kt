@@ -47,16 +47,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.material.icons.outlined.BrightnessAuto
-import androidx.compose.material.icons.outlined.DarkMode
-import androidx.compose.material.icons.outlined.LightMode
-import androidx.compose.material3.minimumInteractiveComponentSize
+import androidx.compose.material.icons.outlined.Palette
 import com.lectures.BuildConfig
 import com.lectures.ui.AccentColorNames
 import com.lectures.ui.AppThemeState
 import com.lectures.ui.ThemeMode
 import com.lectures.ui.accentDisplayColors
-import com.lectures.ui.components.desktopHandCursor
 import com.lectures.ui.components.desktopHoverable
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -64,142 +60,90 @@ import java.util.Locale
 
 @Composable
 internal fun SettingsAppearanceSection(
-    uiState: SettingsUiState,
     appTheme: AppThemeState,
-    onOpenAppearance: () -> Unit,
-    onSelectThemeMode: (ThemeMode) -> Unit = {}
+    onOpenAppearance: () -> Unit
 ) {
     SectionHeader("APPEARANCE & THEME")
-    val activeAccentIdx = uiState.selectedAccent.coerceIn(0, AccentColorNames.lastIndex)
+    val activeAccentIdx = appTheme.accentIndex.coerceIn(0, AccentColorNames.lastIndex)
     val activeAccentName = AccentColorNames[activeAccentIdx]
     val displaySwatch = accentDisplayColors(appTheme.isDark)[activeAccentIdx]
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp),
+            .padding(horizontal = 20.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .desktopHoverable()
+            .clickable(onClick = onOpenAppearance)
+            .testTag("settings_appearance_card"),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Row(
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 68.dp)
+                .padding(horizontal = 18.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
-                    .desktopHoverable()
-                    .clickable(onClick = onOpenAppearance)
-                    .padding(start = 18.dp, end = 18.dp, top = 16.dp, bottom = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                    .size(38.dp)
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), CircleShape),
+                contentAlignment = Alignment.Center
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Appearance & Theme",
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 15.sp,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = when (uiState.themeMode) {
-                            ThemeMode.LIGHT -> "Light · $activeAccentName"
-                            ThemeMode.DARK -> "Dark · $activeAccentName"
-                            ThemeMode.SYSTEM -> "System · $activeAccentName"
-                        },
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Box(
-                        modifier = Modifier
-                            .size(14.dp)
-                            .clip(CircleShape)
-                            .background(displaySwatch)
-                    )
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                    ) {
-                        Text(
-                            text = "Customize",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                        )
-                    }
-                }
+                Icon(
+                    imageVector = Icons.Outlined.Palette,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
             }
-
-            HorizontalDivider(
-                modifier = Modifier.padding(horizontal = 18.dp),
-                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
-            )
-
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Appearance & Theme",
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 15.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = when (appTheme.themeMode) {
+                        ThemeMode.LIGHT -> "Light mode · $activeAccentName"
+                        ThemeMode.DARK -> "Dark mode · $activeAccentName"
+                        ThemeMode.SYSTEM -> "System (${if (appTheme.isDark) "Dark" else "Light"}) · $activeAccentName"
+                    },
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                val modes = listOf(
-                    Triple(ThemeMode.LIGHT, "Light", Icons.Outlined.LightMode),
-                    Triple(ThemeMode.SYSTEM, "System", Icons.Outlined.BrightnessAuto),
-                    Triple(ThemeMode.DARK, "Dark", Icons.Outlined.DarkMode)
+                Box(
+                    modifier = Modifier
+                        .size(14.dp)
+                        .clip(CircleShape)
+                        .background(displaySwatch)
                 )
-                modes.forEach { (mode, label, icon) ->
-                    val selected = appTheme.themeMode == mode
-                    val tag = when (mode) {
-                        ThemeMode.LIGHT -> "settings_quick_theme_light"
-                        ThemeMode.SYSTEM -> "settings_quick_theme_system"
-                        ThemeMode.DARK -> "settings_quick_theme_dark"
-                    }
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = if (selected) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
-                        },
-                        border = BorderStroke(
-                            1.dp,
-                            if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
-                        ),
-                        modifier = Modifier
-                            .weight(1f)
-                            .minimumInteractiveComponentSize()
-                            .heightIn(min = 44.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .desktopHandCursor()
-                            .clickable { onSelectThemeMode(mode) }
-                            .testTag(tag)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp, vertical = 9.dp),
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = icon,
-                                contentDescription = null,
-                                tint = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = label,
-                                fontSize = 12.5.sp,
-                                fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
-                                color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                ) {
+                    Text(
+                        text = "Customize",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    )
                 }
             }
         }
@@ -274,7 +218,9 @@ internal fun SettingsDataAndSyncSection(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .heightIn(min = 48.dp)
                         .clip(RoundedCornerShape(14.dp))
+                        .desktopHoverable()
                         .clickable(onClick = onOpenAccount)
                         .padding(vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -354,7 +300,9 @@ internal fun SettingsDataAndSyncSection(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .heightIn(min = 48.dp)
                         .clip(RoundedCornerShape(14.dp))
+                        .desktopHoverable()
                         .clickable(onClick = onOpenAccount)
                         .padding(vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -443,7 +391,9 @@ internal fun SettingsDataAndSyncSection(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .heightIn(min = 48.dp)
                     .clip(RoundedCornerShape(12.dp))
+                    .desktopHoverable()
                     .clickable {
                         val stamp = SimpleDateFormat("yyyyMMdd", Locale.US).format(Date())
                         onExportBackup("lectures_backup_$stamp.json")
@@ -498,7 +448,9 @@ internal fun SettingsDataAndSyncSection(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .heightIn(min = 48.dp)
                     .clip(RoundedCornerShape(12.dp))
+                    .desktopHoverable()
                     .clickable(onClick = onShowVersionDetails)
                     .padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -531,7 +483,9 @@ internal fun SettingsDataAndSyncSection(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .heightIn(min = 48.dp)
                     .clip(RoundedCornerShape(12.dp))
+                    .desktopHoverable()
                     .clickable(onClick = onCheckOrOpenUpdate)
                     .padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -703,7 +657,9 @@ internal fun SettingsAboutAndDangerSection(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .heightIn(min = 48.dp)
                     .clip(RoundedCornerShape(10.dp))
+                    .desktopHoverable()
                     .clickable(onClick = onOpenDisclaimer)
                     .padding(vertical = 8.dp, horizontal = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -731,7 +687,9 @@ internal fun SettingsAboutAndDangerSection(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .heightIn(min = 48.dp)
                     .clip(RoundedCornerShape(10.dp))
+                    .desktopHoverable()
                     .clickable(onClick = onOpenTerms)
                     .padding(vertical = 8.dp, horizontal = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -759,7 +717,9 @@ internal fun SettingsAboutAndDangerSection(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .heightIn(min = 48.dp)
                     .clip(RoundedCornerShape(10.dp))
+                    .desktopHoverable()
                     .clickable(onClick = onOpenPrivacy)
                     .padding(vertical = 8.dp, horizontal = 4.dp),
                 verticalAlignment = Alignment.CenterVertically

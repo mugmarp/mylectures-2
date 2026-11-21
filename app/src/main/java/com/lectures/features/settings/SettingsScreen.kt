@@ -123,11 +123,16 @@ fun SettingsScreen(
     var currentSubScreen by rememberSaveable { mutableStateOf(SettingsSubScreen.MAIN) }
     var selectedCategory by rememberSaveable { mutableStateOf(SettingsCategory.OVERVIEW) }
 
-    BackHandler(enabled = !windowInfo.isDualPane && currentSubScreen != SettingsSubScreen.MAIN) {
-        currentSubScreen = SettingsSubScreen.MAIN
+    var isAccountScreenOpen by rememberSaveable { mutableStateOf(false) }
+
+    BackHandler(enabled = isAccountScreenOpen) {
+        isAccountScreenOpen = false
     }
 
-    var isAccountScreenOpen by rememberSaveable { mutableStateOf(false) }
+    BackHandler(enabled = !isAccountScreenOpen && !windowInfo.isDualPane && currentSubScreen != SettingsSubScreen.MAIN) {
+        currentSubScreen = SettingsSubScreen.MAIN
+        selectedCategory = SettingsCategory.OVERVIEW
+    }
 
     val handleOpenAccount = {
         if (onOpenAccount != null) {
@@ -257,11 +262,10 @@ fun SettingsScreen(
     if (showDeveloperModal) {
         DeveloperProfileSheet(onDismiss = { showDeveloperModal = false })
     }
+    val feedbackMgr = remember(app, context) {
+        app.feedbackManager ?: FeedbackManager(context, app.etagStore ?: ETagStore(context))
+    }
     if (showFeedbackModal) {
-        val feedbackMgr = app.feedbackManager ?: remember(context) {
-            val store = app.etagStore ?: ETagStore(context)
-            FeedbackManager(context, store)
-        }
         AnonymousFeedbackSheet(
             feedbackManager = feedbackMgr,
             onDismiss = { showFeedbackModal = false }
@@ -294,11 +298,14 @@ fun SettingsScreen(
                             onClick = {
                                 if (showSubBack) {
                                     currentSubScreen = SettingsSubScreen.MAIN
+                                    selectedCategory = SettingsCategory.OVERVIEW
                                 } else {
                                     onBack?.invoke()
                                 }
                             },
-                            modifier = Modifier.desktopHandCursor()
+                            modifier = Modifier
+                                .size(48.dp)
+                                .desktopHandCursor()
                         ) {
                             Icon(
                                 Icons.AutoMirrored.Filled.ArrowBack,
@@ -419,7 +426,14 @@ fun SettingsScreen(
                                             hoverContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.06f)
                                         )
                                         .background(bgColor, RoundedCornerShape(14.dp))
-                                        .clickable { selectedCategory = category }
+                                        .clickable {
+                                            selectedCategory = category
+                                            currentSubScreen = when (category) {
+                                                SettingsCategory.APPEARANCE -> SettingsSubScreen.APPEARANCE
+                                                SettingsCategory.NOTIFICATIONS -> SettingsSubScreen.NOTIFICATIONS
+                                                else -> SettingsSubScreen.MAIN
+                                            }
+                                        }
                                         .padding(horizontal = 12.dp, vertical = 12.dp)
                                         .testTag("settings_category_${category.name}"),
                                     verticalAlignment = Alignment.CenterVertically
@@ -494,16 +508,16 @@ fun SettingsScreen(
                                         onToggleNotifications = { viewModel.setNotificationsEnabled(it) },
                                         onOpenNotificationPreferences = {
                                             selectedCategory = SettingsCategory.NOTIFICATIONS
+                                            currentSubScreen = SettingsSubScreen.NOTIFICATIONS
                                         }
                                     )
                                     Spacer(modifier = Modifier.height(22.dp))
                                     SettingsAppearanceSection(
-                                        uiState = uiState,
                                         appTheme = appTheme,
                                         onOpenAppearance = {
                                             selectedCategory = SettingsCategory.APPEARANCE
-                                        },
-                                        onSelectThemeMode = onSelectThemeMode
+                                            currentSubScreen = SettingsSubScreen.APPEARANCE
+                                        }
                                     )
                                 }
                             }
@@ -533,7 +547,6 @@ fun SettingsScreen(
                             SettingsCategory.APPEARANCE -> {
                                 AppearanceSettingsView(
                                     modifier = Modifier.fillMaxSize(),
-                                    uiState = uiState,
                                     appTheme = appTheme,
                                     onSelectThemeMode = onSelectThemeMode,
                                     onSelectAccent = onSelectAccent
@@ -601,7 +614,6 @@ fun SettingsScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .widthIn(max = 760.dp),
-                    uiState = uiState,
                     appTheme = appTheme,
                     onSelectThemeMode = onSelectThemeMode,
                     onSelectAccent = onSelectAccent
@@ -679,16 +691,20 @@ fun SettingsScreen(
                         isPermissionBannerDismissed = isPermissionBannerDismissed,
                         onDismissPermissionBanner = { isPermissionBannerDismissed = true },
                         onToggleNotifications = { viewModel.setNotificationsEnabled(it) },
-                        onOpenNotificationPreferences = { currentSubScreen = SettingsSubScreen.NOTIFICATIONS }
+                        onOpenNotificationPreferences = {
+                            currentSubScreen = SettingsSubScreen.NOTIFICATIONS
+                            selectedCategory = SettingsCategory.NOTIFICATIONS
+                        }
                     )
 
                     Spacer(modifier = Modifier.height(24.dp))
 
                     SettingsAppearanceSection(
-                        uiState = uiState,
                         appTheme = appTheme,
-                        onOpenAppearance = { currentSubScreen = SettingsSubScreen.APPEARANCE },
-                        onSelectThemeMode = onSelectThemeMode
+                        onOpenAppearance = {
+                            currentSubScreen = SettingsSubScreen.APPEARANCE
+                            selectedCategory = SettingsCategory.APPEARANCE
+                        }
                     )
 
                     Spacer(modifier = Modifier.height(24.dp))
@@ -765,7 +781,7 @@ private fun SettingsFeedbackBanners(
                     Icon(Icons.Outlined.ErrorOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error)
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(error, color = MaterialTheme.colorScheme.onErrorContainer, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                    IconButton(onClick = onDismiss, modifier = Modifier.desktopHandCursor()) {
+                    IconButton(onClick = onDismiss, modifier = Modifier.size(48.dp).desktopHandCursor()) {
                         Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.size(16.dp))
                     }
                 }
@@ -798,7 +814,7 @@ private fun SettingsFeedbackBanners(
                     Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = successIcon)
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(success, color = successContent, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                    IconButton(onClick = onDismiss, modifier = Modifier.desktopHandCursor()) {
+                    IconButton(onClick = onDismiss, modifier = Modifier.size(48.dp).desktopHandCursor()) {
                         Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = successIcon, modifier = Modifier.size(16.dp))
                     }
                 }

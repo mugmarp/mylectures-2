@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.outlined.VolumeUp
 import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.AssignmentTurnedIn
 import androidx.compose.material.icons.filled.Close
@@ -30,7 +31,6 @@ import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material.icons.outlined.NotificationsOff
 import androidx.compose.material.icons.outlined.Tune
-import androidx.compose.material.icons.outlined.VolumeUp
 import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -136,14 +136,19 @@ private fun NotificationHealthWarningBanner(
                             contentColor = contrastOnColor(allowContainer)
                         ),
                         modifier = Modifier
-                            .defaultMinSize(minHeight = 36.dp)
+                            .defaultMinSize(minHeight = 48.dp)
                             .desktopHandCursor()
                     ) {
                         Text("Allow Notifications", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
                 Spacer(modifier = Modifier.width(4.dp))
-                IconButton(onClick = onDismissPermissionBanner) {
+                IconButton(
+                    onClick = onDismissPermissionBanner,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .desktopHandCursor()
+                ) {
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "Dismiss notification warning",
@@ -209,6 +214,7 @@ private fun NotificationHealthWarningBanner(
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp, vertical = 6.dp)
                 .clip(RoundedCornerShape(14.dp))
+                .desktopHoverable()
                 .clickable { NotificationPermissionHelper.openExactAlarmSettings(context) },
             shape = RoundedCornerShape(14.dp),
             colors = CardDefaults.cardColors(
@@ -739,6 +745,7 @@ internal fun NotificationSettingsView(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+                        .desktopHoverable()
                         .clickable { NotificationPermissionHelper.openAppNotificationSettings(context) }
                         .padding(18.dp)
                         .testTag("settings_system_sound_row"),
@@ -751,7 +758,7 @@ internal fun NotificationSettingsView(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            Icons.Outlined.VolumeUp,
+                            Icons.AutoMirrored.Outlined.VolumeUp,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(18.dp)
@@ -789,6 +796,7 @@ internal fun NotificationSettingsView(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp))
+                        .desktopHoverable()
                         .clickable { NotificationPermissionHelper.openExactAlarmSettings(context) }
                         .padding(18.dp),
                     verticalAlignment = Alignment.CenterVertically

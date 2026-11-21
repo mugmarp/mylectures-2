@@ -510,7 +510,7 @@ fun MainScaffold(
                                                     onNavigateToCalendar = { selectedTab = 1 },
                                                     onNavigateToTasks = { selectedTab = 3 },
                                                     onReconfigureAcademicProfile = {
-                                                        currentDestination = MainScreenDestination.SETTINGS
+                                                        currentDestination = MainScreenDestination.TABS
                                                         navState = AppNavState.FacultySelection
                                                     },
                                                     onOpenVacantRooms = { currentDestination = MainScreenDestination.VACANT_ROOMS },
@@ -522,7 +522,7 @@ fun MainScaffold(
                                                     onBack = null,
                                                     onSettingsClick = { currentDestination = MainScreenDestination.SETTINGS },
                                                     onReconfigureAcademicProfile = {
-                                                        currentDestination = MainScreenDestination.SETTINGS
+                                                        currentDestination = MainScreenDestination.TABS
                                                         navState = AppNavState.FacultySelection
                                                     },
                                                     onNavigateToTimetable = { selectedTab = 0 },
@@ -534,7 +534,7 @@ fun MainScaffold(
                                                 onBack = null,
                                                 onSettingsClick = { currentDestination = MainScreenDestination.SETTINGS },
                                                 onReconfigureAcademicProfile = {
-                                                    currentDestination = MainScreenDestination.SETTINGS
+                                                    currentDestination = MainScreenDestination.TABS
                                                     navState = AppNavState.FacultySelection
                                                 },
                                                 onNavigateToTimetable = { selectedTab = 0 },
@@ -546,7 +546,7 @@ fun MainScaffold(
                                                 onBack = null,
                                                 onSettingsClick = { currentDestination = MainScreenDestination.SETTINGS },
                                                 onReconfigureAcademicProfile = {
-                                                    currentDestination = MainScreenDestination.SETTINGS
+                                                    currentDestination = MainScreenDestination.TABS
                                                     navState = AppNavState.FacultySelection
                                                 },
                                                 onNavigateToTimetable = { selectedTab = 0 },

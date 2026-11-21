@@ -23,6 +23,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -30,7 +31,6 @@ import com.lectures.R
 import com.lectures.TimetableApplication
 import com.lectures.features.timetable.ui.*
 import com.lectures.ui.LocalAppTheme
-import com.lectures.ui.ThemeMode
 import kotlinx.coroutines.flow.flowOf
 import java.util.Locale
 
@@ -280,7 +280,9 @@ fun AcademicProfileSheet(
                             text = if (effectiveEnrolled.isNotBlank()) "$effectiveEnrolled $effectiveAcademicYear" else "No Programme Selected",
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Bold,
-                            color = textColor
+                            color = textColor,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
 
@@ -298,100 +300,6 @@ fun AcademicProfileSheet(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Quick 1-Tap Study Theme Switcher
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = cardBg,
-                border = BorderStroke(1.dp, cardBorder),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "STUDY THEME",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = accentColor,
-                            letterSpacing = 0.5.sp
-                        )
-                        Text(
-                            text = when (appTheme.themeMode) {
-                                ThemeMode.LIGHT -> "Daylight"
-                                ThemeMode.DARK -> "Night Comfort"
-                                ThemeMode.SYSTEM -> "Auto (${if (isDark) "Dark" else "Light"})"
-                            },
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = textSub
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        val quickModes = listOf(
-                            Triple(ThemeMode.LIGHT, "Light", Icons.Outlined.LightMode),
-                            Triple(ThemeMode.SYSTEM, "Auto", Icons.Outlined.BrightnessAuto),
-                            Triple(ThemeMode.DARK, "Dark", Icons.Outlined.DarkMode)
-                        )
-                        quickModes.forEach { (mode, label, modeIcon) ->
-                            val selected = appTheme.themeMode == mode
-                            val tag = when (mode) {
-                                ThemeMode.LIGHT -> "quick_theme_light"
-                                ThemeMode.SYSTEM -> "quick_theme_system"
-                                ThemeMode.DARK -> "quick_theme_dark"
-                            }
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = if (selected) accentColor else if (isDark) DarkSurfaceContainer else Color.White,
-                                border = BorderStroke(
-                                    1.dp,
-                                    if (selected) accentColor else cardBorder
-                                ),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .heightIn(min = 48.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .desktopHandCursor()
-                                    .clickable { appTheme.onThemeModeChange(mode) }
-                                    .testTag(tag)
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 8.dp, vertical = 10.dp),
-                                    horizontalArrangement = Arrangement.Center,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = modeIcon,
-                                        contentDescription = null,
-                                        tint = if (selected) MaterialTheme.colorScheme.onPrimary else textSub,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = label,
-                                        fontSize = 12.5.sp,
-                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
-                                        color = if (selected) MaterialTheme.colorScheme.onPrimary else textColor,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
             // Action: Switch / Reconfigure Programme
             Surface(
                 shape = RoundedCornerShape(14.dp),
@@ -399,8 +307,11 @@ fun AcademicProfileSheet(
                 border = BorderStroke(1.dp, cardBorder),
                 modifier = Modifier
                     .fillMaxWidth()
+                    .heightIn(min = 56.dp)
+                    .clip(RoundedCornerShape(14.dp))
                     .desktopHoverable()
                     .clickable { showChangeProgrammeDialog = true }
+                    .testTag("academic_sheet_change_programme_btn")
             ) {
                 Row(
                     modifier = Modifier.padding(16.dp),
@@ -457,11 +368,14 @@ fun AcademicProfileSheet(
                 border = BorderStroke(1.dp, cardBorder),
                 modifier = Modifier
                     .fillMaxWidth()
+                    .heightIn(min = 56.dp)
+                    .clip(RoundedCornerShape(14.dp))
                     .desktopHoverable()
                     .clickable {
                         onDismiss()
                         onOpenSettings()
                     }
+                    .testTag("academic_sheet_settings_btn")
             ) {
                 Row(
                     modifier = Modifier.padding(16.dp),
@@ -489,7 +403,7 @@ fun AcademicProfileSheet(
                             color = textColor
                         )
                         Text(
-                            text = "Dark theme, alerts & sync controls",
+                            text = "Theme, alerts & sync controls",
                             fontSize = 12.sp,
                             color = textSub
                         )
@@ -552,8 +466,7 @@ private fun ProfileItemRow(
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.weight(1f, fill = false)
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 imageVector = icon,
@@ -574,7 +487,11 @@ private fun ProfileItemRow(
             text = value,
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
-            color = if (isDark) Color.White else TextPrimaryLight
+            color = if (isDark) Color.White else TextPrimaryLight,
+            textAlign = TextAlign.End,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
         )
     }
 }

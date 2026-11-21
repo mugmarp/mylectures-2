@@ -6,7 +6,10 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -45,6 +48,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -246,7 +250,9 @@ internal fun ThemeSelectionCard(
                     text = title,
                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
                     fontSize = 13.sp,
-                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
 
@@ -261,16 +267,17 @@ internal fun ThemeSelectionCard(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun AppearanceSettingsView(
     modifier: Modifier = Modifier,
-    uiState: SettingsUiState,
     appTheme: AppThemeState,
     onSelectThemeMode: (ThemeMode) -> Unit,
     onSelectAccent: (Int) -> Unit
 ) {
     val ext = LocalExtendedColors.current
     val swatches = accentDisplayColors(appTheme.isDark)
+    val selectedAccent = appTheme.accentIndex.coerceIn(0, AccentColorNames.lastIndex)
 
     Column(
         modifier = modifier
@@ -362,54 +369,119 @@ internal fun AppearanceSettingsView(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(14.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    swatches.forEachIndexed { idx, color ->
-                        val name = AccentColorNames.getOrElse(idx) { "Color $idx" }
-                        val selected = uiState.selectedAccent == idx
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier
-                                .minimumInteractiveComponentSize()
-                                .clip(RoundedCornerShape(12.dp))
-                                .desktopHandCursor()
-                                .clickable { onSelectAccent(idx) }
-                                .padding(horizontal = 6.dp, vertical = 6.dp)
-                                .semantics { contentDescription = "Select $name accent color" }
-                                .testTag("accent_swatch_$idx")
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                    val useFlow = maxWidth < 250.dp
+                    if (useFlow) {
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(44.dp)
-                                    .clip(CircleShape)
-                                    .background(color)
-                                    .then(
+                            swatches.forEachIndexed { idx, color ->
+                                val name = AccentColorNames.getOrElse(idx) { "Color $idx" }
+                                val selected = selectedAccent == idx
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier
+                                        .minimumInteractiveComponentSize()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .desktopHandCursor()
+                                        .clickable { onSelectAccent(idx) }
+                                        .padding(horizontal = 8.dp, vertical = 6.dp)
+                                        .semantics { contentDescription = "Select $name accent color" }
+                                        .testTag("accent_swatch_$idx")
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(44.dp)
+                                            .clip(CircleShape)
+                                            .background(color)
+                                            .then(
+                                                if (selected) {
+                                                    Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
+                                                } else {
+                                                    Modifier
+                                                }
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
                                         if (selected) {
-                                            Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
-                                        } else {
-                                            Modifier
+                                            Icon(
+                                                Icons.Default.Check,
+                                                contentDescription = "Selected",
+                                                tint = contrastOnColor(color),
+                                                modifier = Modifier.size(20.dp)
+                                            )
                                         }
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (selected) {
-                                    Icon(
-                                        Icons.Default.Check,
-                                        contentDescription = "Selected",
-                                        tint = contrastOnColor(color),
-                                        modifier = Modifier.size(20.dp)
+                                    }
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(
+                                        text = name,
+                                        fontSize = 10.sp,
+                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        textAlign = TextAlign.Center,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                 }
                             }
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = name,
-                                fontSize = 10.sp,
-                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                        }
+                    } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            swatches.forEachIndexed { idx, color ->
+                                val name = AccentColorNames.getOrElse(idx) { "Color $idx" }
+                                val selected = selectedAccent == idx
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .minimumInteractiveComponentSize()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .desktopHandCursor()
+                                        .clickable { onSelectAccent(idx) }
+                                        .padding(horizontal = 2.dp, vertical = 6.dp)
+                                        .semantics { contentDescription = "Select $name accent color" }
+                                        .testTag("accent_swatch_$idx")
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(44.dp)
+                                            .clip(CircleShape)
+                                            .background(color)
+                                            .then(
+                                                if (selected) {
+                                                    Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
+                                                } else {
+                                                    Modifier
+                                                }
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (selected) {
+                                            Icon(
+                                                Icons.Default.Check,
+                                                contentDescription = "Selected",
+                                                tint = contrastOnColor(color),
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(
+                                        text = name,
+                                        fontSize = 10.sp,
+                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        textAlign = TextAlign.Center,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -505,14 +577,15 @@ internal fun AppearanceSettingsView(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                Row(
+                FlowRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Surface(
                         shape = RoundedCornerShape(10.dp),
-                        color = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.align(Alignment.CenterVertically)
                     ) {
                         Text(
                             text = if (appTheme.isDark) "Dark Readability Active" else "Daylight Mode Active",
@@ -525,7 +598,8 @@ internal fun AppearanceSettingsView(
                     Surface(
                         shape = RoundedCornerShape(10.dp),
                         color = ext.successBg,
-                        border = BorderStroke(1.dp, ext.successBorder)
+                        border = BorderStroke(1.dp, ext.successBorder),
+                        modifier = Modifier.align(Alignment.CenterVertically)
                     ) {
                         Text(
                             text = "WCAG Contrast OK",

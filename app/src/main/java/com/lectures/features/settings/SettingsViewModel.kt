@@ -94,7 +94,7 @@ class SettingsViewModel(
                 val mode = try {
                     ThemeMode.valueOf(modeStr.uppercase(java.util.Locale.ROOT))
                 } catch (e: Exception) {
-                    ThemeMode.SYSTEM
+                    ThemeMode.LIGHT
                 }
                 _uiState.value = _uiState.value.copy(
                     themeMode = mode,

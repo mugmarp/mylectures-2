@@ -2,11 +2,14 @@ package com.lectures
 
 import android.app.Application
 import android.content.Context
+import android.content.res.Configuration
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.test.assertHeightIsAtLeast
@@ -180,7 +183,7 @@ class ThemeAndDarkModeTest {
     }
 
     @Test
-    fun settingsScreen_inlineQuickThemeAndCustomizeAppearanceSubscreenSwitchModesAndAccents() {
+    fun settingsScreen_appearanceOnlyAccessedViaAppearanceCardAndSwitchesModesAndAccents() {
         runBlocking {
             app.repository.setProgrammePref("BCS I")
             app.repository.setThemeMode("LIGHT")
@@ -204,23 +207,19 @@ class ThemeAndDarkModeTest {
         }
 
         composeRule.waitUntil(timeoutMillis = 5_000) {
-            composeRule.onAllNodesWithTag("settings_quick_theme_dark").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithTag("settings_appearance_card").fetchSemanticsNodes().isNotEmpty()
         }
 
-        // Inline 1-tap theme pill in Settings main screen
-        composeRule.onNodeWithTag("settings_quick_theme_dark")
+        // Redundant inline theme switcher pills must NOT exist on the main Settings list
+        assertEquals(0, composeRule.onAllNodesWithTag("settings_quick_theme_light").fetchSemanticsNodes().size)
+        assertEquals(0, composeRule.onAllNodesWithTag("settings_quick_theme_system").fetchSemanticsNodes().size)
+        assertEquals(0, composeRule.onAllNodesWithTag("settings_quick_theme_dark").fetchSemanticsNodes().size)
+
+        // Open full Appearance & Theme sub-screen exclusively via the Appearance & Theme card
+        composeRule.onNodeWithTag("settings_appearance_card")
             .performScrollTo()
             .assertIsDisplayed()
-            .assertHeightIsAtLeast(44.dp)
-            .performClick()
-        composeRule.waitForIdle()
-
-        assertEquals(ThemeMode.DARK, activeMode)
-        assertTrue(observedIsDark)
-
-        // Open full Appearance & Theme sub-screen
-        composeRule.onNodeWithText("Appearance & Theme")
-            .performScrollTo()
+            .assertHeightIsAtLeast(48.dp)
             .performClick()
 
         composeRule.waitUntil(timeoutMillis = 5_000) {
@@ -237,8 +236,10 @@ class ThemeAndDarkModeTest {
         composeRule.onNodeWithTag("theme_mode_dark").performClick()
         composeRule.waitForIdle()
         assertEquals(ThemeMode.DARK, activeMode)
+        assertTrue(observedIsDark)
 
         composeRule.onNodeWithTag("accent_swatch_3")
+            .performScrollTo()
             .assertHeightIsAtLeast(48.dp)
             .performClick()
         composeRule.waitForIdle()
@@ -247,45 +248,94 @@ class ThemeAndDarkModeTest {
         composeRule.onNodeWithTag("appearance_live_preview_card")
             .performScrollTo()
             .assertIsDisplayed()
+        composeRule.onNodeWithText("WCAG Contrast OK").assertIsDisplayed()
     }
 
     @Test
-    fun academicProfileSheet_exposesAccessibleOneTapStudyThemeSwitcher() {
-        var activeMode by mutableStateOf(ThemeMode.LIGHT)
-        var observedIsDark = false
+    fun academicProfileSheet_removesRedundantThemeSwitcherAndRoutesToSettings() {
+        var settingsOpened = false
 
         composeRule.setContent {
             AppTheme(
-                themeMode = activeMode,
-                accentIndex = 0,
-                onThemeModeChange = { activeMode = it }
+                themeMode = ThemeMode.LIGHT,
+                accentIndex = 0
             ) {
-                observedIsDark = LocalAppTheme.current.isDark
                 AcademicProfileSheet(
                     programme = "BCS I",
                     enrolledProgramme = "BCS I",
-                    onDismiss = {}
+                    onDismiss = {},
+                    onOpenSettings = { settingsOpened = true }
                 )
             }
         }
 
         composeRule.waitUntil(timeoutMillis = 5_000) {
-            composeRule.onAllNodesWithTag("quick_theme_dark").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithTag("academic_sheet_settings_btn").fetchSemanticsNodes().isNotEmpty()
         }
 
-        composeRule.onNodeWithTag("quick_theme_dark")
+        // Redundant STUDY THEME card and pills must NOT appear in AcademicProfileSheet
+        assertEquals(0, composeRule.onAllNodesWithText("STUDY THEME").fetchSemanticsNodes().size)
+        assertEquals(0, composeRule.onAllNodesWithTag("quick_theme_light").fetchSemanticsNodes().size)
+        assertEquals(0, composeRule.onAllNodesWithTag("quick_theme_system").fetchSemanticsNodes().size)
+        assertEquals(0, composeRule.onAllNodesWithTag("quick_theme_dark").fetchSemanticsNodes().size)
+
+        composeRule.onNodeWithTag("academic_sheet_settings_btn")
             .performScrollTo()
             .assertIsDisplayed()
             .assertHeightIsAtLeast(48.dp)
             .performClick()
         composeRule.waitForIdle()
 
-        assertEquals(ThemeMode.DARK, activeMode)
-        assertTrue(observedIsDark)
+        assertTrue(settingsOpened)
+    }
 
-        composeRule.onNodeWithTag("quick_theme_light").performClick()
+    @Test
+    @Config(qualifiers = "w320dp-h720dp")
+    fun appearanceSettingsView_handlesNarrowScreenAndLargeFontScaleCleanly() {
+        val narrowScaledConfig = Configuration(app.resources.configuration).apply {
+            screenWidthDp = 320
+            screenHeightDp = 720
+            fontScale = 1.35f
+        }
+        var activeMode by mutableStateOf(ThemeMode.DARK)
+        var activeAccent by mutableIntStateOf(0)
+
+        composeRule.setContent {
+            CompositionLocalProvider(LocalConfiguration provides narrowScaledConfig) {
+                AppTheme(
+                    themeMode = activeMode,
+                    accentIndex = activeAccent,
+                    onThemeModeChange = { activeMode = it },
+                    onAccentChange = { activeAccent = it }
+                ) {
+                    SettingsScreen(currentProgramme = "BCS I")
+                }
+            }
+        }
+
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithTag("settings_appearance_card").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithTag("settings_appearance_card")
+            .performScrollTo()
+            .performClick()
+
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithTag("accent_swatch_4").fetchSemanticsNodes().isNotEmpty()
+        }
+
+        (0..4).forEach { idx ->
+            composeRule.onNodeWithTag("accent_swatch_$idx")
+                .performScrollTo()
+                .assertIsDisplayed()
+                .assertHeightIsAtLeast(48.dp)
+        }
+        composeRule.onNodeWithTag("accent_swatch_4").performClick()
         composeRule.waitForIdle()
-        assertEquals(ThemeMode.LIGHT, activeMode)
-        assertFalse(observedIsDark)
+        assertEquals(4, activeAccent)
+
+        composeRule.onNodeWithText("WCAG Contrast OK")
+            .performScrollTo()
+            .assertIsDisplayed()
     }
 }
