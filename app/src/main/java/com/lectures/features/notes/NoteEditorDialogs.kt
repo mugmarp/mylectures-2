@@ -181,7 +181,7 @@ internal fun NoteCoursePickerDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = !windowInfo.preferDesktopDialogs),
         modifier = Modifier
-            .widthIn(min = 320.dp, max = if (windowInfo.isAtLeastLarge) 520.dp else 460.dp)
+            .widthIn(min = 320.dp, max = if (windowInfo.isWideWorkspace) 520.dp else 460.dp)
             .onEscapeKey(onDismiss),
         title = { Text("Select Course", fontWeight = FontWeight.Bold) },
         text = {
@@ -303,7 +303,7 @@ internal fun NoteTagPickerDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = !windowInfo.preferDesktopDialogs),
         modifier = Modifier
-            .widthIn(min = 320.dp, max = if (windowInfo.isAtLeastLarge) 520.dp else 460.dp)
+            .widthIn(min = 320.dp, max = if (windowInfo.isWideWorkspace) 520.dp else 460.dp)
             .onEscapeKey(onDismiss),
         title = { Text("Select Note Category", fontWeight = FontWeight.Bold) },
         text = {
@@ -397,7 +397,7 @@ internal fun NoteClassPickerDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = !windowInfo.preferDesktopDialogs),
         modifier = Modifier
-            .widthIn(min = 320.dp, max = if (windowInfo.isAtLeastLarge) 540.dp else 460.dp)
+            .widthIn(min = 320.dp, max = if (windowInfo.isWideWorkspace) 540.dp else 460.dp)
             .onEscapeKey(onDismiss),
         title = { Text("Attach Timetable Class", fontWeight = FontWeight.Bold) },
         text = {

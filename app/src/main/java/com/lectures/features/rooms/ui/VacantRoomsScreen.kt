@@ -249,7 +249,7 @@ fun VacantRoomsScreen(
     }
     val occupiedCount = vacancyStatuses.count { it.isOccupied && it.room.isStudyFriendly }
     val windowInfo = rememberLecturesWindow()
-    val showDesktopSplit = windowInfo.widthDp >= 1000
+    val showDesktopSplit = windowInfo.isWideWorkspace
     val accentColor = MaterialTheme.colorScheme.primary
     val selectedRoomForSchedule = remember(selectedRoomIdForSchedule, vacancyStatuses) {
         selectedRoomIdForSchedule?.let { id -> vacancyStatuses.firstOrNull { it.room.id == id } }
@@ -602,10 +602,10 @@ fun VacantRoomsScreen(
                     }
 
                     // ZONE 3: Docked Right Room Schedule Inspector
-                    if (windowInfo.isAtLeastLarge || selectedRoomForSchedule != null) {
+                    if (windowInfo.isWideWorkspace || selectedRoomForSchedule != null) {
                         val inspectorWidth = when {
                             windowInfo.isExtraLargeWidth -> 360.dp
-                            windowInfo.isAtLeastLarge -> 320.dp
+                            windowInfo.isWideWorkspace -> 320.dp
                             else -> 300.dp
                         }
                         Box(

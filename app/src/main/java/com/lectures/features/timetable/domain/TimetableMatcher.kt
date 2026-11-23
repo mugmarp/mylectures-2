@@ -90,6 +90,7 @@ object TimetableMatcher {
             val count = cohortCounts[group] ?: cohortCounts[canonicalCohort(group)]
             if (count != null && count > 0) return count
         }
+        @Suppress("DEPRECATION")
         val pre = PRECOMPUTED_GROUP_COUNTS[group] ?: PRECOMPUTED_GROUP_COUNTS[canonicalCohort(group)]
         if (pre != null) return pre
         return 0

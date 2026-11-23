@@ -60,6 +60,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -268,7 +269,8 @@ fun AnonymousFeedbackSheet(
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(130.dp),
+                        .height(130.dp)
+                        .testTag("feedback_message_input"),
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = MaterialTheme.colorScheme.primary,
@@ -342,9 +344,9 @@ fun AnonymousFeedbackSheet(
                             clipboard.setPrimaryClip(ClipData.newPlainText("App Instance ID", appInstanceId))
                             Toast.makeText(context, "Instance ID copied", Toast.LENGTH_SHORT).show()
                         },
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.desktopHandCursor()
                     ) {
-                        Icon(Icons.Default.ContentCopy, contentDescription = "Copy", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(14.dp))
+                        Icon(Icons.Default.ContentCopy, contentDescription = "Copy", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                     }
                 }
 
@@ -374,7 +376,8 @@ fun AnonymousFeedbackSheet(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp)
-                        .desktopHandCursor(),
+                        .desktopHandCursor()
+                        .testTag("feedback_submit_button"),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     if (isSubmitting) {

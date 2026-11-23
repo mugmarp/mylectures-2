@@ -731,11 +731,18 @@ fun MainScaffold(
 
                     VerticalDivider(color = navBorder, thickness = 1.dp)
 
-                    DestinationContent(
+                    BoxWithConstraints(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
-                    )
+                    ) {
+                        val paneWidthDp = maxWidth.value.toInt().coerceAtLeast(1)
+                        val paneHeightDp = maxHeight.value.toInt().coerceAtLeast(1)
+                        val paneWindow = rememberContainerWindow(paneWidthDp, paneHeightDp)
+                        CompositionLocalProvider(LocalLecturesWindow provides paneWindow) {
+                            DestinationContent(modifier = Modifier.fillMaxSize())
+                        }
+                    }
                 }
             } else {
                 DestinationContent(

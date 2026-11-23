@@ -8,9 +8,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.EventNote
 import androidx.compose.material.icons.automirrored.outlined.Assignment
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.EventNote
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -304,7 +304,7 @@ fun QuickAddBottomSheet(
                                     contentColor = contrastOnColor(selectedActivityCategory.color)
                                 )
                             ) {
-                                Icon(Icons.Default.EventNote, contentDescription = null, modifier = Modifier.size(20.dp))
+                                Icon(Icons.AutoMirrored.Filled.EventNote, contentDescription = null, modifier = Modifier.size(20.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = "Add Activity",
@@ -439,6 +439,7 @@ private fun QuickAddModeSelectorTabs(
         Box(
             modifier = Modifier
                 .weight(1f)
+                .defaultMinSize(minHeight = 48.dp)
                 .clip(RoundedCornerShape(12.dp))
                 .desktopHandCursor()
                 .background(if (isActivity) MaterialTheme.colorScheme.surface else Color.Transparent)
@@ -449,7 +450,7 @@ private fun QuickAddModeSelectorTabs(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    imageVector = Icons.Default.EventNote,
+                    imageVector = Icons.AutoMirrored.Filled.EventNote,
                     contentDescription = null,
                     tint = if (isActivity) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(18.dp)
@@ -475,6 +476,7 @@ private fun QuickAddModeSelectorTabs(
         Box(
             modifier = Modifier
                 .weight(1f)
+                .defaultMinSize(minHeight = 48.dp)
                 .clip(RoundedCornerShape(12.dp))
                 .desktopHandCursor()
                 .background(if (isTask) MaterialTheme.colorScheme.surface else Color.Transparent)

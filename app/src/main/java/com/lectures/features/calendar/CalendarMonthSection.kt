@@ -145,7 +145,7 @@ internal fun CalendarMonthGridCard(
         }
 
         val cellHeightDp = when {
-            windowInfo.isAtLeastLarge -> 54.dp
+            windowInfo.isWideWorkspace -> 54.dp
             useCompactDesktopCells -> 50.dp
             else -> 0.dp
         }

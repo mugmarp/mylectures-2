@@ -12,6 +12,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
 import org.json.JSONObject
 import java.text.SimpleDateFormat
@@ -136,9 +137,16 @@ class FeedbackManager(private val context: Context, private val etagStore: ETagS
         }
         return try {
             val payload = buildFeedbackPayload(feedback)
-            store.collection("feedback").document(feedback.id).set(payload).await()
-            queueMutex.withLock { removeFromPendingQueue(feedback.id) }
-            true
+            val committed = withTimeoutOrNull(1200L) {
+                store.collection("feedback").document(feedback.id).set(payload).await()
+                true
+            } ?: false
+            if (committed) {
+                queueMutex.withLock { removeFromPendingQueue(feedback.id) }
+            } else {
+                queueMutex.withLock { addToPendingQueue(feedback) }
+            }
+            committed
         } catch (_: Exception) {
             queueMutex.withLock { addToPendingQueue(feedback) }
             false

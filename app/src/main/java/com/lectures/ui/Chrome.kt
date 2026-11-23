@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
@@ -141,6 +142,12 @@ data class LecturesWindow(
     /** True when a third inspector/filter column fits comfortably alongside dual panes (>= 1280dp). */
     val supportsThreePanes: Boolean get() = widthDp >= 1280
 
+    /**
+     * True when the active workspace pane comfortably accommodates desktop multi-column
+     * layouts and side inspectors (>= 960dp), including when nested beside MainScaffold's 228dp sidebar.
+     */
+    val isWideWorkspace: Boolean get() = widthDp >= 960
+
     /** True when secondary detail sheets should render as centered dialogs or docked side panes instead of bottom sheets. */
     val preferDesktopDialogs: Boolean get() = widthDp >= 600
 
@@ -169,12 +176,17 @@ data class LecturesWindow(
         }
 }
 
+val LocalLecturesWindow = compositionLocalOf<LecturesWindow?> { null }
+
 /**
  * Remember and observe active responsive window parameters.
+ * Inside MainScaffold's rail/sidebar shell, returns the pane-accurate dimensions provided via [LocalLecturesWindow].
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun rememberLecturesWindow(): LecturesWindow {
+    LocalLecturesWindow.current?.let { return it }
+
     val configuration = LocalConfiguration.current
     val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val isIme = WindowInsets.isImeVisible

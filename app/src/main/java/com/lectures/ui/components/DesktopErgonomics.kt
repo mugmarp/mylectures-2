@@ -119,7 +119,7 @@ fun AdaptiveSheetOrDialog(
             content()
         }
     } else {
-        val dialogMaxW = if (windowInfo.isAtLeastLarge) desktopMaxWidth else minOf(desktopMaxWidth, 560.dp)
+        val dialogMaxW = if (windowInfo.isWideWorkspace) desktopMaxWidth else minOf(desktopMaxWidth, 560.dp)
         val dialogMaxH = minOf(desktopMaxHeight, (windowInfo.heightDp - 48).coerceAtLeast(360).dp)
         Dialog(
             onDismissRequest = onDismissRequest,

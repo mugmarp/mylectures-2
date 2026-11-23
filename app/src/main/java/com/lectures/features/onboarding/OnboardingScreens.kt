@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -110,7 +111,8 @@ fun FacultySelectionScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .widthIn(max = windowInfo.maxReadingWidth)
-                        .padding(horizontal = 20.dp),
+                        .padding(horizontal = 20.dp)
+                        .testTag("onboarding_faculty_list"),
                     horizontalArrangement = Arrangement.spacedBy(14.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                     contentPadding = PaddingValues(vertical = 12.dp)
@@ -124,7 +126,8 @@ fun FacultySelectionScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .widthIn(max = windowInfo.maxReadingWidth)
-                        .padding(horizontal = 20.dp),
+                        .padding(horizontal = 20.dp)
+                        .testTag("onboarding_faculty_list"),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     contentPadding = PaddingValues(vertical = 12.dp)
                 ) {

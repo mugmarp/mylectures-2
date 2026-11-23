@@ -95,8 +95,8 @@ fun TimetableDesktopWorkspace(
     val isDark = LocalAppTheme.current.isDark
     val accent = MaterialTheme.colorScheme.primary
 
-    var viewMode by rememberSaveable(windowInfo.isAtLeastLarge) {
-        mutableStateOf(if (windowInfo.isAtLeastLarge) "Week" else "Day")
+    var viewMode by rememberSaveable(windowInfo.isWideWorkspace) {
+        mutableStateOf(if (windowInfo.isWideWorkspace) "Week" else "Day")
     }
 
     val filteredEntriesAllDays = remember(entries, selectedFilter) {

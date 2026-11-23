@@ -409,7 +409,7 @@ fun NotesScreen(
                     searchQuery = uiState.searchQuery,
                     isDark = isDark,
                     focusRequester = searchFocusRequester,
-                    showDesktopShortcutHint = windowInfo.isDesktop,
+                    showDesktopShortcutHint = windowInfo.isWideWorkspace,
                     onSearchQueryChange = { viewModel.onSearchQueryChanged(it) },
                     onClearSearch = {
                         viewModel.onSearchQueryChanged("")
@@ -476,7 +476,7 @@ fun NotesScreen(
                         },
                         onCreateNote = startCreateNote
                     )
-                } else if (windowInfo.isAtLeastLarge) {
+                } else if (windowInfo.isWideWorkspace) {
                     Row(
                         modifier = Modifier
                             .weight(1f)
@@ -559,7 +559,7 @@ fun NotesScreen(
                             modifier = Modifier
                                 .width(readerWidth)
                                 .fillMaxHeight()
-                                .padding(bottom = 16.dp)
+                                .padding(bottom = Chrome.listBottomPadding(0.dp, useNavigationRail = true))
                         )
                     }
                 } else if (windowInfo.isTablet) {

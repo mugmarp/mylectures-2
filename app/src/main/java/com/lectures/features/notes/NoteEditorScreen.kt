@@ -262,7 +262,7 @@ fun NoteEditorScreen(
         mutableStateOf(if (useDesktopSplitWorkspace) NoteEditorTab.SPLIT else initialTab)
     }
     var desktopDrawer by rememberSaveable(noteKey) { mutableStateOf(DesktopInspectorDrawer.DETAILS) }
-    var showDesktopInspector by rememberSaveable(noteKey) { mutableStateOf(windowInfo.widthDp >= 1120) }
+    var showDesktopInspector by rememberSaveable(noteKey) { mutableStateOf(windowInfo.isWideWorkspace) }
     val editorFocusRequester = remember { FocusRequester() }
 
     val context = LocalContext.current
@@ -706,33 +706,40 @@ fun NoteEditorScreen(
                                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
                                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                             ) {
-                                Row(modifier = Modifier.padding(2.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
                                     if (useDesktopSplitWorkspace) {
                                         Box(
                                             modifier = Modifier
-                                                .defaultMinSize(minHeight = 32.dp)
+                                                .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
                                                 .clip(RoundedCornerShape(10.dp))
-                                                .background(if (effectiveTab == NoteEditorTab.SPLIT) MaterialTheme.colorScheme.primary else Color.Transparent)
                                                 .desktopHandCursor()
                                                 .clickable { currentTab = NoteEditorTab.SPLIT }
-                                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                                                .padding(3.dp)
                                                 .testTag("note_editor_split_tab"),
                                             contentAlignment = Alignment.Center
                                         ) {
-                                            Text(
-                                                "Split",
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = if (effectiveTab == NoteEditorTab.SPLIT) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
+                                            Box(
+                                                modifier = Modifier
+                                                    .defaultMinSize(minHeight = 36.dp)
+                                                    .clip(RoundedCornerShape(9.dp))
+                                                    .background(if (effectiveTab == NoteEditorTab.SPLIT) MaterialTheme.colorScheme.primary else Color.Transparent)
+                                                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    "Split",
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = if (effectiveTab == NoteEditorTab.SPLIT) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
                                         }
                                     }
 
                                     Box(
                                         modifier = Modifier
-                                            .defaultMinSize(minHeight = if (useDesktopSplitWorkspace) 32.dp else 0.dp)
+                                            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
                                             .clip(RoundedCornerShape(10.dp))
-                                            .background(if (effectiveTab == NoteEditorTab.WRITE) MaterialTheme.colorScheme.primary else Color.Transparent)
                                             .desktopHandCursor()
                                             .clickable {
                                                 if (!useDesktopSplitWorkspace) {
@@ -741,59 +748,76 @@ fun NoteEditorScreen(
                                                 }
                                                 currentTab = NoteEditorTab.WRITE
                                             }
-                                            .padding(horizontal = if (isCompactToggle) 8.dp else 10.dp, vertical = 4.dp)
+                                            .padding(3.dp)
                                             .testTag("note_editor_write_tab"),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(
-                                                Icons.Default.Edit,
-                                                contentDescription = "Write",
-                                                tint = if (effectiveTab == NoteEditorTab.WRITE) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                                modifier = Modifier.size(13.dp)
-                                            )
-                                            if (!isCompactToggle) {
-                                                Spacer(modifier = Modifier.width(4.dp))
-                                                Text(
-                                                    "Write",
-                                                    fontSize = 11.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = if (effectiveTab == NoteEditorTab.WRITE) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                        Box(
+                                            modifier = Modifier
+                                                .defaultMinSize(minHeight = 36.dp)
+                                                .clip(RoundedCornerShape(9.dp))
+                                                .background(if (effectiveTab == NoteEditorTab.WRITE) MaterialTheme.colorScheme.primary else Color.Transparent)
+                                                .padding(horizontal = if (isCompactToggle) 8.dp else 10.dp, vertical = 6.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(
+                                                    Icons.Default.Edit,
+                                                    contentDescription = "Write",
+                                                    tint = if (effectiveTab == NoteEditorTab.WRITE) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    modifier = Modifier.size(13.dp)
                                                 )
+                                                if (!isCompactToggle) {
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    Text(
+                                                        "Write",
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = if (effectiveTab == NoteEditorTab.WRITE) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                }
                                             }
                                         }
                                     }
 
                                     Box(
                                         modifier = Modifier
-                                            .defaultMinSize(minHeight = if (useDesktopSplitWorkspace) 32.dp else 0.dp)
+                                            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
                                             .clip(RoundedCornerShape(10.dp))
-                                            .background(if (effectiveTab == NoteEditorTab.PREVIEW) MaterialTheme.colorScheme.primary else Color.Transparent)
                                             .desktopHandCursor()
                                             .clickable {
                                                 focusManager.clearFocus()
                                                 keyboardController?.hide()
                                                 currentTab = NoteEditorTab.PREVIEW
                                             }
-                                            .padding(horizontal = if (isCompactToggle) 8.dp else 10.dp, vertical = 4.dp)
+                                            .padding(3.dp)
                                             .testTag("note_editor_preview_tab"),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(
-                                                Icons.Default.Visibility,
-                                                contentDescription = "Preview",
-                                                tint = if (effectiveTab == NoteEditorTab.PREVIEW) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                                modifier = Modifier.size(13.dp)
-                                            )
-                                            if (!isCompactToggle) {
-                                                Spacer(modifier = Modifier.width(4.dp))
-                                                Text(
-                                                    "Preview",
-                                                    fontSize = 11.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = if (effectiveTab == NoteEditorTab.PREVIEW) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                        Box(
+                                            modifier = Modifier
+                                                .defaultMinSize(minHeight = 36.dp)
+                                                .clip(RoundedCornerShape(9.dp))
+                                                .background(if (effectiveTab == NoteEditorTab.PREVIEW) MaterialTheme.colorScheme.primary else Color.Transparent)
+                                                .padding(horizontal = if (isCompactToggle) 8.dp else 10.dp, vertical = 6.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(
+                                                    Icons.Default.Visibility,
+                                                    contentDescription = "Preview",
+                                                    tint = if (effectiveTab == NoteEditorTab.PREVIEW) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    modifier = Modifier.size(13.dp)
                                                 )
+                                                if (!isCompactToggle) {
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    Text(
+                                                        "Preview",
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = if (effectiveTab == NoteEditorTab.PREVIEW) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                }
                                             }
                                         }
                                     }
