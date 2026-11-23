@@ -11,7 +11,7 @@ This document details the local database architecture implemented using **Androi
 ## 1. Overview
 
 * **Database Class**: `com.lectures.core.database.AppDatabase`
-* **Version**: `9`
+* **Version**: `12` (`MIGRATION_2_3` through `MIGRATION_11_12`)
 * **Entities**:
   1. `TimetableEntry` (`timetable`)
   2. `Assignment` (`assignments`)
@@ -49,15 +49,18 @@ Stores student tasks, coursework deadlines, and reminders.
 
 | Column | Type | Primary Key | Description |
 |---|---|:---:|---|
-| `id` | `INTEGER` | ✅ (Auto) | Unique assignment identifier |
+| `id` | `INTEGER` | ✅ (Auto) | Unique local assignment identifier |
+| `clientUuid` | `TEXT` | ❌ (Unique) | Stable UUID used for cloud deduplication & sync |
 | `title` | `TEXT` | ❌ | Title of task / assignment |
 | `courseCode` | `TEXT` | ❌ | Linked course code |
-| `dueDate` | `TEXT` | ❌ | Due date string (e.g. `Tomorrow 17:00`) |
+| `dueDate` | `TEXT` | ❌ | Due date string (e.g. `2026-10-14 17:00`) |
+| `reminderMinutes` | `INTEGER` | ❌ | Minutes before deadline for alarm notification (nullable) |
 | `priority` | `TEXT` | ❌ | `Urgent`, `High`, `Medium`, `Low` |
-| `completed` | `INTEGER` | ❌ | Boolean flag (0 = false, 1 = true) |
 | `notes` | `TEXT` | ❌ | Additional assignment details |
-| `reminderMinutes` | `INTEGER` | ❌ | Minutes before deadline for alarm notification |
+| `completed` | `INTEGER` | ❌ | Boolean flag (0 = false, 1 = true) |
 | `updatedAt` | `INTEGER` | ❌ | Unix timestamp in milliseconds |
+| `isDeleted` | `INTEGER` | ❌ | Soft-delete tombstone flag for sync (0 = active, 1 = deleted) |
+| `ownerId` | `TEXT` | ❌ | Firebase UID owner or `NULL` in local Guest mode |
 
 ---
 
@@ -66,33 +69,42 @@ Stores personal student activities (e.g. group discussions, gym, library revisio
 
 | Column | Type | Primary Key | Description |
 |---|---|:---:|---|
-| `id` | `INTEGER` | ✅ (Auto) | Unique custom event identifier |
+| `id` | `INTEGER` | ✅ (Auto) | Unique local custom event identifier |
+| `clientUuid` | `TEXT` | ❌ (Unique) | Stable UUID used for cloud deduplication & sync |
 | `title` | `TEXT` | ❌ | Activity title |
-| `category` | `TEXT` | ❌ | `STUDY`, `LAB`, `SPORTS`, `CLUB`, `PERSONAL`, `EXAM` |
 | `dayOfWeek` | `TEXT` | ❌ | Scheduled day of week |
 | `startTime` | `TEXT` | ❌ | Format `HH:mm` |
 | `endTime` | `TEXT` | ❌ | Format `HH:mm` |
 | `location` | `TEXT` | ❌ | Optional venue or library room |
 | `notes` | `TEXT` | ❌ | Optional notes |
-| `alarmMinutes` | `INTEGER` | ❌ | Reminder alert in minutes |
+| `repeatWeekly` | `INTEGER` | ❌ | Weekly recurrence flag (0 = one-off, 1 = weekly) |
+| `alarmMinutes` | `INTEGER` | ❌ | Reminder alert in minutes (nullable) |
+| `category` | `TEXT` | ❌ | `Study`, `Lab`, `Sports`, `Club`, `Personal`, `Exam` |
+| `colorTag` | `TEXT` | ❌ | Hex accent color (default `#2563EB`) |
 | `updatedAt` | `INTEGER` | ❌ | Unix timestamp in milliseconds |
+| `isDeleted` | `INTEGER` | ❌ | Soft-delete tombstone flag for sync (0 = active, 1 = deleted) |
+| `ownerId` | `TEXT` | ❌ | Firebase UID owner or `NULL` in local Guest mode |
 
 ---
 
 ### D. `lecture_notes` (`LectureNote`)
-Stores rich summaries, linked class notes, and revision checklists.
+Stores rich summaries, linked class notes, attachments, and revision checklists.
 
 | Column | Type | Primary Key | Description |
 |---|---|:---:|---|
 | `naturalKey` | `TEXT` | ✅ | Unique key linking to timetable class or standalone UUID |
-| `courseCode` | `TEXT` | ❌ | Associated course code |
-| `title` | `TEXT` | ❌ | Note title |
-| `content` | `TEXT` | ❌ | Full note content |
-| `alarmMinutes` | `INTEGER` | ❌ | Pre-class alert minutes |
-| `tag` | `TEXT` | ❌ | Academic tag (e.g. `Lecture`, `Revision`) |
-| `attachedClass` | `TEXT` | ❌ | Class description string if linked to a class |
-| `attachmentName` | `TEXT` | ❌ | Optional attachment file name |
+| `content` | `TEXT` | ❌ | Full Markdown note content |
 | `updatedAt` | `INTEGER` | ❌ | Unix timestamp in milliseconds |
+| `colourTag` | `TEXT` | ❌ | Course/note grouping tag (legacy column name) |
+| `alarmMinutes` | `INTEGER` | ❌ | Pre-class alert minutes (nullable) |
+| `title` | `TEXT` | ❌ | Note title (nullable) |
+| `tag` | `TEXT` | ❌ | Academic tag (e.g. `Lecture`, `Revision`) |
+| `attachedClass` | `TEXT` | ❌ | Class description string if linked to a session |
+| `attachmentName` | `TEXT` | ❌ | Display name of attached file |
+| `attachmentPath` | `TEXT` | ❌ | Stable internal path inside `files/attachments/` |
+| `isPinned` | `INTEGER` | ❌ | Pinned priority flag (0 = false, 1 = true) |
+| `isDeleted` | `INTEGER` | ❌ | Soft-delete tombstone flag for sync (0 = active, 1 = deleted) |
+| `ownerId` | `TEXT` | ❌ | Firebase UID owner or `NULL` in local Guest mode |
 
 ---
 

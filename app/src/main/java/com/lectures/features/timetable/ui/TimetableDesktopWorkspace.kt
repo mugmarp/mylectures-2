@@ -357,7 +357,7 @@ private fun DesktopTimetableToolbar(
                     IconButton(
                         onClick = onOpenAlarmNextUp,
                         modifier = Modifier
-                            .size(36.dp)
+                            .size(48.dp)
                             .desktopHandCursor()
                     ) {
                         Icon(
@@ -390,7 +390,7 @@ private fun DesktopTimetableToolbar(
                         onDaySelected(daysList[prevIdx])
                     },
                     modifier = Modifier
-                        .size(36.dp)
+                        .size(48.dp)
                         .desktopHandCursor()
                         .testTag("timetable_prev_day_btn")
                 ) {
@@ -407,7 +407,7 @@ private fun DesktopTimetableToolbar(
                 IconButton(
                     onClick = { onDaySelected(daysList[(curIdx + 1) % daysList.size]) },
                     modifier = Modifier
-                        .size(36.dp)
+                        .size(48.dp)
                         .desktopHandCursor()
                         .testTag("timetable_next_day_btn")
                 ) {
@@ -669,7 +669,7 @@ private fun WeeklyTimetableMatrix(
                                         border = BorderStroke(
                                             width = if (isSelected || block.hasConflict) 2.dp else 1.dp,
                                             color = when {
-                                                block.hasConflict -> Color(0xFFDC2626)
+                                                block.hasConflict -> MaterialTheme.colorScheme.error
                                                 isSelected -> accent
                                                 else -> style.accentBar.copy(alpha = 0.45f)
                                             }

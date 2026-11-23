@@ -476,14 +476,14 @@ fun AccountScreen(
                                 Box(
                                     modifier = Modifier
                                         .size(8.dp)
-                                        .background(Color(0xFF22C55E), CircleShape)
+                                        .background(ext.successIcon, CircleShape)
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
                                     "Cloud Sync Active",
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.SemiBold,
-                                    color = if (isDark) Color(0xFF4ADE80) else Color(0xFF15803D)
+                                    color = ext.successText
                                 )
                             }
                         }

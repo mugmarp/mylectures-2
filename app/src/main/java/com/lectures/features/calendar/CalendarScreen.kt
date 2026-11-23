@@ -453,7 +453,7 @@ fun CalendarScreen(
                                 modifier = Modifier
                                     .weight(1f)
                                     .fillMaxWidth(),
-                                contentPadding = PaddingValues(bottom = listBottomPadding),
+                                contentPadding = PaddingValues(bottom = listBottomPadding + 88.dp),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 if (selectedDayDeadlines.isNotEmpty() && (uiState.selectedFilter == CalendarFilter.ALL || uiState.selectedFilter == CalendarFilter.TASKS)) {

@@ -277,7 +277,9 @@ fun NoteEditorScreen(
             .filter { it != keepPath }
         if (candidates.isNotEmpty()) {
             val appContext = context.applicationContext
-            CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            val cleanupScope = (appContext as? TimetableApplication)?.applicationScope
+                ?: CoroutineScope(SupervisorJob() + Dispatchers.IO)
+            cleanupScope.launch(Dispatchers.IO) {
                 candidates.forEach { AttachmentStore.delete(appContext, it) }
             }
         }
@@ -827,9 +829,11 @@ fun NoteEditorScreen(
                             if (windowInfo.isTablet) {
                                 IconButton(
                                     onClick = {
-                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                        clipboard.setPrimaryClip(ClipData.newPlainText(title.ifBlank { selectedCourse }, contentValue.text))
-                                        Toast.makeText(context, "Markdown copied to clipboard", Toast.LENGTH_SHORT).show()
+                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                                        if (clipboard != null) {
+                                            clipboard.setPrimaryClip(ClipData.newPlainText(title.ifBlank { selectedCourse }, contentValue.text))
+                                            Toast.makeText(context, "Markdown copied to clipboard", Toast.LENGTH_SHORT).show()
+                                        }
                                     },
                                     modifier = Modifier
                                         .size(48.dp)

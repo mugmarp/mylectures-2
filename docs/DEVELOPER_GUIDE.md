@@ -16,20 +16,25 @@ This guide assists software engineers and contributors in setting up, maintainin
 * **Gradle**: Gradle 9.x using Kotlin DSL (`.gradle.kts`)
 * **IDE**: Android Studio Ladybug (2024.2+) or higher with Jetpack Compose support
 
-### Build Commands
+### Build & Verification Commands
 ```bash
-# Clean and assemble debug APK
+# Compile Kotlin check
+gradle :app:compileDebugKotlin
+
+# Build debug & minified release APKs
 gradle assembleDebug
+gradle :app:assembleRelease
 
-# Compile verification check
-gradle compileDebugKotlin
-
-# Run unit tests
+# Run full unit + Robolectric + Compose UI test suite
 gradle :app:testDebugUnitTest
+
+# Verify Roborazzi visual snapshots
+gradle :app:verifyRoborazziDebug
 
 # Run code style and Android lint checks
 gradle check
 ```
+> Use `gradle` directly (not `./gradlew`).
 
 ---
 
@@ -62,16 +67,17 @@ Timetable schedules are bundled inside the assets folder:
 
 ---
 
-## 3. UI Styling & Material 3 Theming
+## 3. UI Styling, Material 3 Theming & Adaptive Windows
 
-* **Theme Definitions**: `app/src/main/java/com/lectures/ui/Theme.kt`
-* **Color System**:
-  * Primary Blue: `Color(0xFF0052CC)`
-  * Dark Surface Base: `Color(0xFF0F172A)`
-  * Dark Card Base: `Color(0xFF1E293B)`
-  * Light Surface Base: `Color(0xFFF8FAFC)`
-* **Always respect dark mode**: Check `LocalAppTheme.current.isDark` or use `MaterialTheme.colorScheme` tokens.
-* **Component Touch Targets**: All interactive icons, chips, and buttons must adhere to the 48dp minimum touch target size.
+* **Theme & Window Definitions**: `app/src/main/java/com/lectures/ui/Theme.kt` and `Chrome.kt`
+* **Theme & Accent Tokens**:
+  * Supports **Light**, **Dark**, and **System** modes with 5 accent palettes (`AccentColorNames`: Royal Blue, Emerald, Violet, Amber, Ocean Teal).
+  * Always read colors from `MaterialTheme.colorScheme` or `LocalExtendedColors.current` (e.g., `surfaceCard`, `surfaceElevated`, `borderSubtle`, `textPrimary`, `textMuted`, `successBg`, `warningBg`) rather than hardcoding hex colors in Composables.
+* **Adaptive Pane-Aware Layouts**:
+  * Observe `val windowInfo = rememberLecturesWindow()` (backed by `LocalLecturesWindow` inside `MainScaffold`'s rail/sidebar shell so screens measure true available pane width after the `228dp` sidebar).
+  * Gate desktop/tablet split panes on `windowInfo.isDualPane` / `windowInfo.isWideWorkspace` (`>= 960dp`) instead of reading raw `LocalConfiguration.current.screenWidthDp`.
+* **Component Touch Targets & Desktop Ergonomics**:
+  * All interactive icons, chips, segmented tabs, and buttons must meet `>= 48dp` minimum interactive bounds (`.minimumInteractiveComponentSize()` or `defaultMinSize(minHeight = 48.dp)`) and apply `.desktopHoverable()` / `.desktopHandCursor()` where appropriate.
 
 ---
 

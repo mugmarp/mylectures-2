@@ -170,7 +170,7 @@ fun AdaptiveNavigationRailOrSidebar(
                                     maxLines = 1
                                 )
                                 Text(
-                                    text = "Week ${TimeUtil.currentAcademicWeek()}",
+                                    text = TimeUtil.currentAcademicWeek(),
                                     fontSize = 11.sp,
                                     color = ext.textMuted,
                                     maxLines = 1

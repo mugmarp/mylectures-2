@@ -9,7 +9,7 @@ import com.lectures.features.timetable.domain.TimetableEntry
  *
  * GENERATED from the authoritative MUST Room Allocation page:
  *   https://timetable.must.ac.ug/index_rooms_teaching.html
- *   2026/2027 SEMESTER I — 90 rooms, 892 scheduled sessions
+ *   2026/2027 SEMESTER I — 93 rooms, 892 scheduled sessions
  *
  * Campus assignment is DERIVED, not guessed: each room's campus comes from the
  * faculties of the cohorts that actually use it (campusSource = "COHORT_DERIVED").
@@ -171,7 +171,7 @@ object UniversityDirectory {
     )
 
     // ============================================================
-    // ALL ROOMS — 90 rooms from the authoritative Room Allocation page
+    // ALL ROOMS — 93 rooms from the authoritative Room Allocation page
     // ============================================================
     val ALL_ROOMS: List<RoomItem> = listOf(
         RoomItem(

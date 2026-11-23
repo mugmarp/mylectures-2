@@ -65,6 +65,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lectures.ui.LocalExtendedColors
 import com.lectures.ui.components.AdaptiveSheetOrDialog
 import com.lectures.ui.components.desktopHandCursor
 import com.lectures.ui.contrastOnColor
@@ -155,17 +156,18 @@ fun AnonymousFeedbackSheet(
                         .padding(vertical = 24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    val feedbackExt = LocalExtendedColors.current
                     Box(
                         modifier = Modifier
                             .size(64.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFF10B981).copy(alpha = 0.15f)),
+                            .background(feedbackExt.successBg),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             Icons.Default.CheckCircle,
                             contentDescription = null,
-                            tint = Color(0xFF10B981),
+                            tint = feedbackExt.successIcon,
                             modifier = Modifier.size(36.dp)
                         )
                     }
@@ -340,9 +342,11 @@ fun AnonymousFeedbackSheet(
                     )
                     IconButton(
                         onClick = {
-                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                            clipboard.setPrimaryClip(ClipData.newPlainText("App Instance ID", appInstanceId))
-                            Toast.makeText(context, "Instance ID copied", Toast.LENGTH_SHORT).show()
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                            if (clipboard != null) {
+                                clipboard.setPrimaryClip(ClipData.newPlainText("App Instance ID", appInstanceId))
+                                Toast.makeText(context, "Instance ID copied", Toast.LENGTH_SHORT).show()
+                            }
                         },
                         modifier = Modifier.desktopHandCursor()
                     ) {

@@ -61,7 +61,10 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isAltPressed
 import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isMetaPressed
+import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
@@ -69,6 +72,7 @@ import com.lectures.features.timetable.ui.TimetableRoute
 import com.lectures.features.timetable.ui.WelcomeScreen
 import com.lectures.ui.components.AcademicProfileSheet
 import com.lectures.ui.components.AdaptiveNavigationRailOrSidebar
+import com.lectures.ui.components.desktopHandCursor
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -171,12 +175,12 @@ fun MainScaffold(
         }
         is AppNavState.FacultySelection -> {
             BackHandler {
-                navState = if (onboardingCompleted == true) AppNavState.MainApp else AppNavState.Welcome
+                navState = if (onboardingCompleted) AppNavState.MainApp else AppNavState.Welcome
             }
             FacultySelectionScreen(
                 onSelectFaculty = { faculty -> navState = AppNavState.ProgrammeSelection(faculty) },
                 onBack = {
-                    navState = if (onboardingCompleted == true) AppNavState.MainApp else AppNavState.Welcome
+                    navState = if (onboardingCompleted) AppNavState.MainApp else AppNavState.Welcome
                 }
             )
         }
@@ -407,7 +411,8 @@ fun MainScaffold(
                                     )
                                 }
                                 IconButton(
-                                    onClick = { activeForegroundAlert = null }
+                                    onClick = { activeForegroundAlert = null },
+                                    modifier = Modifier.desktopHandCursor()
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Close,
@@ -662,40 +667,62 @@ fun MainScaffold(
                 }
             }
 
+            val navigateToTabSafely: (Int) -> Unit = { targetTab ->
+                if (isNotesEditing && currentDestination == MainScreenDestination.TABS && selectedTab == 2 && targetTab != 2) {
+                    android.widget.Toast.makeText(
+                        context,
+                        "Save or close your active note first",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                } else {
+                    currentDestination = MainScreenDestination.TABS
+                    selectedTab = targetTab
+                }
+            }
+            val navigateToDestinationSafely: (MainScreenDestination) -> Unit = { targetDest ->
+                if (isNotesEditing && currentDestination == MainScreenDestination.TABS && selectedTab == 2 && targetDest != MainScreenDestination.TABS) {
+                    android.widget.Toast.makeText(
+                        context,
+                        "Save or close your active note first",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                } else {
+                    currentDestination = targetDest
+                }
+            }
+
             val desktopShortcutModifier = Modifier.onPreviewKeyEvent { keyEvent ->
                 if (keyEvent.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                if (keyEvent.isCtrlPressed) {
+                val cmd = (keyEvent.isCtrlPressed || keyEvent.isMetaPressed) &&
+                    !keyEvent.isAltPressed && !keyEvent.isShiftPressed
+                if (cmd) {
                     when (keyEvent.key) {
                         Key.One -> {
-                            currentDestination = MainScreenDestination.TABS
-                            selectedTab = 0
+                            navigateToTabSafely(0)
                             true
                         }
                         Key.Two -> {
-                            currentDestination = MainScreenDestination.TABS
-                            selectedTab = 1
+                            navigateToTabSafely(1)
                             true
                         }
                         Key.Three -> {
-                            currentDestination = MainScreenDestination.TABS
-                            selectedTab = 2
+                            navigateToTabSafely(2)
                             true
                         }
                         Key.Four -> {
-                            currentDestination = MainScreenDestination.TABS
-                            selectedTab = 3
+                            navigateToTabSafely(3)
                             true
                         }
                         Key.Five -> {
-                            currentDestination = MainScreenDestination.VACANT_ROOMS
+                            navigateToDestinationSafely(MainScreenDestination.VACANT_ROOMS)
                             true
                         }
                         Key.Six -> {
-                            currentDestination = MainScreenDestination.ACCOUNT
+                            navigateToDestinationSafely(MainScreenDestination.ACCOUNT)
                             true
                         }
                         Key.Comma -> {
-                            currentDestination = MainScreenDestination.SETTINGS
+                            navigateToDestinationSafely(MainScreenDestination.SETTINGS)
                             true
                         }
                         else -> false
@@ -719,13 +746,8 @@ fun MainScaffold(
                         currentDestination = currentDestination,
                         selectedTab = selectedTab,
                         savedProgramme = savedProgramme,
-                        onSelectTab = { index ->
-                            currentDestination = MainScreenDestination.TABS
-                            selectedTab = index
-                        },
-                        onSelectDestination = { dest ->
-                            currentDestination = dest
-                        },
+                        onSelectTab = navigateToTabSafely,
+                        onSelectDestination = navigateToDestinationSafely,
                         onOpenAcademicProfile = { showSidebarProfileSheet = true }
                     )
 

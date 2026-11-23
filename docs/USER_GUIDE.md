@@ -60,12 +60,14 @@ Need to check when a friend has a lecture or verify a room without disrupting yo
 
 Lectures features a full Obsidian-grade Markdown editor with real-time Live Preview:
 
-1. **Live Preview Highlighting**:
+1. **Focused Write, Preview & Desktop Split Modes**:
+   * On phones, switch between **Write** and **Preview**. On wide tablets and desktops, use **Split** for side-by-side live editing and rendered Markdown preview, alongside a docked Inspector sidebar.
+2. **Live Preview Highlighting**:
    * Type Markdown directly into the editor — syntax elements like `# Headers`, `**bold**`, `*italic*`, `~~strike~~`, and `` `code` `` are highlighted in real-time as you write.
-2. **Obsidian Callouts & Admonitions**:
+3. **Obsidian Callouts & Admonitions**:
    * Add callout alert boxes by typing `> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, or `> [!DANGER]`.
    * Follow with your text on lines starting with `> `.
-3. **Markdown Tables**:
+4. **Markdown Tables**:
    * Write clean tables using standard Markdown pipes:
      ```markdown
      | Course | Room | Day |
@@ -73,21 +75,20 @@ Lectures features a full Obsidian-grade Markdown editor with real-time Live Prev
      | BCS2101| LT 2 | Mon |
      ```
    * Tables format automatically into horizontally scrollable cards with distinct headers.
-4. **Math Formulas**:
+5. **Math Formulas**:
    * Write inline math with single dollar signs: `$f(x) = \sin(x)$`.
    * Write centered block equations with double dollar signs: `$$E = mc^2$$`.
-5. **Text Highlights & WikiLinks**:
+6. **Text Highlights & WikiLinks**:
    * Highlight key definitions with `==important term==`.
    * Create links to other courses or topics with `[[Course Code or Concept]]`.
-6. **Smart List Auto-Continuation**:
+7. **Smart List Auto-Continuation & Desktop Shortcuts**:
    * Start a checklist `- [ ] `, bullet `- `, or number `1. ` — pressing **Enter** automatically continues your list on the next line. Press Enter again on an empty line to cleanly clear it.
-7. **Cornell Template & Quick Toolbar**:
+   * On keyboards, press `Ctrl+B` (bold), `Ctrl+I` (italic), and `Ctrl+S` (save).
+8. **Cornell Template & Quick Toolbar**:
    * Tap the **Templates** button to insert a ready-to-use Cornell note-taking structure with cues, lecture notes, math blocks, and summary tables.
    * Tap `?` for a quick Markdown syntax reference cheat sheet.
-8. **Class Linkage & Alarms**:
-   * Tap `📚 Course` to tag with your subject.
-   * Tap `📍 Attach Class` to bind the note to a specific timetable session.
-   * Tap `⏰ Alert` to receive a pre-class notification reminder.
+9. **Class Linkage, Attachments & Alarms**:
+   * Tag with your course subject, attach a timetable lecture with pre-class alerts, or attach PDF/document files saved safely inside private app storage.
 
 ---
 
@@ -134,25 +135,27 @@ Lectures features a full Obsidian-grade Markdown editor with real-time Live Prev
 
 ---
 
-## 8. Backing Up Coursework with Google Account & Cloud Sync
+## 8. Backing Up Coursework (Cloud Sync & JSON Export)
 
-1. Open **Settings** (gear icon in the top right).
-2. Tap **Google Account & Cloud Backup**.
-3. Tap **Sign in with Google**:
-   * Authenticate seamlessly via the Android Credential Manager sheet.
-   * Your lecture notes, assignments, custom calendar activities, and preferences sync immediately to your private cloud storage.
-4. When signed in, tap **Sync Now** anytime to force an instant backup across devices.
-5. You can sign out anytime — your data remains safely backed up in the cloud and restores automatically upon signing back in.
+1. Open **Settings** (or tap **Account** in the tablet/desktop sidebar).
+2. Tap **Google Account & Cloud Backup → Sign In**:
+   * Authenticate via the Android Credential Manager sheet.
+   * Your lecture notes, assignments, custom calendar activities, and preferences sync to your private cloud storage.
+3. Tap **Sync Cloud** or **Sync Now** anytime to synchronize across devices.
+4. Prefer local file backups? Tap **Export Data Backup (JSON)** in **Settings → Data & Synchronization** to save an offline JSON copy (`lectures_backup_YYYYMMDD.json`) directly via the Android document picker.
 
 ---
 
-## 9. Appearance, Notification Sounds & Updates
+## 9. Appearance, Notifications, Feedback & Updates
 
 * **Appearance & Theme**:
-  * Tap **Settings → Appearance & Theme** to open the dedicated styling screen.
-  * Tap **Light**, **Dark**, or **System Default** for instant visual switching.
-* **Notification Sounds**:
-  * Tap **Settings → Notification Sounds** to configure Android system channel ringtones and alert priorities for class alarms and task reminders.
-* **Checking for In-App Updates**:
-  * Tap **Settings → Lectures App Releases** to check for new versions.
-  * When an update is available, review the highlights, tap **Download & Update** to download with live progress, and tap **Install & Restart** for seamless 1-tap installation.
+  * Open **Settings → Appearance & Theme** (now the single unified place for styling).
+  * Choose **Light**, **Dark**, or **System**, pick from 5 accent colors (*Royal Blue*, *Emerald*, *Violet*, *Amber*, *Ocean Teal*), and preview changes live before returning.
+* **Reminders & Notification Delivery**:
+  * Open **Settings → Notifications & Alarms → Reminder Timing & Sound** to customize pre-lecture and task lead times, toggle the 7:30 AM Morning Schedule Digest, or jump to Android notification channel settings.
+* **Anonymous Feedback**:
+  * Open **Settings → Anonymous Feedback & Bugs** to report timetable/room discrepancies or suggest features anonymously (offline submissions are queued automatically for retry).
+* **Checking for Releases**:
+  * Open **Settings → Lectures App Releases** to check for newer versions. When an update is ready, tap to open the verified HTTPS GitHub Releases page in your browser.
+* **Tablet & Desktop Navigation Shortcuts**:
+  * On tablets and Chromebooks, use the leading navigation rail or collapsible sidebar, or press `Ctrl+1`–`Ctrl+4` (Timetable, Calendar, Notes, Tasks), `Ctrl+5` (Vacant Rooms), `Ctrl+6` (Account), and `Ctrl+,` (Settings).

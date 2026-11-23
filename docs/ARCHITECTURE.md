@@ -52,39 +52,30 @@
 ## 2. Core Architectural Layers
 
 ### A. UI Layer (`com.lectures.ui` & `com.lectures.features.*.ui`)
-* **Framework**: 100% Jetpack Compose using Material Design 3 (M3).
-* **Root Navigation**: Handled inside `MainScaffold.kt`. A custom floating bottom navigation pill dock overlays content and allows switching between four primary destinations:
-  1. `0 -> TimetableRoute` (Timetable Screen)
-  2. `1 -> CalendarScreen` (Academic Calendar)
-  3. `2 -> NotesScreen` (Academic Notes & Editor)
-  4. `3 -> TasksScreen` (Assignment & Task Manager)
-
-  Two further screens are **modal overlays**, not dock destinations:
-  * `VacantRoomsScreen` (`features/rooms/ui`) — the Campus Vacant Rooms Finder
-  * `SettingsScreen` (`features/settings`) — theme, accent, academic profile, legal dialogs
-* **Component Architecture**: Reusable UI components (`DedicatedPickers.kt`, `TimelineClassCard`, `LectureCard`, `ActivityCard`) are separated into modular, testable composables.
-* **Two-Step Hierarchy Selector**: Academic profile switching employs a structured 2-step hierarchy: **Year of Study** chips followed by **Subject Track / Specialization** `FlowRow` chips with full labels.
+* **Framework**: 100% Jetpack Compose using Material Design 3 (M3) with centralized tokens in `Theme.kt` (`LocalAppTheme`, `LocalExtendedColors`, 5 accent palettes, Light/Dark/System modes).
+* **Adaptive Root Shell (`MainScaffold.kt` & `AdaptiveNavigationShell.kt`)**:
+  * Switches cleanly across `LecturesWindow` breakpoints (`Chrome.kt`):
+    * **Phones (`< 600dp`)**: Floating bottom navigation pill dock switching between 4 primary tabs (`Timetable`, `Calendar`, `Notes`, `Tasks`), with `Settings`, `Vacant Rooms`, and `Account` pushed as animated secondary routes (`MainScreenDestination`).
+    * **Tablets & Foldables (`600–1199dp`)**: Persistent leading `NavigationRail` exposing all 4 tabs plus `Vacant Rooms`, `Account`, and `Settings` as first-class rail destinations.
+    * **Desktop & Chromebooks (`>= 1200dp`)**: Collapsible `228dp` `ExpandedSidebar` showing brand header, academic week, clickable programme card, workspace/utility destinations, and global keyboard shortcuts (`Ctrl+1..6`, `Ctrl+,`).
+  * **Pane-Accurate Window Propagation**: Inside rail/sidebar mode, `MainScaffold` wraps `DestinationContent` in `BoxWithConstraints` and provides `LocalLecturesWindow` via `rememberContainerWindow(...)` so child screens inspect actual remaining pane width (including `windowInfo.isWideWorkspace` >= `960dp`) rather than raw display width.
+* **Component Architecture**: Reusable UI components (`DedicatedPickers.kt`, `DesktopErgonomics.kt`, `TimelineClassCard`, `LectureCard`, `ActivityCard`) separate compact mobile cards from desktop workspaces (`TimetableDesktopWorkspace`, `CalendarMonthSection`, `VacantRoomsScreen` 3-pane layout).
+* **Single Appearance & Theme Flow**: Theme mode and accent customization live exclusively inside `Settings → Appearance & Theme` (`SettingsDataAndAboutSection` + `SettingsComponents.AppearanceSettingsView`), eliminating redundant toggles from `AcademicProfileSheet`.
 
 ### B. ViewModel Layer (`com.lectures.features.*`)
-* Each screen possesses a dedicated `ViewModel` tied to its lifecycle:
-  * `TimetableViewModel`: Coordinates loaded schedule entries, day selection, live countdown calculations, and temporary Preview mode state.
-  * `CalendarViewModel`: Manages month grid matrices, days offset, and unified event aggregation.
-  * `NotesViewModel`: Handles note filtering, course grouping, search queries, and natural key associations.
-  * `TasksViewModel`: Tracks pending/completed assignments, deadline sorting, and priority states.
-  * `SettingsViewModel`: Controls academic profile switching, programme selection, dark/light theme toggling, and legal/disclaimer dialogs.
-* ViewModels never hold references to Views, Composables, or Android Activities, avoiding memory leaks.
+* Dedicated lifecycle-aware `ViewModel`s (`TimetableViewModel`, `CalendarViewModel`, `NotesViewModel`, `TasksViewModel`, `SettingsViewModel`) expose immutable `StateFlow` UI state with zero `Activity`/`View` references.
+* `TimetableViewModel` drives schedule queries, live countdown ticks, and temporary Preview Mode (`peekingProgramme`).
+* `SettingsViewModel` manages notification lead times, daily digest scheduling, theme/accent persistence, manual timetable/cloud sync, JSON backup export, and update dialog state.
 
 ### C. Data & Repository Layer (`com.lectures.features.timetable.data`)
 * **`TimetableRepository`**:
-  * Central coordination point for all application data.
-  * Exposes public methods for saving notes, adding custom events, toggling task completion, and retrieving timetable sessions.
-  * Employs `getLocalSchedule(programme)` which resolves programme aliases, queries Room candidate entries via `getScheduleCandidates`, filters by `entryMatchesGroup`, and runs in-memory deduplication.
-* **Strict Non-Destructive Migrations (`AppDatabase`)**:
-  * Guarantees 100% preservation of student coursework, notes, and deadlines.
-  * Uses `fallbackToDestructiveMigrationFrom(1)` — only the pre-release prototype v1 can be wiped; v2+ are protected by explicit migration steps (`MIGRATION_2_3` through `MIGRATION_8_9`).
+  * Single source of truth coordinating Room DAOs, DataStore/SharedPreferences, `AlarmSyncCoordinator`, `AttachmentStore`, and `SyncRepository`.
+  * Employs `getLocalSchedule(programme)` which resolves programme aliases, queries Room candidate entries via `getScheduleCandidates`, filters by `entryMatchesGroup`, and runs deterministic in-memory deduplication.
+* **Strict Non-Destructive Migrations (`AppDatabase` v12)**:
+  * Guarantees preservation of student notes, coursework deadlines, and custom activities across upgrades.
+  * Uses `fallbackToDestructiveMigrationFrom(1)` with explicit migrations `MIGRATION_2_3` through `MIGRATION_11_12`, adding `AttachmentStore` relative paths (`attachmentPath`), soft-delete tombstones (`isDeleted`), UUID deduplication (`clientUuid`), and multi-tenant isolation (`ownerId`).
 * **`DataLoader`**:
-  * Pre-populates the local database on initial launch from bundled academic assets (`timetable_export.json`).
-  * Employs MD5 and ETag tracking (`ETagStore`) to avoid redundant parsing.
+  * Pre-populates the local database on initial launch from bundled academic assets (`mustime_prepopulated.db` / `timetable_export.json`) with `ETagStore` change tracking.
 
 ### D. Timetable Matching & Specialization Architecture (`com.lectures.features.timetable.domain`)
 * **`TimetableMatcher`**:
@@ -110,52 +101,55 @@
 
 ---
 
-## 3. Background Processing & Alarms
+## 3. Background Processing, Alarms & Workers
 
-* **`AlarmScheduler`** (`com.lectures.core.alarm.AlarmScheduler`):
-  * Schedules alerts for upcoming university classes (e.g. 10m, 15m, or 30m prior to start time).
-  * Uses `AlarmManager.setExactAndAllowWhileIdle` to guarantee delivery even when the device is in Doze mode.
-* **`TaskAlarmScheduler`** (`com.lectures.core.alarm.TaskAlarmScheduler`):
-  * Schedules alerts for task due dates.
-* **`AlarmReceiver`**:
-  * `BroadcastReceiver` that captures alarm triggers and emits rich Android notifications with channel groupings and deep links.
+* **`AlarmScheduler` & `TaskAlarmScheduler`** (`com.lectures.core.alarm`):
+  * Use deterministic collision-resistant request codes rather than raw 32-bit `hashCode()`, `PendingIntent.FLAG_IMMUTABLE`, Doze-safe `setExactAndAllowWhileIdle` (with graceful inexact fallback when exact alarm permission is denied), and `BootReceiver` / `AlarmSyncCoordinator` recovery.
+* **`AlarmReceiver`, `ClassAlarmReceiver`, `TaskReminderReceiver`, `TaskActionReceiver`**:
+  * Guard `goAsync()` background work with bounded `withTimeout(...)` limits inside Android's broadcast execution window.
+* **`TimetableSyncWorker`** (`androidx.work.WorkManager`):
+  * Periodically syncs remote timetable updates (24h cadence), flushes queued anonymous feedback, and throttles release notifications to every 36 hours.
 
 ---
 
-## 4. Obsidian-Grade Markdown Engine Architecture
+## 4. Obsidian-Grade Markdown Notes & Attachments
 
 * **`MarkdownUtils` (`features/notes/MarkdownUtils.kt`)**:
-  * **AST Block Parser (`parseBlocks`)**: Parses multi-line Obsidian callouts (`CalloutType`), GitHub-flavored tables (`MarkdownBlock.Table`), math blocks (`$$...$$`), H1–H6 headers, bulleted/numbered lists, checklists, and dividers into strongly typed sealed classes.
+  * **AST Block Parser (`parseBlocks`)**: Parses multi-line Obsidian callouts (`CalloutType`), GitHub-flavored tables (`MarkdownBlock.Table`), math blocks (`$$...$$`), H1–H6 headers, bulleted/numbered lists, checklists, fenced code blocks, and dividers into strongly typed sealed classes.
   * **Inline Parser (`renderInlineMarkdown`)**: Tokenizes inline styles into Compose `AnnotatedString` spans for bold, italic, strikethrough, highlights (`==`), WikiLinks (`[[`), and LaTeX math (`$`).
-  * **Live Preview Syntax Transformation (`MarkdownLiveVisualTransformation`)**: Implements `VisualTransformation` with `OffsetMapping.Identity` for Compose `BasicTextField`. Provides real-time syntax styling in the editor with 1:1 character mapping to avoid cursor drift or misalignments.
-* **`MarkdownViewer` (`features/notes/MarkdownViewer.kt`)**:
-  * Renders `Callout` cards with dynamic Material 3 color borders and iconography.
-  * Renders horizontally scrollable `Table` cards with distinct header tints and cell alignments.
-  * Formats LaTeX math containers with formula copy buttons.
-  * Renders fenced code blocks with language badges and 1-tap clipboard copying.
+  * **Live Preview Syntax Transformation (`MarkdownLiveVisualTransformation`)**: Implements `VisualTransformation` with `OffsetMapping.Identity` for Compose `BasicTextField` with 1:1 character mapping.
+* **Desktop Master-Detail & 3-Zone Editor (`NotesScreen`, `NoteEditorScreen`)**:
+  * Compact/medium screens switch cleanly between the notes library and full-screen editor (`BackHandler`-managed).
+  * Wide workspaces (`windowInfo.isWideWorkspace`) present a split library/preview pane on `NotesScreen`, plus a 3-mode editor (`Split` / `Write` / `Preview`), live word/read-time counter, keyboard shortcuts (`Ctrl+B`, `Ctrl+I`, `Ctrl+S`), and docked `Inspector` pane for course tags, class alarms, and attachments.
+* **`AttachmentStore` (`core/storage/AttachmentStore.kt`)**:
+  * Copies picked documents via zero-permission Android SAF / Photo Picker (`ActivityResultContracts.OpenDocument`) into internal `files/attachments/` storage, enforces size/filename sanitization, and deletes orphaned files cleanly when notes are deleted.
 
 ---
 
-## 5. Google Authentication & Cloud Sync Architecture
+## 5. Google Authentication, Cloud Sync & Anonymous Feedback
 
 * **`AuthRepository` (`core/auth/AuthRepository.kt`)**:
-  * Integrates Google Sign-In via Android Jetpack `CredentialManager` (`GetSignInWithGoogleOption`).
-  * Exposes reactive `currentUser: StateFlow<FirebaseUser?>` to drive UI state between Guest and Authenticated modes.
-* **`SyncRepository` (`core/sync/SyncRepository.kt`) & `UserSettingsSyncManager`**:
-  * Encapsulates bidirectional synchronization between local Room SQLite and remote Firestore (`/users/{uid}/...`).
-  * **Conflict Resolution**: Tracks `updatedAt` client timestamps and server timestamps to ensure offline changes are preserved and merged seamlessly.
-  * **Clean Session Isolation**: `purgeUserDataOnSignOut(uid)` guarantees no cross-account data pollution when switching accounts.
+  * Integrates Google Sign-In via Jetpack `CredentialManager` (`GetSignInWithGoogleOption`) and Firebase Auth without relying on unprovisioned anonymous authentication.
+* **`SyncRepository` & `SyncConflictResolver` (`core/sync/`)**:
+  * Bidirectional synchronization between local Room SQLite (`ownerId`-scoped) and Firestore (`/users/{uid}/notes|events|assignments|settings`), attaching snapshot error listeners, promoting guest-mode records on first sign-in, forking simultaneous note edits into conflict drafts (`"[Sync Conflict]"`), and purging signed-out user data via `purgeUserDataOnSignOut(uid)`.
+* **`FeedbackManager` (`features/feedback/FeedbackManager.kt`)**:
+  * Submits anonymous feedback to Firestore `/feedback/{feedbackId}` bounded by `withTimeoutOrNull(1200L)` so offline submissions queue immediately into `pending_feedback_retry_queue` for retry on launch.
 
 ---
 
-## 6. Native In-App Update Architecture
+## 6. Play-Compliant Release Checker
 
 * **`InAppUpdateManager` (`core/update/InAppUpdateManager.kt`)**:
-  * Queries GitHub Releases API / version metadata without requiring Google Play Store.
-  * **Semantic Version Validation (`isNewerRelease`)**: Strictly ensures remote version is newer than `BuildConfig.VERSION_NAME` and `BuildConfig.VERSION_CODE`, preventing downgrades.
-  * **Background Download Pipeline**: Stream-based OkHttp download to app cache with live percentage progress callbacks.
-  * **Cryptographic Verification**: Evaluates SHA-256 hash against remote release metadata before prompting installation.
-  * **Native Package Installation**: Uses Android `FileProvider` to construct a secure content URI and fires `ACTION_VIEW` for the Android package installer.
+  * Checks `version.json` and the GitHub Releases API (with 15-minute in-memory caching), validates strict HTTPS URLs (`isSecureHttpsUrl`), prevents downgrades via `isNewerRelease`, purges legacy APK update caches (`purgeStaleUpdateFiles`), and directs students to the verified HTTPS release page via `Intent.ACTION_VIEW` without sideloading APKs or declaring `REQUEST_INSTALL_PACKAGES`.
 * **`AppUpdateDialog` (`core/update/AppUpdateDialog.kt`)**:
-  * Curates release highlights to filter out technical/developer jargon.
-  * Displays inline progress and handles "Install Unknown Apps" permission routing gracefully.
+  * Curates release highlights cleanly and preserves dialog visibility across rotation.
+
+---
+
+## 7. Automated Verification & Visual Regression Architecture
+
+The test suite under `app/src/test/java/com/lectures/` covers six integrated verification layers:
+* **Phase 1–2**: Firestore rules parity, multi-user sync & conflict resolution (`Phase1SecurityAndSyncAuditTest`, `SyncConflictResolverTest`), Room schema migrations v2–v12, and DataStore/prefs consistency (`Phase2PersistenceAndMigrationTest`, `DatabaseMigrationTest`).
+* **Phase 3–4**: Deterministic alarm/boot recovery, permission non-nagging, Calendar/Room/Markdown/Attachment/`InAppUpdateManager` boundary suites (`Phase3AlarmAndNotificationTest`, `Phase4DomainAndUpdaterTest`).
+* **Phase 5 & Roborazzi**: Compose CUJs across phone (`360x800`), foldable (`674x841`), and desktop (`1280x800` + `fontScale = 1.5f`) qualifiers (`Phase5UiAndAdaptiveTabletTest`, `RoborazziVisualSnapshotTest`).
+* **Phase 6**: R8/ProGuard keep rules, manifest/export/Play Policy compliance, and release APK assembly (`Phase6BuildHardeningAndPlayPolicyTest`).

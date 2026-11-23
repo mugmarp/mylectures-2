@@ -33,6 +33,7 @@ object InAppUpdateManager {
         "https://github.com/mugmarp/mylectures-2/releases/latest"
 
     // In-memory cache to prevent exhausting GitHub unauthenticated 60 req/hr rate limit
+    @Volatile
     private var cachedUpdateInfo: Pair<Long, AppUpdateInfo?>? = null
     private const val CACHE_TTL_MS = 15 * 60 * 1000L // 15 minutes
 

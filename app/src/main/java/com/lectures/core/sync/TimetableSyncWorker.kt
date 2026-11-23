@@ -146,7 +146,7 @@ class TimetableSyncWorker(
                     }
                 }
 
-                // 4. Also check for new App Releases (sideload update check)
+                // 4. Also check for new App Releases (browser release page check)
                 if (checkAppUpdate) {
                     try {
                         val updateResult = com.lectures.core.update.InAppUpdateManager.checkForUpdate(appContext)
@@ -185,6 +185,7 @@ class TimetableSyncWorker(
                     Result.success()
                 }
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 Log.e(TAG, "Error executing TimetableSyncWorker: ${e.message}", e)
                 if (runAttemptCount < 3) Result.retry() else Result.failure()
             }
@@ -192,7 +193,9 @@ class TimetableSyncWorker(
 
         private fun fetchFromHttp(appContext: Context): TimetableMetadata? {
             val prefs = appContext.getSharedPreferences("mustime_sync_prefs", Context.MODE_PRIVATE)
-            val url = prefs.getString(PREF_REMOTE_METADATA_URL, DEFAULT_METADATA_URL) ?: return null
+            val url = prefs.getString(PREF_REMOTE_METADATA_URL, DEFAULT_METADATA_URL)
+                ?.takeIf { isAllowedSyncUrl(it) }
+                ?: return null
 
             return try {
                 val request = Request.Builder()
@@ -218,8 +221,12 @@ class TimetableSyncWorker(
         private suspend fun syncEntriesFromHttp(appContext: Context, app: TimetableApplication): Int {
             val prefs = appContext.getSharedPreferences("mustime_sync_prefs", Context.MODE_PRIVATE)
             val metadataUrl = prefs.getString(PREF_REMOTE_METADATA_URL, DEFAULT_METADATA_URL) ?: DEFAULT_METADATA_URL
-            val exportUrl = prefs.getString(PREF_REMOTE_TIMETABLE_URL, null)?.takeIf { it.isNotBlank() }
+            val exportUrl = prefs.getString(PREF_REMOTE_TIMETABLE_URL, null)
+                ?.takeIf { it.isNotBlank() }
                 ?: deriveExportUrl(metadataUrl)
+            if (!isAllowedSyncUrl(exportUrl)) {
+                return 0
+            }
 
             return try {
                 val request = Request.Builder()
@@ -297,6 +304,19 @@ class TimetableSyncWorker(
             // Only compare timestamps when remote carries an explicit server-side timestamp (> 0)
             if (remote.lastUpdated > 0L && remote.lastUpdated > local.lastUpdated) return true
             return false
+        }
+
+        internal fun isAllowedSyncUrl(rawUrl: String?): Boolean {
+            if (com.lectures.core.update.InAppUpdateManager.isSecureHttpsUrl(rawUrl)) return true
+            val trimmed = rawUrl?.trim().orEmpty()
+            if (trimmed.isEmpty()) return false
+            return try {
+                val uri = android.net.Uri.parse(trimmed)
+                uri.scheme.equals("http", ignoreCase = true) &&
+                    uri.host?.lowercase(java.util.Locale.ROOT) in setOf("127.0.0.1", "localhost", "::1")
+            } catch (_: Exception) {
+                false
+            }
         }
     }
 }

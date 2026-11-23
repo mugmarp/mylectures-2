@@ -94,10 +94,13 @@ This document details the functional specifications, user interface behaviors, a
 
 ### A. Notes Dashboard (`NotesScreen`)
 * **Real-Time Search & Course Filtering**: Search across note titles and content with horizontal course pill selectors (`All Notes`, `BCS 2101`, `BIT 2104`...).
-* **Note Cards**: Displays note title, preview snippet with stripped markdown, course code badge, linked timetable session badge, and class alarm status.
-* **Bottom Navigation Clearance**: Floating Action Button is positioned above the bottom floating pill dock.
+* **Master-Detail Desktop Workspace (`>= 960dp` pane width)**: Side-by-side notes library and interactive preview pane with 1-click **Open Split Editor** launch and proper FAB bottom-clearance.
+* **Note Cards**: Displays note title, preview snippet with stripped markdown, course code badge, linked timetable session badge, attachment indicator, and class alarm status.
+* **Bottom Navigation Clearance**: Floating Action Button clears both mobile floating pill docks and tablet/desktop side rails cleanly.
 
 ### B. Dedicated Markdown Editor (`NoteEditorScreen`) & Live Preview
+* **Segmented Editor Modes**: Switch between **`Split`** (side-by-side live editor and rendered Markdown preview on wide workspaces), **`Write`**, and **`Preview`** with 48dp accessible tab touch targets.
+* **Docked Desktop Inspector & Keyboard Shortcuts**: Dedicated sidebar/drawer for course tagging, pre-class session attachment, reminder lead time, and persistent file attachments (`AttachmentStore`), plus `Ctrl+B` (Bold), `Ctrl+I` (Italic), and `Ctrl+S` (Save).
 * **Live Preview Syntax Highlighting (`MarkdownLiveVisualTransformation`)**:
   * Real-time 1:1 mapped syntax coloring inside the Compose `BasicTextField` without cursor drift or jump.
   * Formats headers (`#` to `######`), bold (`**`), italics (`*`), strikethrough (`~~`), inline code (`` ` ``), highlights (`==`), WikiLinks (`[[`), and callouts (`>`).
@@ -117,12 +120,12 @@ This document details the functional specifications, user interface behaviors, a
   * Clears the prefix when Enter is pressed on an empty item.
 * **1-Tap Copyable Code Blocks**:
   * Fenced code blocks (` ```kotlin `) render with syntax language badge and 1-tap clipboard copy button.
-* **Quick Action Toolbar**:
-  * Insert Markdown syntax with 1 tap: Bold, Italic, Strikethrough, Heading, Bullets, Checklists, Highlight (`==`), Callout (`[!Note]`), Table, Math (`$$`), and Link (`[[]]`).
+* **Quick Action Toolbar & Read-Time Stats**:
+  * Insert Markdown syntax with 1 tap: Bold, Italic, Strikethrough, Heading, Bullets, Checklists, Highlight (`==`), Callout (`[!Note]`), Table, Math (`$$`), and Link (`[[]]`), paired with live word/read-time estimation.
 * **Cornell Note-Taking Template**:
   * Pre-structured template with cues, notes, math block, summary table, and action items.
-* **Session & Pre-Class Alarm Linkage**:
-  * Link notes to specific timetable lectures with pre-class reminder alarms (10m, 15m, 30m, 45m, 60m).
+* **Session, Attachment & Pre-Class Alarm Linkage**:
+  * Link notes to specific timetable lectures with pre-class reminder alarms (10m, 15m, 30m, 45m, 60m) and internal app-scoped document attachments (`files/attachments/`).
 
 ---
 
@@ -172,8 +175,9 @@ The Academic Calendar is the student's unified macro-planning horizon, bridging 
 
 ## 6. 🏫 Campus Vacant Rooms Finder
 
-* **Coverage**: **92 rooms across 7 buildings and 2 campuses**, derived from the university's
+* **Coverage**: **93 rooms across 7 buildings and 2 campuses**, derived from the university's
   own room allocation timetable (2026/2027 Semester I).
+* **3-Pane Wide Workspace (`>= 960dp` pane width)**: Displays a dedicated Filter Rail, multi-column Room Grid, and docked Room Schedule Inspector side-by-side without blocking dialogs.
 * **Compact Pill Search Bar**: Sleek 44dp height with a 24dp border radius pill shape, featuring instant room code search (e.g. `L1`, `LR2`, `Lab`, `IMS`) with one-tap clear affordance.
 * **Dual-Segment Location Bar**: A prominent elevated card located directly below the search bar that cleanly decouples spatial location from status attributes:
   * **Left Segment (`📍 Campus`)**: Interactive dropdown selecting `All Campuses`, `Kihumuro Campus`, or `Town Campus` with live building counts and faculty default indicator (`★`).
@@ -196,63 +200,42 @@ The Academic Calendar is the student's unified macro-planning horizon, bridging 
 
 ---
 
-## 7. ⚙️ Settings, Theming & Legal Regulations
+## 7. ⚙️ Settings, Unified Theming & Legal Regulations
 
+* **Adaptive Dual-Pane Settings (`>= 840dp`)**: Displays a persistent left category rail (*Overview & Profile*, *Notifications & Alarms*, *Appearance & Theme*, *Data & Cloud Sync*, *About & Data Reset*) alongside a focused detail workspace.
 * **Academic Profile Management**:
-  * Clean, typography-first card displaying enrolled degree, cohort code, and faculty.
-  * Rapid "Switch" modal to preview or reconfigure academic enrollment without avatar clutter.
-* **Dedicated Appearance & Theme Sub-Screen**:
-  * Standalone clutter-free view focusing purely on theme switching.
-  * Interactive selection between **Light Mode** (bright & crisp), **Dark Mode** (night contrast), and **System Default** (auto adapt).
-* **Notification Sounds & Ringtone Configuration**:
-  * One-tap access to Android system channel settings for class alarms and task notifications.
-  * Clear lead time presets (10m, 15m, 30m, 45m, 60m, custom) for upcoming lecture reminders.
-* **Developer, Regulations & Disclaimer Section**:
-  * Clean, chevron-free interface with Material 3 surface action badges ("Profile", "Open", "View").
-  * Independent Developer Attribution to **MUGENDAWALA MARK PAUL**.
-  * Institutional non-affiliation disclaimer, terms of service, and local-first privacy policy dialogs.
-  * Anonymous feedback and bug reporting with stateless offline queuing.
+  * Clean, typography-first card displaying enrolled degree, cohort code, and faculty with rapid **Switch** reconfiguration.
+* **Single Unified Appearance & Theme Flow**:
+  * Theme controls live exclusively in **Settings → Appearance & Theme**, eliminating redundant quick toggles elsewhere in the app.
+  * Visual card previews for **Light**, **Dark**, and **System** modes, paired with 5 Material 3 accent color swatches (*Royal Blue*, *Emerald*, *Violet*, *Amber*, *Ocean Teal*) and a **Live Study Preview** card confirming WCAG contrast.
+* **Notifications, Digest & Sound Delivery**:
+  * Master **Class & Task Reminders** switch, class lead time presets (10m–60m + Custom), task lead times (1h–1d), daily 7:30 AM **Morning Schedule Digest** toggle, exact-alarm diagnostic banner, and 1-tap Android channel sound/vibration settings.
+* **Developer, Feedback, Legal & Data Controls**:
+  * Independent developer attribution (**MUGENDAWALA MARK PAUL**), non-affiliation disclaimer, terms of service, local-first privacy policy, anonymous feedback sheet with offline retry queue (`pending_feedback_retry_queue`), offline JSON data export (`lectures_backup_YYYYMMDD.json`), and guarded note/task reset dialogs.
 
 ---
 
 ## 8. ☁️ Google Account & Cloud Synchronization
 
 * **Offline-First Guest Mode**: The entire app functions with zero network connection and no account required.
-* **Jetpack Credential Manager Sign-In**: Optional, seamless Google Sign-In with official Google Identity services.
-* **Bidirectional Cloud Sync**: Automatically backs up lecture notes, assignments, custom calendar activities, and schedule preferences to secure Firestore user documents.
-* **Smart Conflict Resolution**: Client timestamp tracking prevents data loss and merges offline changes cleanly when reconnecting.
-* **Privacy & Session Management**:
-  * Displays user profile monogram and email.
-  * Preserved data counter pill showing synced vs local records.
-  * Clean "Sync Now" on-demand trigger and "Sign Out" confirmation with automatic local user-data isolation.
+* **Jetpack Credential Manager Sign-In**: Optional Google Sign-In with official Google Identity services and dedicated Account workspace screen (`AccountScreen`).
+* **Bidirectional Cloud Sync**: Automatically backs up lecture notes, assignments, custom calendar activities, and schedule preferences to owner-scoped Firestore documents (`/users/{uid}/...`).
+* **Smart Conflict Resolution**: Client timestamp tracking merges offline changes cleanly, preserves concurrent note edits as `[Sync Conflict]` drafts, and enforces strict `ownerId` isolation on sign-out.
+* **Offline Export & Sync Controls**: Preserved local record counts, on-demand **Sync Now** / **Sync Cloud**, and local JSON backup export.
 
 ---
 
-## 9. 🔄 Native In-App Update Engine
- 
-* **Sideload Update Management**: Keeps students on the latest release outside the Google Play Store.
-* **Remote Version Inspection**: Checks GitHub Releases API and fallback version metadata with smart 15-minute in-memory caching to eliminate campus Wi-Fi rate limiting.
-* **Strict Downgrade Prevention**: Uses semantic version comparison (`isNewerRelease`) to strictly forbid installing older builds.
-* **Clean In-App Experience**:
-  * Background APK downloading with real-time percentage progress bar.
-  * SHA-256 cryptographic checksum verification and pre-flight `PackageManager.getPackageArchiveInfo` validation to prevent installing corrupted archives.
-  * Automated cache purging of old update APKs and orphaned temporary files.
-  * Concise, curated release highlights filtering out developer and backend jargon.
-  * 1-tap installation via Android `FileProvider` with automatic `ON_RESUME` permission refresh.
-  * Offline-first mandatory update escape hatch ensuring students are never locked out of their saved timetable.
-  * 36-hour notification throttling in background worker (`TimetableSyncWorker`) to eliminate notification shade spam.
+## 9. 🔄 Play-Compliant Release Checker
+
+* **Remote Version Inspection**: Checks `version.json` and the GitHub Releases API with smart 15-minute in-memory caching to avoid rate limits.
+* **Strict HTTPS & Downgrade Prevention**: Enforces HTTPS release URLs (`isSecureHttpsUrl`) and semantic version comparison (`isNewerRelease`) against `BuildConfig.VERSION_NAME` / `VERSION_CODE`.
+* **Play-Compliant Browser Redirect**: Displays student-friendly release highlights in `AppUpdateDialog` and opens the verified HTTPS GitHub Releases page via `Intent.ACTION_VIEW` — without sideloading APK installers or declaring `REQUEST_INSTALL_PACKAGES`.
+* **Legacy Cleanup & Background Throttling**: Purges any stale cached update files on launch and throttles background worker release notifications to every 36 hours.
 
 ---
 
-## 10. 📱 Adaptive Viewport & Screen Responsiveness Engine
+## 10. 📱 Adaptive Viewport, Tablet & Desktop Engine
 
-* **Comprehensive Form-Factor Support**: Fully tested and optimized across compact handsets (320–340dp width), mainstream devices (360–390dp), tall displays (410–430dp), short viewports (<620dp usable height), landscape orientations, and Android multi-window split-screen modes.
-* **FlowRow Dynamic Wrapping**: Replaced rigid horizontal rows with `@OptIn(ExperimentalLayoutApi::class) FlowRow` across room vacancy headers, multi-year degree chips (supporting 5-year programmes such as Medicine `MBChB` and Engineering degrees without edge clipping), and dashboard metric legends.
-* **Compact Header Modes**:
-  * Note Editor automatically collapses segmented Write/Preview controls to icon-only pills on narrow or large-font displays, preserving the "Save" action button on-screen.
-  * Vacant Room Finder dynamically scales the dual-segment Campus and Building filter card, reducing padding and using compact text ("All") on 320dp screens to prevent horizontal overflow.
-* **Viewport Rebalancing**: In Onboarding Class Group selection, the programme summary card scrolls dynamically inside the `LazyColumn` rather than being pinned to the top bar, liberating 80dp of vertical viewport on budget devices with 3-button navigation.
-* **Keyboard Inset Awareness (`.imePadding()`)**: Add/Edit Task dialog incorporates native Compose IME insets, elevating inputs above the software keyboard so action buttons remain reachable.
-* **Bounded Scrollable Pickers & Dialogs**:
-  * Dedicated Time, Date, Schedule, and Day pickers include `verticalScroll(rememberScrollState())` to prevent button clipping on short viewports or in landscape mode.
-  * In-App Update Dialog decouples the scrollable changelog from action buttons, pinning "Install & Restart" and "Download & Update" at the base so 1-tap installation is always immediately visible.
+* **Multi-Tier Window Metrics (`Chrome.kt` & `LocalLecturesWindow`)**: Adapts continuously across `COMPACT` (`< 600dp`), `MEDIUM` (`600–839dp`), `EXPANDED` (`840–1199dp`), `LARGE` (`1200–1599dp`), and `EXTRA_LARGE` (`>= 1600dp`), propagating true post-sidebar pane width (`LocalLecturesWindow`, `isWideWorkspace >= 960dp`) to nested screens.
+* **Responsive Shell & Keyboard Navigation**: Switches from the mobile bottom floating pill dock (`< 600dp`) to a leading `NavigationRail` (`600–1199dp`) or collapsible `228dp` `ExpandedSidebar` (`>= 1200dp`), with desktop hover/hand-cursor feedback (`DesktopErgonomics.kt`) and shortcuts (`Ctrl+1..6`, `Ctrl+,`).
+* **FlowRow & Compact Header Adaptation**: Prevents clipping under large display/font scaling (`1.5x`) and 320dp narrow screens using `FlowRow` wrapping, icon-compact headers, `.imePadding()`, and vertically scrollable dialogs/pickers.

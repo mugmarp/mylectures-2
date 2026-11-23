@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.res.Configuration
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertWidthIsAtLeast
@@ -19,8 +20,10 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
+import com.lectures.core.util.TimeUtil
 import com.lectures.features.account.AccountScreen
 import com.lectures.features.calendar.CalendarScreen
 import com.lectures.features.notes.CourseOption
@@ -31,6 +34,9 @@ import com.lectures.features.settings.SettingsScreen
 import com.lectures.features.tasks.TasksScreen
 import com.lectures.features.timetable.domain.Assignment
 import com.lectures.features.timetable.domain.TimetableEntry
+import com.lectures.features.timetable.ui.HappeningNowHeroCard
+import com.lectures.features.timetable.ui.SpecClassSession
+import com.lectures.features.timetable.ui.SpecSessionType
 import com.lectures.features.timetable.ui.TimetableScreen
 import com.lectures.features.timetable.ui.WelcomeScreen
 import com.lectures.ui.AppTheme
@@ -563,5 +569,90 @@ class DesktopAdaptiveLayoutTest {
         composeRule.onNodeWithTag("account_desktop_guest_row").assertIsDisplayed()
         composeRule.onNodeWithTag("google_signin_button").assertIsDisplayed()
         composeRule.onNodeWithTag("notification_center_settings_btn").assertIsDisplayed()
+    }
+
+    @Test
+    @Config(qualifiers = "w1280dp-h800dp")
+    fun desktopSidebarOmitsDuplicateWeekPrefixAndTimetableButtonsMeet48dp() {
+        composeRule.setContent {
+            CompositionLocalProvider(LocalConfiguration provides configuredCopy(1280, 800)) {
+                AppTheme(themeMode = ThemeMode.LIGHT) {
+                    MainScaffold()
+                }
+            }
+        }
+
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithTag("desktop_sidebar_toggle").fetchSemanticsNodes().isNotEmpty()
+        }
+
+        composeRule.onNodeWithText(TimeUtil.currentAcademicWeek()).assertIsDisplayed()
+        assertEquals(0, composeRule.onAllNodesWithText("Week Week", substring = true).fetchSemanticsNodes().size)
+        composeRule.onNodeWithTag("timetable_prev_day_btn")
+            .assertWidthIsAtLeast(48.dp)
+            .assertHeightIsAtLeast(48.dp)
+        composeRule.onNodeWithTag("timetable_next_day_btn")
+            .assertWidthIsAtLeast(48.dp)
+            .assertHeightIsAtLeast(48.dp)
+    }
+
+    @Test
+    fun liveHeroCardDoesNotDuplicateSessionSuffixForLabSession() {
+        val sampleLab = SpecClassSession(
+            id = "lab_1",
+            courseCode = "CSC3101",
+            courseName = "Operating Systems Lab",
+            department = "FCI",
+            topicDescription = null,
+            startTime = "08:00",
+            endTime = "10:00",
+            type = SpecSessionType.LAB,
+            venue = "FCL Lab 1",
+            lecturer = "Dr. A. K.",
+            isHappeningNow = true
+        )
+
+        composeRule.setContent {
+            AppTheme(themeMode = ThemeMode.LIGHT) {
+                HappeningNowHeroCard(
+                    session = sampleLab,
+                    onQuickNote = {},
+                    onAlarmDismiss = {}
+                )
+            }
+        }
+
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("• Lab Session · 08:00 – 10:00").assertIsDisplayed()
+        assertEquals(0, composeRule.onAllNodesWithText("Session Session", substring = true).fetchSemanticsNodes().size)
+    }
+
+    @Test
+    @Config(qualifiers = "w1280dp-h800dp")
+    fun desktopSettingsWidensCategoryRailAt150PercentFontScale() {
+        composeRule.setContent {
+            CompositionLocalProvider(
+                LocalConfiguration provides configuredCopy(1280, 800, fontScale = 1.5f),
+                LocalDensity provides Density(density = 2f, fontScale = 1.5f)
+            ) {
+                AppTheme(themeMode = ThemeMode.DARK) {
+                    SettingsScreen(currentProgramme = "BCS I")
+                }
+            }
+        }
+
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithTag("settings_category_rail").fetchSemanticsNodes().isNotEmpty()
+        }
+
+        composeRule.onNodeWithTag("settings_category_rail")
+            .assertIsDisplayed()
+            .assertWidthIsAtLeast(304.dp)
+        composeRule.onNode(
+            hasText("Notifications & Alarms") and hasAnyAncestor(hasTestTag("settings_category_rail"))
+        ).assertIsDisplayed()
+        composeRule.onNode(
+            hasText("Appearance & Theme") and hasAnyAncestor(hasTestTag("settings_category_rail"))
+        ).assertIsDisplayed()
     }
 }

@@ -94,12 +94,13 @@ The client's `SyncRepository` and `TimetableVersionResolver` continuously listen
   ```javascript
   match /feedback/{feedbackId} {
     allow read, update, delete: if false;
-    allow create: if isValidFeedback();
+    allow create: if isValidFeedback(feedbackId);
   }
   ```
-- **Security Invariant:** Create-only. Reading, updating, and deleting are completely denied to clients.
+- **Security Invariant:** Create-only using idempotent UUID `feedbackId`. Reading, updating, and deleting are completely denied to clients.
+- **Offline Queueing (`FeedbackManager`):** Remote submission is guarded by `withTimeoutOrNull(1200L)` so offline clients fail fast into `pending_feedback_retry_queue` and flush on subsequent launches.
 - **Payload Constraints:**
-  - Keys restricted to: `id`, `instanceId`, `category`, `categoryKey`, `message`, `formattedDate`, `appVersion`, `androidRelease`, `deviceModel`, `enrolledProgramme`, `submittedAt`.
+  - `id == feedbackId`, plus keys restricted to: `id`, `instanceId`, `category`, `categoryKey`, `message`, `formattedDate`, `appVersion`, `androidRelease`, `deviceModel`, `enrolledProgramme`, `submittedAt`.
   - `message.size() <= 4000` to prevent using Firestore as unauthenticated bulk file storage.
 
 ---
@@ -208,6 +209,6 @@ The Android client bundles `app/src/main/assets/mustime_prepopulated.db` for zer
 ## 7. Operational Checklist for Incoming Engineers
 
 - [ ] **Rules Deployment:** When editing `firestore.rules`, deploy immediately using `deploy_firebase` or Firebase CLI (`firebase deploy --only firestore:rules`).
-- [ ] **App Check Verification:** Test debug builds with a registered debug token (`FIREBASE_APPCHECK_DEBUG_TOKEN`) if App Check enforcement is toggled on in the Firebase Console.
+- [ ] **App Check Verification:** Debug builds register `DebugAppCheckProviderFactory` (only loaded in debug builds); release builds enforce `PlayIntegrityAppCheckProviderFactory`. Register a debug token (`FIREBASE_APPCHECK_DEBUG_TOKEN`) when testing with enforcement enabled.
 - [ ] **Index Verification:** The client executes single-document lookups and snapshot listeners. No composite queries requiring complex indexing are mandated by default. If adding queries with multiple `where` and `orderBy` clauses, generate the required composite indexes in `firestore.indexes.json`.
-- [ ] **Build Validation:** Always run `compile_applet` after modifying Kotlin data classes or Firestore mapping extensions.
+- [ ] **Build & Verification Gate:** Always run `gradle :app:testDebugUnitTest`, `gradle :app:verifyRoborazziDebug`, `gradle :app:assembleRelease`, and `compile_applet` after modifying Kotlin data classes, Firestore mapping extensions, or UI components.

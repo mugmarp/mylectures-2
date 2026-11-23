@@ -149,7 +149,7 @@ fun HappeningNowHeroCard(
                 }
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "• ${session.type.label} Session · ${session.startTime} – ${session.endTime}",
+                    text = "• ${session.type.label} · ${session.startTime} – ${session.endTime}",
                     color = Color.White.copy(alpha = 0.85f),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium

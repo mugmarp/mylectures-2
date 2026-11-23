@@ -121,7 +121,7 @@ fun DeveloperProfileSheet(
                         text = devName,
                         fontWeight = FontWeight.Bold,
                         fontSize = 20.sp,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
                     )
 
@@ -141,7 +141,7 @@ fun DeveloperProfileSheet(
                         text = "BSE student at MUST. Built Lectures App as a fast, offline-first app for schedule access and campus room availability.",
                         fontSize = 12.sp,
                         lineHeight = 16.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
                     )
                 }
@@ -185,9 +185,11 @@ fun DeveloperProfileSheet(
                     try {
                         context.startActivity(Intent.createChooser(emailIntent, "Send Email via"))
                     } catch (_: Exception) {
-                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        clipboard.setPrimaryClip(ClipData.newPlainText("Developer Email", emailContact))
-                        Toast.makeText(context, "Email copied to clipboard", Toast.LENGTH_SHORT).show()
+                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                        if (clipboard != null) {
+                            clipboard.setPrimaryClip(ClipData.newPlainText("Developer Email", emailContact))
+                            Toast.makeText(context, "Email copied to clipboard", Toast.LENGTH_SHORT).show()
+                        }
                     }
                 }
             )
@@ -273,8 +275,10 @@ private fun openBrowser(context: Context, url: String) {
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
         context.startActivity(intent)
     } catch (_: Exception) {
-        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        clipboard.setPrimaryClip(ClipData.newPlainText("URL", url))
-        Toast.makeText(context, "Link copied to clipboard: $url", Toast.LENGTH_SHORT).show()
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+        if (clipboard != null) {
+            clipboard.setPrimaryClip(ClipData.newPlainText("URL", url))
+            Toast.makeText(context, "Link copied to clipboard: $url", Toast.LENGTH_SHORT).show()
+        }
     }
 }

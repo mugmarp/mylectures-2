@@ -73,24 +73,33 @@ Derived from the university's own room allocation data: **93 rooms across 7 buil
 - Ranked by usefulness: lecture rooms and labs first, libraries last (you already know the library is free)
 
 ### 📝 Obsidian-Grade Lecture Notes
-Distraction-free Markdown editor equipped with an Obsidian-style reading and editing experience:
+Distraction-free Markdown editor equipped with an Obsidian-style reading and editing experience, scaling from focused mobile editing to a 3-zone desktop workspace:
 - **Live Preview Syntax Highlighting**: Real-time syntax coloring inside the editor for headers, bold, italics, code, strikethrough, highlights, and WikiLinks.
+- **3-Mode Desktop Split Workspace**: Switch cleanly between `Split` (side-by-side live editor & preview), `Write`, and `Preview` with a docked Inspector pane on wide screens (`>= 960dp`), keyboard shortcuts (`Ctrl+B/I/S`), and internal `files/attachments/` file persistence.
 - **Obsidian Callouts & Admonitions**: Styled cards for `> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, `> [!DANGER]`, and `> [!SUCCESS]`.
 - **Formatted Tables & Math Equations**: Alignment-aware tables (`| Header |`) and LaTeX-style math formulas (`$inline$` and `$$block$$`).
 - **Smart Formatting**: Text highlights (`==key term==`), internal WikiLinks (`[[Course Unit]]`), smart Enter continuation for checklists and lists, Cornell note-taking template, and 1-tap copyable code blocks.
 - **Course & Class Linking**: Attach notes to specific lectures or course codes with pre-class alarms.
 
+### 📱 Adaptive Phone, Foldable, Tablet & Desktop Shell
+- **Responsive Breakpoints (`Chrome.kt` + `LocalLecturesWindow`)**: Switches automatically from the floating mobile bottom pill dock (`< 600dp`), to a leading `NavigationRail` (`600–1199dp`), to a collapsible `228dp` `ExpandedSidebar` (`>= 1200dp`), propagating pane-accurate widths so split views adapt gracefully alongside the sidebar.
+- **Multi-Pane Workspaces**: Master-detail / split workspaces across Timetable, Notes, Calendar, Tasks, Settings, and a 3-pane Vacant Room Finder, plus desktop hover states and `Ctrl+1..6` / `Ctrl+,` keyboard navigation.
+
+### 🎨 Unified Appearance & Notifications
+- **Single Appearance & Theme Hub (`Settings → Appearance & Theme`)**: Choose `Light`, `Dark`, or `System` mode alongside 5 curated accent palettes (*Royal Blue*, *Emerald*, *Violet*, *Amber*, *Ocean Teal*) with a live WCAG-checked preview card.
+- **Flexible Reminder Controls**: Configure pre-lecture and task deadline lead times, a daily 7:30 AM Morning Schedule Digest, exact-alarm health diagnostics, and Android channel sound profiles.
+
 ### ✅ Tasks & deadlines
 Assignments organized across Urgent / High / Medium / Low priority with completion toggles, deadline alarms, read-only enrolled course dropdowns, and an interactive weekly progress dashboard with daily breakdown stacked charts.
 
 ### 📆 Academic calendar
-Merges your timetable with personal study activities into one day view, with a month grid, dot matrices, and quick "today" jump.
+Merges your timetable with personal study activities into one day view, with a month grid, dot matrices, semester milestones roadmap, and quick "today" jump.
 
-### ☁️ Google Cloud Backup & Cross-Device Sync
-100% functional offline by default in Guest mode. Optional Google Sign-In via Jetpack Credential Manager allows students to back up and sync their notes, coursework tasks, and schedule preferences across devices with bidirectional conflict resolution.
+### ☁️ Google Cloud Backup, Export & Feedback
+100% functional offline by default in Guest mode. Optional Google Sign-In via Jetpack Credential Manager allows students to back up and sync their notes, coursework tasks, and schedule preferences across devices with bidirectional conflict resolution, guest-to-UID ownership isolation, offline JSON export backups, and an offline-queued anonymous feedback sheet.
 
-### 🔄 In-App Update Checks
-Outside Google Play, Lectures periodically checks verified releases (`version.json` and GitHub Releases API), displays concise student-friendly changelogs and mandatory/minimum-version gating, and opens the official HTTPS GitHub Releases page when a newer version is ready.
+### 🔄 Play-Compliant Release Checks
+Lectures periodically checks verified release metadata (`version.json` and GitHub Releases API with 15-minute caching), enforces HTTPS URLs and semantic-version downgrade protection, displays concise release highlights, and opens the official GitHub Releases page in the browser via `Intent.ACTION_VIEW` (no `REQUEST_INSTALL_PACKAGES` permission).
 
 ---
 
@@ -204,23 +213,30 @@ Room DAOs return `Flow<List<T>>`, so any write propagates to the UI without manu
 ```
 app/src/main/java/com/lectures/
 ├── MainActivity.kt
-├── TimetableApplication.kt        DI wiring, Room init, data load
+├── TimetableApplication.kt        DI wiring, Room v12 init, WorkManager, App Check
 ├── core/
-│   ├── alarm/                     schedulers, receivers, boot re-arm
-│   ├── database/                  AppDatabase, DAOs, converters
-│   ├── network/                   Firebase factory (Firestore, Auth)
-│   ├── notification/              notification helper, sound profiles
-│   ├── sync/                      Firestore sync — started at app launch
-│   └── util/                      TimeUtil, permissions
+│   ├── alarm/                     schedulers, receivers, boot re-arm, sync coordinator
+│   ├── analytics/                 pseudonymous telemetry & crash-safe prefs
+│   ├── auth/                      Credential Manager Google Sign-In & Firebase Auth
+│   ├── database/                  AppDatabase (v12), DAOs, migrations, converters
+│   ├── network/                   Firebase factory (Firestore, Auth, App Check)
+│   ├── notification/              notification channels, digests & in-app alert store
+│   ├── storage/                   AttachmentStore (internal files/attachments/)
+│   ├── sync/                      Firestore bidirectional sync & SyncConflictResolver
+│   ├── update/                    HTTPS release checker & AppUpdateDialog
+│   └── util/                      TimeUtil, academic week, permission & export helpers
 ├── features/
-│   ├── calendar/                  month grid + unified day timeline
-│   ├── notes/                     editor, markdown, templates
-│   ├── onboarding/                faculty → programme → year flow
-│   ├── rooms/                     RoomDirectory + VacantRoomsScreen
-│   ├── settings/                  theme, accent, profile, legal
+│   ├── account/                   Google Account & Cloud Backup management screen
+│   ├── calendar/                  month grid, milestones roadmap + day agenda
+│   ├── developer/                 developer profile modal
+│   ├── feedback/                  anonymous feedback sheet & offline retry queue
+│   ├── notes/                     Obsidian markdown engine, Split/Write/Preview & inspector
+│   ├── onboarding/                faculty → programme → class group flow
+│   ├── rooms/                     RoomDirectory (93 rooms) + 3-pane VacantRoomsScreen
+│   ├── settings/                  dual-pane Settings, Appearance & Theme, Notifications
 │   ├── tasks/                     priorities, deadlines, dashboard
-│   └── timetable/                 domain, data, ui
-└── ui/                            MainScaffold, Theme, shared components
+│   └── timetable/                 domain, repository, DataLoader, adaptive workspace UI
+└── ui/                            Chrome, MainScaffold, Theme, AdaptiveNavigationShell
 ```
 
 ---
@@ -236,19 +252,23 @@ app/src/main/java/com/lectures/
 
 ```bash
 # Compile Kotlin only (fastest feedback)
-./gradlew compileDebugKotlin
+gradle :app:compileDebugKotlin
 
-# Build a debug APK
-./gradlew assembleDebug
+# Build debug / minified release APKs
+gradle assembleDebug
+gradle :app:assembleRelease
 
-# Unit tests
-./gradlew testDebugUnitTest
+# Run JVM, Robolectric, Compose UI, Play Policy & Build Hardening tests
+gradle :app:testDebugUnitTest
+
+# Verify Roborazzi visual snapshots across phone, tablet & desktop viewports
+gradle :app:verifyRoborazziDebug
 
 # Full check (lint + tests)
-./gradlew check
+gradle check
 ```
 
-> The repository does not track the Gradle wrapper. Either run `gradle wrapper` once, or use your local `gradle`.
+> The repository does not track the Gradle wrapper (`gradlew`); use `gradle` directly.
 
 ### CI
 
@@ -269,17 +289,17 @@ Timetable and room data come from the university's public timetable pages:
 
 Room campus assignment is **derived from the faculties of the cohorts that actually use each room**, not guessed from room names.
 
-### How updates reach the app
+### How updates & backups reach the app
 
-**Currently: via the bundled snapshot + manual refresh.** The dataset is bundled at build time and read from local storage on first launch. If the university revises a timetable mid-semester, the app will not automatically know — but you can tap **Sync Now** in Settings to fetch the latest timetable metadata (draft version, final release) from Firestore.
+**Offline-first snapshot + automatic background & cloud sync.** The dataset ships bundled in the APK (`mustime_prepopulated.db` / `timetable_export.json`) and loads locally on first launch.
 
-The sync architecture is:
+1. **On launch & background worker** — `startTimetableSync()` observes the central `/timetable` and `/timetable/metadata` Firestore documents, while `TimetableSyncWorker` schedules periodic 24-hour timetable syncs and 36-hour throttled release checks.
+2. **Manual refresh** — **Settings → Data & Synchronization → Sync Now** refreshes live Firestore schedule metadata on demand, falling back cleanly to local Room storage when offline.
+3. **Anonymous feedback & offline queue** — Feedback submissions timeout-guard network writes and persist unsent entries in an offline retry queue (`pending_feedback_retry_queue`) for automatic retry on next launch.
 
-1. **On launch** — `startTimetableSync()` observes the central `/timetable` and `/timetable/metadata` Firestore documents. New drafts or the final timetable are detected automatically and written to local Room storage.
-2. **Manual refresh** — Settings → Sync Now queries the live Firestore metadata on demand, falling back to local caching when offline.
 ### Cloud Backup & Synchronization
 
-Students can optionally link their Google Account (via Jetpack Credential Manager) under **Settings → Google Account & Cloud Backup**. This securely backs up lecture notes, assignments, and calendar events to Firestore with bidirectional merge and conflict resolution, keeping coursework synchronized across devices while preserving full offline functionality.
+Students can optionally link their Google Account (via Jetpack Credential Manager) under **Account & Cloud Backup** (accessible from Settings or the adaptive desktop sidebar). Coursework notes, assignments, calendar events, and preferences synchronize bidirectionally with Firestore using `ownerId` tenant isolation, `SyncConflictResolver` draft preservation on conflicting notes, and offline JSON export backups.
 
 ---
 
