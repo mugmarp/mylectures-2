@@ -83,6 +83,7 @@ fun AdaptiveNavigationRailOrSidebar(
     currentDestination: MainScreenDestination,
     selectedTab: Int,
     savedProgramme: String?,
+    isPeeking: Boolean = false,
     onSelectTab: (Int) -> Unit,
     onSelectDestination: (MainScreenDestination) -> Unit,
     onOpenAcademicProfile: () -> Unit
@@ -201,8 +202,11 @@ fun AdaptiveNavigationRailOrSidebar(
                     val progLabel = savedProgramme?.takeIf { it.isNotBlank() } ?: "Set Programme"
                     Surface(
                         shape = RoundedCornerShape(12.dp),
-                        color = primaryBlue.copy(alpha = 0.08f),
-                        border = BorderStroke(1.dp, primaryBlue.copy(alpha = 0.22f)),
+                        color = if (isPeeking) ext.warningBg else primaryBlue.copy(alpha = 0.08f),
+                        border = BorderStroke(
+                            1.dp,
+                            if (isPeeking) ext.warningBorder else primaryBlue.copy(alpha = 0.22f)
+                        ),
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
@@ -211,13 +215,19 @@ fun AdaptiveNavigationRailOrSidebar(
                             .testTag("sidebar_programme_badge")
                     ) {
                         Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
-                            Text(
-                                text = "PROGRAMME",
-                                fontSize = 9.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.6.sp,
-                                color = primaryBlue
-                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = if (isPeeking) "PEEKING" else "PROGRAMME",
+                                    fontSize = 9.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.6.sp,
+                                    color = if (isPeeking) ext.warningText else primaryBlue
+                                )
+                            }
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = progLabel,

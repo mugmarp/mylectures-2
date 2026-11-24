@@ -74,7 +74,11 @@ fun CalendarScreen(
     onReconfigureAcademicProfile: () -> Unit = {},
     onNavigateToTimetable: () -> Unit = {},
     onPeekProgramme: (String) -> Unit = {},
-    onSetOfficialProgramme: (String) -> Unit = {}
+    onResetToEnrolled: () -> Unit = {},
+    onSetOfficialProgramme: (String) -> Unit = {},
+    activeProgrammeOverride: String? = null,
+    enrolledProgrammeOverride: String? = null,
+    isPeeking: Boolean = false
 ) {
     val context = LocalContext.current
     val app = context.applicationContext as? TimetableApplication
@@ -105,6 +109,7 @@ fun CalendarScreen(
 
     var showAddActivitySheet by rememberSaveable { mutableStateOf(false) }
     var editingActivityId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var editingTaskId by rememberSaveable { mutableStateOf<Long?>(null) }
     var showProfileSheet by rememberSaveable { mutableStateOf(false) }
     var deleteEventId by rememberSaveable { mutableStateOf<Long?>(null) }
     var deleteTaskId by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -113,6 +118,9 @@ fun CalendarScreen(
 
     val activityToEdit = remember(editingActivityId, uiState.customEvents) {
         editingActivityId?.let { id -> uiState.customEvents.firstOrNull { it.id == id } }
+    }
+    val taskToEdit = remember(editingTaskId, uiState.assignments) {
+        editingTaskId?.let { id -> uiState.assignments.firstOrNull { it.id == id } }
     }
     val eventToDelete = remember(deleteEventId, uiState.customEvents) {
         deleteEventId?.let { id -> uiState.customEvents.firstOrNull { it.id == id } }
@@ -126,6 +134,15 @@ fun CalendarScreen(
     val selectedLectureForDetail = remember(detailLectureKey, uiState.entries) {
         detailLectureKey?.let { key -> uiState.entries.firstOrNull { it.naturalKey == key } }
     }
+    val availableCoursePairs = remember(uiState.entries) {
+        uiState.entries
+            .filter { it.courseCode.isNotBlank() }
+            .map { it.courseCode to it.courseTitle }
+            .distinctBy { it.first }
+    }
+    val defaultTaskLeadHours by repository.taskReminderLeadPref.collectAsState(
+        initial = repository.getTaskReminderLeadHours()
+    )
 
     val isDark = LocalAppTheme.current.isDark
 
@@ -194,8 +211,9 @@ fun CalendarScreen(
     val listBottomPadding = Chrome.listBottomPadding(navBarBottom, windowInfo.useNavigationRail)
     val listState = rememberLazyListState()
 
-    val hasOverlayOpen = showAddActivitySheet || editingActivityId != null || showProfileSheet ||
-        detailActivityId != null || detailLectureKey != null || eventToDelete != null || taskToDelete != null
+    val hasOverlayOpen = showAddActivitySheet || editingActivityId != null || editingTaskId != null ||
+        showProfileSheet || detailActivityId != null || detailLectureKey != null ||
+        eventToDelete != null || taskToDelete != null
 
     Scaffold(
         modifier = Modifier.onKeyEvent { event ->
@@ -453,7 +471,7 @@ fun CalendarScreen(
                                 modifier = Modifier
                                     .weight(1f)
                                     .fillMaxWidth(),
-                                contentPadding = PaddingValues(bottom = listBottomPadding + 88.dp),
+                                contentPadding = PaddingValues(bottom = listBottomPadding),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 if (selectedDayDeadlines.isNotEmpty() && (uiState.selectedFilter == CalendarFilter.ALL || uiState.selectedFilter == CalendarFilter.TASKS)) {
@@ -466,7 +484,7 @@ fun CalendarScreen(
                                                 task = task,
                                                 isDark = isDark,
                                                 onToggleComplete = { viewModel.toggleTaskComplete(task) },
-                                                onEdit = { },
+                                                onEdit = { editingTaskId = task.id },
                                                 onDelete = { deleteTaskId = task.id }
                                             )
                                         }
@@ -696,7 +714,7 @@ fun CalendarScreen(
                                         task = task,
                                         isDark = isDark,
                                         onToggleComplete = { viewModel.toggleTaskComplete(task) },
-                                        onEdit = { },
+                                        onEdit = { editingTaskId = task.id },
                                         onDelete = { deleteTaskId = task.id }
                                     )
                                 }
@@ -755,19 +773,26 @@ fun CalendarScreen(
     CalendarActionDialogs(
         selectedActivityForDetail = selectedActivityForDetail,
         activityToEdit = activityToEdit,
+        taskToEdit = taskToEdit,
         selectedLectureForDetail = selectedLectureForDetail,
         showAddActivitySheet = showAddActivitySheet,
         showProfileSheet = showProfileSheet,
         eventToDelete = eventToDelete,
         taskToDelete = taskToDelete,
-        currentProgramme = uiState.currentProgramme,
-        enrolledProgramme = repository.getInitialProgramme() ?: "",
+        currentProgramme = activeProgrammeOverride?.takeIf { it.isNotBlank() } ?: uiState.currentProgramme,
+        enrolledProgramme = enrolledProgrammeOverride?.takeIf { it.isNotBlank() } ?: (repository.getInitialProgramme() ?: ""),
+        isPeeking = isPeeking,
         selectedDayOfWeek = uiState.selectedDayOfWeek,
+        isDark = isDark,
+        availableCoursePairs = availableCoursePairs,
+        defaultReminderMinutes = defaultTaskLeadHours * 60,
         onDismissActivityDetail = { detailActivityId = null },
         onEditActivity = { editingActivityId = it },
         onRequestDeleteActivity = { deleteEventId = it },
         onDismissEditActivity = { editingActivityId = null },
         onSaveActivity = { viewModel.addCustomEvent(it) },
+        onDismissEditTask = { editingTaskId = null },
+        onSaveTask = { viewModel.saveTask(it) },
         onSaveLectureNote = { entry, text, minutes ->
             viewModel.saveNote(entry, text, minutes)
             detailLectureKey = null
@@ -786,6 +811,7 @@ fun CalendarScreen(
         },
         onDismissDeleteTask = { deleteTaskId = null },
         onPeekProgramme = onPeekProgramme,
+        onResetToEnrolled = onResetToEnrolled,
         onSetOfficialProgramme = onSetOfficialProgramme,
         onReconfigureAcademicProfile = onReconfigureAcademicProfile,
         onSettingsClick = onSettingsClick,

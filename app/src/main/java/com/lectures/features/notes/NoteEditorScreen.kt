@@ -107,7 +107,6 @@ import com.lectures.features.timetable.domain.TimetableEntry
 import com.lectures.ui.Chrome
 import com.lectures.ui.LocalAppTheme
 import com.lectures.ui.LocalExtendedColors
-import com.lectures.ui.components.AcademicProfileSheet
 import com.lectures.ui.components.desktopHandCursor
 import com.lectures.ui.rememberLecturesWindow
 import kotlinx.coroutines.CoroutineScope
@@ -190,11 +189,6 @@ fun NoteEditorScreen(
     initialTab: NoteEditorTab = NoteEditorTab.WRITE,
     availableCourses: List<CourseOption>,
     timetableClasses: List<TimetableEntry>,
-    onSettingsClick: () -> Unit = {},
-    onReconfigureAcademicProfile: () -> Unit = {},
-    onNavigateToTimetable: (() -> Unit)? = null,
-    onPeekProgramme: ((String) -> Unit)? = null,
-    onSetOfficialProgramme: ((String) -> Unit)? = null,
     onAttachmentError: ((String) -> Unit)? = null,
     onWikiLinkClick: ((String) -> Unit)? = null,
     onSave: (
@@ -346,7 +340,6 @@ fun NoteEditorScreen(
     var pendingWikiLink by remember { mutableStateOf<String?>(null) }
     var showHelpSheet by rememberSaveable(noteKey) { mutableStateOf(false) }
     var showDiscardConfirmDialog by rememberSaveable(noteKey) { mutableStateOf(false) }
-    var showProfileSheet by rememberSaveable(noteKey) { mutableStateOf(false) }
     var showCustomReminderDialog by rememberSaveable(noteKey) { mutableStateOf(false) }
 
     val canScheduleClassAlert = attachedClassText.isNotBlank() ||
@@ -1427,7 +1420,7 @@ fun NoteEditorScreen(
                         modifier = Modifier
                             .padding(14.dp)
                             .let { mod ->
-                                if (currentTab == NoteEditorTab.WRITE) {
+                                if (effectiveTab == NoteEditorTab.WRITE) {
                                     mod.clickable(
                                         interactionSource = remember { MutableInteractionSource() },
                                         indication = null
@@ -1437,7 +1430,7 @@ fun NoteEditorScreen(
                                 } else mod
                             }
                     ) {
-                        if (currentTab == NoteEditorTab.WRITE) {
+                        if (effectiveTab == NoteEditorTab.WRITE) {
                             MarkdownFormattingToolbar(
                                 isDark = isDark,
                                 applyMarkdown = applyMarkdown,
@@ -1611,37 +1604,6 @@ fun NoteEditorScreen(
             }
         }
         }
-    }
-
-    if (showProfileSheet) {
-        val enrolledProg = (LocalContext.current.applicationContext as? TimetableApplication)?.repository?.getInitialProgramme() ?: ""
-        AcademicProfileSheet(
-            programme = enrolledProg,
-            enrolledProgramme = enrolledProg,
-            onDismiss = { showProfileSheet = false },
-            onPeekProgramme = { peekGroup ->
-                showProfileSheet = false
-                onPeekProgramme?.invoke(peekGroup)
-                onNavigateToTimetable?.invoke()
-            },
-            onSetOfficialProgramme = { newGroup ->
-                showProfileSheet = false
-                onSetOfficialProgramme?.invoke(newGroup)
-                onNavigateToTimetable?.invoke()
-            },
-            onReconfigureProfile = {
-                showProfileSheet = false
-                onReconfigureAcademicProfile()
-            },
-            onOpenSettings = {
-                showProfileSheet = false
-                onSettingsClick()
-            },
-            onNavigateToTimetable = {
-                showProfileSheet = false
-                onNavigateToTimetable?.invoke()
-            }
-        )
     }
 
     if (showCustomReminderDialog) {

@@ -26,6 +26,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -64,7 +65,12 @@ fun Modifier.desktopHoverable(
     this
         .pointerHoverIcon(pointerIcon)
         .hoverable(interactionSource = interactionSource)
-        .background(animatedBg)
+        .drawWithContent {
+            drawContent()
+            if (animatedBg.alpha > 0f) {
+                drawRect(animatedBg)
+            }
+        }
 }
 
 /**

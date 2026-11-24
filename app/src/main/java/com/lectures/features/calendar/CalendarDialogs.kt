@@ -7,8 +7,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.lectures.features.tasks.AddTaskDialog
 import com.lectures.features.timetable.domain.Assignment
 import com.lectures.features.timetable.domain.CustomEvent
+import com.lectures.features.timetable.domain.TaskCategory
 import com.lectures.features.timetable.domain.TimetableEntry
 import com.lectures.features.timetable.ui.AddActivitySheet
 import com.lectures.features.timetable.ui.LectureDetailSheet
@@ -19,6 +21,7 @@ import com.lectures.ui.components.RoomFloorBadge
 internal fun CalendarActionDialogs(
     selectedActivityForDetail: CustomEvent?,
     activityToEdit: CustomEvent?,
+    taskToEdit: Assignment?,
     selectedLectureForDetail: TimetableEntry?,
     showAddActivitySheet: Boolean,
     showProfileSheet: Boolean,
@@ -26,12 +29,18 @@ internal fun CalendarActionDialogs(
     taskToDelete: Assignment?,
     currentProgramme: String,
     enrolledProgramme: String,
+    isPeeking: Boolean,
     selectedDayOfWeek: String,
+    isDark: Boolean,
+    availableCoursePairs: List<Pair<String, String>>,
+    defaultReminderMinutes: Int,
     onDismissActivityDetail: () -> Unit,
     onEditActivity: (Long) -> Unit,
     onRequestDeleteActivity: (Long) -> Unit,
     onDismissEditActivity: () -> Unit,
     onSaveActivity: (CustomEvent) -> Unit,
+    onDismissEditTask: () -> Unit,
+    onSaveTask: (Assignment) -> Unit,
     onSaveLectureNote: (TimetableEntry, String, Int?) -> Unit,
     onDismissLectureDetail: () -> Unit,
     onDismissAddActivity: () -> Unit,
@@ -41,6 +50,7 @@ internal fun CalendarActionDialogs(
     onConfirmDeleteTask: (Assignment) -> Unit,
     onDismissDeleteTask: () -> Unit,
     onPeekProgramme: (String) -> Unit,
+    onResetToEnrolled: () -> Unit,
     onSetOfficialProgramme: (String) -> Unit,
     onReconfigureAcademicProfile: () -> Unit,
     onSettingsClick: () -> Unit,
@@ -127,6 +137,34 @@ internal fun CalendarActionDialogs(
         )
     }
 
+    if (taskToEdit != null) {
+        AddTaskDialog(
+            isDark = isDark,
+            initialTask = taskToEdit,
+            availableCourses = availableCoursePairs,
+            defaultReminderMinutes = defaultReminderMinutes,
+            onDismiss = onDismissEditTask,
+            onConfirm = { title, course, dueDate, priority, reminderMinutes, notes, category ->
+                val fullTitle = if (category != TaskCategory.GENERAL) {
+                    "[${category.displayName}] ${title.trim()}"
+                } else {
+                    title.trim()
+                }
+                onSaveTask(
+                    taskToEdit.copy(
+                        title = fullTitle,
+                        courseCode = course,
+                        dueDate = dueDate,
+                        priority = priority,
+                        reminderMinutes = reminderMinutes,
+                        notes = notes
+                    )
+                )
+                onDismissEditTask()
+            }
+        )
+    }
+
     if (selectedLectureForDetail != null) {
         LectureDetailSheet(
             entry = selectedLectureForDetail,
@@ -149,10 +187,16 @@ internal fun CalendarActionDialogs(
         AcademicProfileSheet(
             programme = currentProgramme,
             enrolledProgramme = enrolledProgramme,
+            isPeeking = isPeeking,
             onDismiss = onDismissProfileSheet,
             onPeekProgramme = { peekGroup ->
                 onDismissProfileSheet()
                 onPeekProgramme(peekGroup)
+                onNavigateToTimetable()
+            },
+            onResetToEnrolled = {
+                onDismissProfileSheet()
+                onResetToEnrolled()
                 onNavigateToTimetable()
             },
             onSetOfficialProgramme = { newGroup ->

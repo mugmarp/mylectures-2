@@ -372,14 +372,13 @@ internal fun NotesFeedbackBanners(
 
     AnimatedVisibility(visible = userMessage != null) {
         userMessage?.let { msg ->
+            val ext = com.lectures.ui.LocalExtendedColors.current
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp, vertical = 4.dp),
                 shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (isDark) Color(0xFF064E3B) else Color(0xFFDCFCE7)
-                )
+                colors = CardDefaults.cardColors(containerColor = ext.successBg)
             ) {
                 Row(
                     modifier = Modifier.padding(12.dp),
@@ -387,7 +386,7 @@ internal fun NotesFeedbackBanners(
                 ) {
                     Text(
                         msg,
-                        color = if (isDark) Color(0xFFA7F3D0) else Color(0xFF15803D),
+                        color = ext.successText,
                         fontSize = 13.sp,
                         modifier = Modifier.weight(1f)
                     )
@@ -400,7 +399,7 @@ internal fun NotesFeedbackBanners(
                         Icon(
                             Icons.Default.Close,
                             contentDescription = "Dismiss",
-                            tint = if (isDark) Color(0xFFA7F3D0) else Color(0xFF15803D),
+                            tint = ext.successText,
                             modifier = Modifier.size(16.dp)
                         )
                     }

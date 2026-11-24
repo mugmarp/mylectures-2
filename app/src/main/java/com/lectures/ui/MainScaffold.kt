@@ -289,8 +289,48 @@ fun MainScaffold(
                 )
             )
 
+            val timetableUiState by timetableViewModel.uiState.collectAsState()
+            val activeProgramme = timetableUiState.programme.ifBlank { savedProgramme ?: "" }
+            val enrolledProgramme = timetableUiState.enrolledProgramme.ifBlank { savedProgramme ?: "" }
+            val isPeekingProgramme = timetableUiState.isPeeking
+
+            LaunchedEffect(currentDestination, selectedTab) {
+                if (!(currentDestination == MainScreenDestination.TABS && selectedTab == 2) && isNotesEditing) {
+                    isNotesEditing = false
+                }
+            }
+
+            val navigateToTabSafely: (Int) -> Unit = { targetTab ->
+                if (isNotesEditing && currentDestination == MainScreenDestination.TABS && selectedTab == 2 && targetTab != 2) {
+                    android.widget.Toast.makeText(
+                        context,
+                        "Save or close your active note first",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                } else {
+                    currentDestination = MainScreenDestination.TABS
+                    selectedTab = targetTab
+                }
+            }
+            val navigateToDestinationSafely: (MainScreenDestination) -> Unit = { targetDest ->
+                if (isNotesEditing && currentDestination == MainScreenDestination.TABS && selectedTab == 2 && targetDest != MainScreenDestination.TABS) {
+                    android.widget.Toast.makeText(
+                        context,
+                        "Save or close your active note first",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                } else {
+                    currentDestination = targetDest
+                }
+            }
+
             val onPeekProgrammeAndGoToTimetable: (String) -> Unit = { group ->
                 timetableViewModel.peekProgramme(group)
+                currentDestination = MainScreenDestination.TABS
+                selectedTab = 0
+            }
+            val onResetToEnrolledAndGoToTimetable: () -> Unit = {
+                timetableViewModel.resetToEnrolledProgramme()
                 currentDestination = MainScreenDestination.TABS
                 selectedTab = 0
             }
@@ -314,15 +354,12 @@ fun MainScaffold(
 
             if (showSidebarProfileSheet) {
                 AcademicProfileSheet(
-                    programme = savedProgramme ?: "",
-                    enrolledProgramme = savedProgramme ?: "",
+                    programme = activeProgramme,
+                    enrolledProgramme = enrolledProgramme,
+                    isPeeking = isPeekingProgramme,
                     onDismiss = { showSidebarProfileSheet = false },
                     onPeekProgramme = onPeekProgrammeAndGoToTimetable,
-                    onResetToEnrolled = {
-                        timetableViewModel.resetToEnrolledProgramme()
-                        currentDestination = MainScreenDestination.TABS
-                        selectedTab = 0
-                    },
+                    onResetToEnrolled = onResetToEnrolledAndGoToTimetable,
                     onSetOfficialProgramme = onSetOfficialProgrammeAndGoToTimetable,
                     onReconfigureProfile = {
                         showSidebarProfileSheet = false
@@ -367,9 +404,9 @@ fun MainScaffold(
                                 .widthIn(max = 520.dp)
                                 .fillMaxWidth()
                                 .clickable {
-                                    alert.navTab?.let {
-                                        currentDestination = MainScreenDestination.TABS
-                                        selectedTab = it
+                                    val targetTab = alert.navTab
+                                    if (targetTab != null) {
+                                        navigateToTabSafely(targetTab)
                                     }
                                     activeForegroundAlert = null
                                 }
@@ -532,7 +569,11 @@ fun MainScaffold(
                                                     },
                                                     onNavigateToTimetable = { selectedTab = 0 },
                                                     onPeekProgramme = onPeekProgrammeAndGoToTimetable,
-                                                    onSetOfficialProgramme = onSetOfficialProgrammeAndGoToTimetable
+                                                    onResetToEnrolled = { timetableViewModel.resetToEnrolledProgramme() },
+                                                    onSetOfficialProgramme = onSetOfficialProgrammeAndGoToTimetable,
+                                                    activeProgrammeOverride = activeProgramme,
+                                                    enrolledProgrammeOverride = enrolledProgramme,
+                                                    isPeeking = isPeekingProgramme
                                                 )
                                             }
                                             2 -> NotesScreen(
@@ -544,7 +585,11 @@ fun MainScaffold(
                                                 },
                                                 onNavigateToTimetable = { selectedTab = 0 },
                                                 onPeekProgramme = onPeekProgrammeAndGoToTimetable,
+                                                onResetToEnrolled = { timetableViewModel.resetToEnrolledProgramme() },
                                                 onSetOfficialProgramme = onSetOfficialProgrammeAndGoToTimetable,
+                                                activeProgrammeOverride = activeProgramme,
+                                                enrolledProgrammeOverride = enrolledProgramme,
+                                                isPeeking = isPeekingProgramme,
                                                 onEditingChanged = { isNotesEditing = it }
                                             )
                                             3 -> TasksScreen(
@@ -556,7 +601,11 @@ fun MainScaffold(
                                                 },
                                                 onNavigateToTimetable = { selectedTab = 0 },
                                                 onPeekProgramme = onPeekProgrammeAndGoToTimetable,
+                                                onResetToEnrolled = { timetableViewModel.resetToEnrolledProgramme() },
                                                 onSetOfficialProgramme = onSetOfficialProgrammeAndGoToTimetable,
+                                                activeProgrammeOverride = activeProgramme,
+                                                enrolledProgrammeOverride = enrolledProgramme,
+                                                isPeeking = isPeekingProgramme,
                                                 highlightTaskId = pendingHighlightTaskId
                                             )
                                         }
@@ -667,30 +716,6 @@ fun MainScaffold(
                 }
             }
 
-            val navigateToTabSafely: (Int) -> Unit = { targetTab ->
-                if (isNotesEditing && currentDestination == MainScreenDestination.TABS && selectedTab == 2 && targetTab != 2) {
-                    android.widget.Toast.makeText(
-                        context,
-                        "Save or close your active note first",
-                        android.widget.Toast.LENGTH_SHORT
-                    ).show()
-                } else {
-                    currentDestination = MainScreenDestination.TABS
-                    selectedTab = targetTab
-                }
-            }
-            val navigateToDestinationSafely: (MainScreenDestination) -> Unit = { targetDest ->
-                if (isNotesEditing && currentDestination == MainScreenDestination.TABS && selectedTab == 2 && targetDest != MainScreenDestination.TABS) {
-                    android.widget.Toast.makeText(
-                        context,
-                        "Save or close your active note first",
-                        android.widget.Toast.LENGTH_SHORT
-                    ).show()
-                } else {
-                    currentDestination = targetDest
-                }
-            }
-
             val desktopShortcutModifier = Modifier.onPreviewKeyEvent { keyEvent ->
                 if (keyEvent.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                 val cmd = (keyEvent.isCtrlPressed || keyEvent.isMetaPressed) &&
@@ -745,10 +770,21 @@ fun MainScaffold(
                         onToggleSidebar = { sidebarCollapsed = !sidebarCollapsed },
                         currentDestination = currentDestination,
                         selectedTab = selectedTab,
-                        savedProgramme = savedProgramme,
+                        savedProgramme = activeProgramme,
+                        isPeeking = isPeekingProgramme,
                         onSelectTab = navigateToTabSafely,
                         onSelectDestination = navigateToDestinationSafely,
-                        onOpenAcademicProfile = { showSidebarProfileSheet = true }
+                        onOpenAcademicProfile = {
+                            if (isNotesEditing && currentDestination == MainScreenDestination.TABS && selectedTab == 2) {
+                                android.widget.Toast.makeText(
+                                    context,
+                                    "Save or close your active note first",
+                                    android.widget.Toast.LENGTH_SHORT
+                                ).show()
+                            } else {
+                                showSidebarProfileSheet = true
+                            }
+                        }
                     )
 
                     VerticalDivider(color = navBorder, thickness = 1.dp)

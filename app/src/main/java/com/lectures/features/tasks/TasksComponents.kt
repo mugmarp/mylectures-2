@@ -52,6 +52,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
@@ -65,6 +68,7 @@ import com.lectures.features.timetable.ui.DarkSurfaceBase
 import com.lectures.features.timetable.ui.DarkSurfaceCard
 import com.lectures.features.timetable.ui.TextMutedLight
 import com.lectures.features.timetable.ui.TextPrimaryLight
+import com.lectures.ui.LocalExtendedColors
 import com.lectures.ui.components.desktopHandCursor
 import com.lectures.ui.components.desktopHoverable
 import com.lectures.ui.contrastOnColor
@@ -129,14 +133,14 @@ internal fun TasksNotificationPromptBanner(
     onActionClick: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val ext = LocalExtendedColors.current
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 6.dp),
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isDark) Color(0xFF78350F).copy(alpha = 0.4f) else Color(0xFFFEF3C7)
-        )
+        colors = CardDefaults.cardColors(containerColor = ext.warningBg),
+        border = BorderStroke(1.dp, ext.warningBorder.copy(alpha = 0.55f))
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
@@ -147,7 +151,7 @@ internal fun TasksNotificationPromptBanner(
                 Icon(
                     Icons.Default.NotificationsActive,
                     contentDescription = null,
-                    tint = if (isDark) Color(0xFFFCD34D) else Color(0xFFD97706),
+                    tint = ext.warningIcon,
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(10.dp))
@@ -158,7 +162,7 @@ internal fun TasksNotificationPromptBanner(
                         "Deadline alert channel is muted in system settings."
                     },
                     fontSize = 12.sp,
-                    color = if (isDark) Color(0xFFFDE68A) else Color(0xFF92400E),
+                    color = ext.warningText,
                     lineHeight = 16.sp
                 )
             }
@@ -170,7 +174,7 @@ internal fun TasksNotificationPromptBanner(
                     Text(
                         if (!areNotificationsAllowed) "Allow" else "Settings",
                         fontWeight = FontWeight.Bold,
-                        color = if (isDark) Color(0xFFFBBF24) else Color(0xFFB45309)
+                        color = ext.warningText
                     )
                 }
                 IconButton(
@@ -180,7 +184,7 @@ internal fun TasksNotificationPromptBanner(
                     Icon(
                         Icons.Default.Close,
                         contentDescription = "Dismiss",
-                        tint = if (isDark) Color(0xFFFDE68A) else Color(0xFF92400E),
+                        tint = ext.warningText,
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -247,23 +251,24 @@ internal fun TasksFilterChipsRow(
             "High Priority" -> assignments.count { !it.completed && it.priority.equals("High", ignoreCase = true) }
             else -> assignments.size
         }
+        val ext = LocalExtendedColors.current
         val isOverdueFilter = filter == "Overdue"
         val chipBg = when {
-            isSelected && isOverdueFilter -> Color(0xFFDC2626)
+            isSelected && isOverdueFilter -> ext.dangerIcon
             isSelected -> primaryColor
-            isOverdueFilter && count > 0 -> if (isDark) Color(0xFF7F1D1D).copy(alpha = 0.4f) else Color(0xFFFEE2E2)
+            isOverdueFilter && count > 0 -> ext.dangerBg
             else -> cardBg
         }
         val chipBorder = when {
-            isSelected && isOverdueFilter -> Color(0xFFDC2626)
+            isSelected && isOverdueFilter -> ext.dangerIcon
             isSelected -> primaryColor
-            isOverdueFilter && count > 0 -> if (isDark) Color(0xFFB91C1C) else Color(0xFFFCA5A5)
+            isOverdueFilter && count > 0 -> ext.dangerBorder
             else -> borderColor
         }
         val chipTextColor = when {
-            isSelected && isOverdueFilter -> contrastOnColor(Color(0xFFDC2626))
+            isSelected && isOverdueFilter -> contrastOnColor(ext.dangerIcon)
             isSelected -> contrastOnColor(primaryColor)
-            isOverdueFilter && count > 0 -> if (isDark) Color(0xFFFCA5A5) else Color(0xFFDC2626)
+            isOverdueFilter && count > 0 -> ext.dangerText
             else -> textSecondary
         }
 
@@ -375,6 +380,7 @@ internal fun TasksEmptyStateCard(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun TaskCard(
     task: Assignment,
@@ -385,6 +391,7 @@ fun TaskCard(
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
+    val ext = LocalExtendedColors.current
     val cardBg = if (isDark) DarkSurfaceCard else Color.White
     val textPrimary = if (isDark) Color.White else TextPrimaryLight
     val textSecondary = if (isDark) Color(0xFF94A3B8) else TextMutedLight
@@ -402,10 +409,9 @@ fun TaskCard(
             brush = androidx.compose.ui.graphics.SolidColor(
                 when {
                     isHighlighted -> primaryColor
-                    isDark && !task.completed && dueStatus == TaskDueStatus.OVERDUE -> Color(0xFFF87171).copy(alpha = 0.55f)
+                    !task.completed && dueStatus == TaskDueStatus.OVERDUE -> ext.dangerBorder
                     isDark -> DarkBorderSubtle
-                    !task.completed && dueStatus == TaskDueStatus.OVERDUE -> Color(0xFFFCA5A5)
-                    else -> Color(0xFFE2E8F0)
+                    else -> ext.borderSubtle
                 }
             )
         ),
@@ -419,7 +425,7 @@ fun TaskCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .desktopHoverable()
-                .padding(16.dp)
+                .padding(start = 4.dp, top = 4.dp, end = 12.dp, bottom = 16.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -432,32 +438,40 @@ fun TaskCard(
                 ) {
                     Box(
                         modifier = Modifier
-                            .padding(top = 2.dp)
-                            .size(24.dp)
+                            .size(48.dp)
                             .clip(CircleShape)
-                            .border(
-                                2.dp,
-                                if (task.completed) primaryColor else (if (isDark) Color(0xFF475569) else Color(0xFFCBD5E1)),
-                                CircleShape
-                            )
-                            .background(if (task.completed) primaryColor else Color.Transparent)
                             .desktopHandCursor()
+                            .semantics {
+                                contentDescription = if (task.completed) "Mark task incomplete" else "Mark task complete"
+                            }
+                            .testTag("task_toggle_${task.id}")
                             .clickable(onClick = onToggleComplete),
                         contentAlignment = Alignment.Center
                     ) {
-                        if (task.completed) {
-                            Icon(
-                                Icons.Default.Check,
-                                contentDescription = "Completed",
-                                tint = MaterialTheme.colorScheme.onPrimary,
-                                modifier = Modifier.size(15.dp)
-                            )
+                        Box(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clip(CircleShape)
+                                .border(
+                                    2.dp,
+                                    if (task.completed) primaryColor else (if (isDark) Color(0xFF475569) else Color(0xFFCBD5E1)),
+                                    CircleShape
+                                )
+                                .background(if (task.completed) primaryColor else Color.Transparent),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (task.completed) {
+                                Icon(
+                                    Icons.Default.Check,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimary,
+                                    modifier = Modifier.size(15.dp)
+                                )
+                            }
                         }
                     }
 
-                    Spacer(modifier = Modifier.width(12.dp))
-
-                    Column {
+                    Column(modifier = Modifier.padding(top = 12.dp)) {
                         Surface(
                             shape = RoundedCornerShape(6.dp),
                             color = if (isDark) category.color.copy(alpha = 0.22f) else category.lightContainerColor,
@@ -496,7 +510,10 @@ fun TaskCard(
                     }
                 }
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(top = 4.dp)
+                ) {
                     IconButton(onClick = onEdit, modifier = Modifier.desktopHandCursor()) {
                         Icon(
                             imageVector = Icons.Outlined.Edit,
@@ -521,11 +538,11 @@ fun TaskCard(
                 Spacer(modifier = Modifier.height(8.dp))
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = if (isDark) DarkSurfaceBase else Color(0xFFF8FAFC),
-                    border = BorderStroke(1.dp, if (isDark) DarkBorderSubtle else Color(0xFFE2E8F0)),
+                    color = ext.surfaceBase,
+                    border = BorderStroke(1.dp, ext.borderSubtle),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(start = 36.dp)
+                        .padding(start = 48.dp, end = 4.dp)
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
@@ -553,18 +570,20 @@ fun TaskCard(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            Row(
+            FlowRow(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 36.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(start = 48.dp, end = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 val isOverdueAndHigh = !task.completed && dueStatus == TaskDueStatus.OVERDUE && task.priority.equals("high", ignoreCase = true)
 
                 if (task.completed) {
                     Surface(
                         shape = RoundedCornerShape(6.dp),
-                        color = if (isDark) Color(0xFF064E3B).copy(alpha = 0.5f) else Color(0xFFDCFCE7)
+                        color = ext.successBg,
+                        modifier = Modifier.align(Alignment.CenterVertically)
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
@@ -573,25 +592,25 @@ fun TaskCard(
                             Icon(
                                 Icons.Default.CheckCircle,
                                 null,
-                                tint = if (isDark) Color(0xFF6EE7B7) else Color(0xFF16A34A),
+                                tint = ext.successIcon,
                                 modifier = Modifier.size(11.dp)
                             )
                             Spacer(Modifier.width(3.dp))
                             Text(
                                 "Done",
-                                color = if (isDark) Color(0xFF6EE7B7) else Color(0xFF15803D),
+                                color = ext.successText,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         }
                     }
-                    Spacer(modifier = Modifier.width(8.dp))
                 } else when (dueStatus) {
                     TaskDueStatus.OVERDUE -> {
                         Surface(
                             shape = RoundedCornerShape(6.dp),
-                            color = if (isDark) Color(0xFF7F1D1D).copy(alpha = 0.6f) else Color(0xFFFEE2E2),
-                            border = BorderStroke(1.dp, if (isDark) Color(0xFFB91C1C) else Color(0xFFFCA5A5))
+                            color = ext.dangerBg,
+                            border = BorderStroke(1.dp, ext.dangerBorder),
+                            modifier = Modifier.align(Alignment.CenterVertically)
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
@@ -600,24 +619,24 @@ fun TaskCard(
                                 Icon(
                                     Icons.Default.WarningAmber,
                                     null,
-                                    tint = if (isDark) Color(0xFFFCA5A5) else Color(0xFFDC2626),
+                                    tint = ext.dangerIcon,
                                     modifier = Modifier.size(11.dp)
                                 )
                                 Spacer(Modifier.width(3.dp))
                                 Text(
                                     if (isOverdueAndHigh) "Overdue • High Priority" else "Overdue",
-                                    color = if (isDark) Color(0xFFFCA5A5) else Color(0xFFB91C1C),
+                                    color = ext.dangerText,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
                         }
-                        Spacer(modifier = Modifier.width(8.dp))
                     }
                     TaskDueStatus.DUE_TODAY -> {
                         Surface(
                             shape = RoundedCornerShape(6.dp),
-                            color = if (isDark) Color(0xFF78350F).copy(alpha = 0.5f) else Color(0xFFFEF3C7)
+                            color = ext.warningBg,
+                            modifier = Modifier.align(Alignment.CenterVertically)
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
@@ -626,24 +645,24 @@ fun TaskCard(
                                 Icon(
                                     Icons.Default.AccessTime,
                                     null,
-                                    tint = if (isDark) Color(0xFFFCD34D) else Color(0xFFD97706),
+                                    tint = ext.warningIcon,
                                     modifier = Modifier.size(11.dp)
                                 )
                                 Spacer(Modifier.width(3.dp))
                                 Text(
                                     "Today",
-                                    color = if (isDark) Color(0xFFFCD34D) else Color(0xFFB45309),
+                                    color = ext.warningText,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
                         }
-                        Spacer(modifier = Modifier.width(8.dp))
                     }
                     TaskDueStatus.DUE_TOMORROW -> {
                         Surface(
                             shape = RoundedCornerShape(6.dp),
-                            color = if (isDark) Color(0xFF1E3A8A).copy(alpha = 0.4f) else Color(0xFFEFF6FF)
+                            color = ext.infoBg,
+                            modifier = Modifier.align(Alignment.CenterVertically)
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
@@ -664,29 +683,20 @@ fun TaskCard(
                                 )
                             }
                         }
-                        Spacer(modifier = Modifier.width(8.dp))
                     }
                     else -> {}
                 }
 
                 if (!isOverdueAndHigh) {
                     val (badgeBg, badgeText) = when (task.priority.lowercase(Locale.ROOT)) {
-                        "high" -> {
-                            if (isDark) Color(0xFF7F1D1D).copy(alpha = 0.5f) to Color(0xFFFCA5A5)
-                            else Color(0xFFFFE4E6) to Color(0xFFE11D48)
-                        }
-                        "medium" -> {
-                            if (isDark) Color(0xFF78350F).copy(alpha = 0.5f) to Color(0xFFFCD34D)
-                            else Color(0xFFFEF3C7) to Color(0xFFD97706)
-                        }
-                        else -> {
-                            if (isDark) Color(0xFF1E3A8A).copy(alpha = 0.5f) to Color(0xFF93C5FD)
-                            else Color(0xFFEFF6FF) to Color(0xFF2563EB)
-                        }
+                        "high" -> ext.dangerBg to ext.dangerText
+                        "medium" -> ext.warningBg to ext.warningText
+                        else -> ext.infoBg to ext.infoText
                     }
 
                     Box(
                         modifier = Modifier
+                            .align(Alignment.CenterVertically)
                             .background(badgeBg, RoundedCornerShape(6.dp))
                             .padding(horizontal = 7.dp, vertical = 2.dp)
                     ) {
@@ -699,11 +709,10 @@ fun TaskCard(
                     }
                 }
 
-                Spacer(modifier = Modifier.width(8.dp))
-
                 Surface(
                     shape = RoundedCornerShape(6.dp),
-                    color = if (isDark) DarkSurfaceBase else Color(0xFFF1F5F9)
+                    color = ext.surfaceElevated,
+                    modifier = Modifier.align(Alignment.CenterVertically)
                 ) {
                     Text(
                         task.courseCode,
@@ -714,27 +723,26 @@ fun TaskCard(
                     )
                 }
 
-                Spacer(modifier = Modifier.width(8.dp))
-
-                Icon(
-                    Icons.Default.CalendarToday,
-                    contentDescription = null,
-                    tint = if (isDark) Color(0xFFFBBF24) else Color(0xFFD97706),
-                    modifier = Modifier.size(12.dp)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(task.dueDate, fontSize = 12.sp, color = textSecondary)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.align(Alignment.CenterVertically)
+                ) {
+                    Icon(
+                        Icons.Default.CalendarToday,
+                        contentDescription = null,
+                        tint = ext.warningIcon,
+                        modifier = Modifier.size(12.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(task.dueDate, fontSize = 12.sp, color = textSecondary)
+                }
 
                 if (task.reminderMinutes != null) {
-                    Spacer(modifier = Modifier.width(8.dp))
                     Box(
                         modifier = Modifier
+                            .align(Alignment.CenterVertically)
                             .background(
-                                if (task.completed) {
-                                    if (isDark) DarkSurfaceBase else Color(0xFFF1F5F9)
-                                } else {
-                                    if (isDark) Color(0xFF1E3A8A).copy(alpha = 0.4f) else Color(0xFFEFF6FF)
-                                },
+                                if (task.completed) ext.surfaceElevated else ext.infoBg,
                                 RoundedCornerShape(6.dp)
                             )
                             .padding(horizontal = 5.dp, vertical = 2.dp)

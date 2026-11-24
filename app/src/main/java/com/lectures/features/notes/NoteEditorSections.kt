@@ -458,10 +458,11 @@ internal fun PreClassAlertReminderCard(
                     Text(
                         "PRE-CLASS ALERT REMINDER",
                         fontSize = 12.sp,
+                        lineHeight = 15.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
                         letterSpacing = 0.5.sp,
-                        maxLines = 1,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
                 }

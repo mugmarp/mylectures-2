@@ -117,7 +117,11 @@ fun TasksScreen(
     onReconfigureAcademicProfile: () -> Unit = {},
     onNavigateToTimetable: () -> Unit = {},
     onPeekProgramme: (String) -> Unit = {},
+    onResetToEnrolled: () -> Unit = {},
     onSetOfficialProgramme: (String) -> Unit = {},
+    activeProgrammeOverride: String? = null,
+    enrolledProgrammeOverride: String? = null,
+    isPeeking: Boolean = false,
     highlightTaskId: Long? = null
 ) {
     val context = LocalContext.current
@@ -508,7 +512,7 @@ fun TasksScreen(
                                     .testTag("tasks_desktop_grid"),
                                 verticalArrangement = Arrangement.spacedBy(14.dp),
                                 horizontalArrangement = Arrangement.spacedBy(14.dp),
-                                contentPadding = PaddingValues(top = 4.dp, bottom = listBottomPadding + 96.dp)
+                                contentPadding = PaddingValues(top = 4.dp, bottom = listBottomPadding)
                             ) {
                                 item(key = "search_field_item", span = { GridItemSpan(maxLineSpan) }) {
                                     TasksSearchField(
@@ -560,9 +564,6 @@ fun TasksScreen(
                                             onDelete = { deleteTaskId = task.id }
                                         )
                                     }
-                                    item(key = "tasks_bottom_clearance_spacer_grid", span = { GridItemSpan(maxLineSpan) }) {
-                                        Spacer(modifier = Modifier.height(24.dp))
-                                    }
                                 }
                             }
                         } else {
@@ -572,7 +573,7 @@ fun TasksScreen(
                                     .weight(1.6f)
                                     .fillMaxHeight(),
                                 verticalArrangement = Arrangement.spacedBy(14.dp),
-                                contentPadding = PaddingValues(top = 4.dp, bottom = listBottomPadding + 96.dp)
+                                contentPadding = PaddingValues(top = 4.dp, bottom = listBottomPadding)
                             ) {
                                 item(key = "search_field_item") {
                                     TasksSearchField(
@@ -624,9 +625,6 @@ fun TasksScreen(
                                             onDelete = { deleteTaskId = task.id }
                                         )
                                     }
-                                    item(key = "tasks_bottom_clearance_spacer_dual") {
-                                        Spacer(modifier = Modifier.height(24.dp))
-                                    }
                                 }
                             }
                         }
@@ -645,7 +643,7 @@ fun TasksScreen(
                             .fillMaxHeight()
                             .padding(horizontal = 20.dp),
                         verticalArrangement = Arrangement.spacedBy(14.dp),
-                        contentPadding = PaddingValues(top = 4.dp, bottom = listBottomPadding + 96.dp)
+                        contentPadding = PaddingValues(top = 4.dp, bottom = listBottomPadding)
                     ) {
                         item(key = "task_progress_dashboard_item") {
                             TaskProgressDashboard(
@@ -703,9 +701,6 @@ fun TasksScreen(
                                     },
                                     onDelete = { deleteTaskId = task.id }
                                 )
-                            }
-                            item(key = "tasks_bottom_clearance_spacer") {
-                                Spacer(modifier = Modifier.height(24.dp))
                             }
                         }
                     }
@@ -801,14 +796,23 @@ fun TasksScreen(
     }
 
     if (showProfileSheet) {
-        val enrolledProg = savedProgramme ?: repository.getInitialProgramme() ?: ""
+        val enrolledProg = enrolledProgrammeOverride?.takeIf { it.isNotBlank() }
+            ?: (savedProgramme ?: repository.getInitialProgramme() ?: "")
+        val activeProg = activeProgrammeOverride?.takeIf { it.isNotBlank() }
+            ?: (savedProgramme ?: "")
         AcademicProfileSheet(
-            programme = savedProgramme ?: "",
+            programme = activeProg,
             enrolledProgramme = enrolledProg,
+            isPeeking = isPeeking,
             onDismiss = { showProfileSheet = false },
             onPeekProgramme = { peekGroup ->
                 showProfileSheet = false
                 onPeekProgramme(peekGroup)
+                onNavigateToTimetable()
+            },
+            onResetToEnrolled = {
+                showProfileSheet = false
+                onResetToEnrolled()
                 onNavigateToTimetable()
             },
             onSetOfficialProgramme = { newGroup ->

@@ -89,7 +89,8 @@ data class LecturesWindow(
     val heightDp: Int,
     val fontScale: Float,
     val navBarBottom: Dp,
-    val isImeVisible: Boolean
+    val isImeVisible: Boolean,
+    val fullWindowWidthDp: Int = widthDp
 ) {
     val widthTier: WindowWidthTier
         get() = when {
@@ -120,15 +121,18 @@ data class LecturesWindow(
     val isCompact: Boolean get() = widthDp < 600
     val isMedium: Boolean get() = widthDp in 600..839
     val isExpanded: Boolean get() = widthDp >= 840
-    val isLargeWidth: Boolean get() = widthDp in 1200..1599
-    val isExtraLargeWidth: Boolean get() = widthDp >= 1600
-    val isAtLeastLarge: Boolean get() = widthDp >= 1200
+    val isExtraLargeWidth: Boolean
+        get() = widthDp >= 1600 || (fullWindowWidthDp >= 1600 && widthDp >= 1200)
+    val isAtLeastLarge: Boolean
+        get() = widthDp >= 1200 || (fullWindowWidthDp >= 1200 && widthDp >= 960)
+    val isLargeWidth: Boolean
+        get() = !isExtraLargeWidth && isAtLeastLarge
 
     /** True for tablets, foldables unfolded, and desktop viewports (width >= 600dp). */
     val isTablet: Boolean get() = widthDp >= 600
 
     /** True when viewport is Chromebook / desktop scale (>= 1200dp). */
-    val isDesktop: Boolean get() = widthDp >= 1200
+    val isDesktop: Boolean get() = isAtLeastLarge
 
     /** True when the shell should switch from a bottom pill dock to an ergonomic leading NavigationRail/Sidebar. */
     val useNavigationRail: Boolean get() = isTablet && heightDp >= 440
@@ -140,7 +144,8 @@ data class LecturesWindow(
     val isDualPane: Boolean get() = isExpanded
 
     /** True when a third inspector/filter column fits comfortably alongside dual panes (>= 1280dp). */
-    val supportsThreePanes: Boolean get() = widthDp >= 1280
+    val supportsThreePanes: Boolean
+        get() = widthDp >= 1280 || (fullWindowWidthDp >= 1280 && widthDp >= 1000)
 
     /**
      * True when the active workspace pane comfortably accommodates desktop multi-column
@@ -169,9 +174,9 @@ data class LecturesWindow(
     /** Responsive copy & card column max-width inside wide viewports. */
     val maxReadingWidth: Dp
         get() = when {
-            widthDp >= 1600 -> 1440.dp
-            widthDp >= 1200 -> 1180.dp
-            widthDp >= 840 -> 960.dp
+            isExtraLargeWidth -> 1440.dp
+            isAtLeastLarge -> 1180.dp
+            isExpanded -> 960.dp
             else -> 600.dp
         }
 }
@@ -214,10 +219,18 @@ fun rememberLecturesWindow(): LecturesWindow {
 @Composable
 fun rememberContainerWindow(containerWidthDp: Int, containerHeightDp: Int): LecturesWindow {
     val parent = rememberLecturesWindow()
-    return remember(containerWidthDp, containerHeightDp, parent.fontScale, parent.navBarBottom, parent.isImeVisible) {
+    return remember(
+        containerWidthDp,
+        containerHeightDp,
+        parent.fontScale,
+        parent.navBarBottom,
+        parent.isImeVisible,
+        parent.fullWindowWidthDp
+    ) {
         parent.copy(
             widthDp = containerWidthDp,
-            heightDp = containerHeightDp
+            heightDp = containerHeightDp,
+            fullWindowWidthDp = parent.fullWindowWidthDp
         )
     }
 }

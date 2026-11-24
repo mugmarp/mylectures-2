@@ -44,9 +44,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -85,9 +82,11 @@ import com.lectures.features.feedback.FeedbackManager
 import com.lectures.features.onboarding.FacultyCatalog
 import com.lectures.features.timetable.data.ETagStore
 import com.lectures.ui.LocalAppTheme
+import com.lectures.ui.LocalExtendedColors
 import com.lectures.ui.ThemeMode
 import com.lectures.ui.components.FloatingIslandTopBar
 import com.lectures.ui.components.desktopHandCursor
+import kotlinx.coroutines.delay
 import com.lectures.ui.components.desktopHoverable
 import com.lectures.ui.contrastOnColor
 import com.lectures.ui.rememberLecturesWindow
@@ -196,14 +195,10 @@ fun SettingsScreen(
         }
     }
 
-    val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(uiState.successMessage, uiState.errorMessage) {
         val msg = uiState.errorMessage ?: uiState.successMessage
         if (msg != null) {
-            snackbarHostState.showSnackbar(
-                message = msg,
-                duration = SnackbarDuration.Short
-            )
+            delay(4000L)
             viewModel.clearFeedbackMessages()
         }
     }
@@ -283,7 +278,6 @@ fun SettingsScreen(
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
             FloatingIslandTopBar {
                 Row(
@@ -381,7 +375,7 @@ fun SettingsScreen(
                     horizontalArrangement = Arrangement.spacedBy(24.dp)
                 ) {
                     // Left Category Rail
-                    val categoryRailWidth = if (windowInfo.isTightFont) 304.dp else 272.dp
+                    val categoryRailWidth = if (windowInfo.isTightFont) 316.dp else 272.dp
                     Surface(
                         shape = RoundedCornerShape(20.dp),
                         color = MaterialTheme.colorScheme.surface,
@@ -494,6 +488,7 @@ fun SettingsScreen(
                                         programmeDisplayName = programmeDisplayName,
                                         activeProgramme = activeProgramme,
                                         facultyDisplayName = facultyDisplayName,
+                                        isTightFont = windowInfo.isTightFont,
                                         onReconfigureAcademicProfile = onReconfigureAcademicProfile
                                     )
                                     Spacer(modifier = Modifier.height(22.dp))
@@ -677,6 +672,7 @@ fun SettingsScreen(
                         programmeDisplayName = programmeDisplayName,
                         activeProgramme = activeProgramme,
                         facultyDisplayName = facultyDisplayName,
+                        isTightFont = windowInfo.isTightFont,
                         onReconfigureAcademicProfile = onReconfigureAcademicProfile
                     )
 
@@ -796,27 +792,24 @@ private fun SettingsFeedbackBanners(
         exit = fadeOut()
     ) {
         successMessage?.let { success ->
-            val successBg = if (isDark) Color(0xFF064E3B) else Color(0xFFF0FDF4)
-            val successBorder = if (isDark) Color(0xFF059669) else Color(0xFFBBF7D0)
-            val successContent = if (isDark) Color(0xFFA7F3D0) else Color(0xFF166534)
-            val successIcon = if (isDark) Color(0xFF34D399) else Color(0xFF16A34A)
+            val ext = LocalExtendedColors.current
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp, vertical = 8.dp),
                 shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = successBg),
-                border = BorderStroke(1.dp, successBorder)
+                colors = CardDefaults.cardColors(containerColor = ext.successBg),
+                border = BorderStroke(1.dp, ext.successBorder)
             ) {
                 Row(
                     modifier = Modifier.padding(14.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = successIcon)
+                    Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = ext.successIcon)
                     Spacer(modifier = Modifier.width(12.dp))
-                    Text(success, color = successContent, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                    Text(success, color = ext.successText, fontSize = 13.sp, modifier = Modifier.weight(1f))
                     IconButton(onClick = onDismiss, modifier = Modifier.size(48.dp).desktopHandCursor()) {
-                        Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = successIcon, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = ext.successIcon, modifier = Modifier.size(16.dp))
                     }
                 }
             }
@@ -829,6 +822,7 @@ private fun SettingsAcademicProfileCard(
     programmeDisplayName: String,
     activeProgramme: String,
     facultyDisplayName: String,
+    isTightFont: Boolean = false,
     onReconfigureAcademicProfile: () -> Unit
 ) {
     SectionHeader("ACADEMIC PROFILE")
@@ -844,42 +838,61 @@ private fun SettingsAcademicProfileCard(
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Row(
+        androidx.compose.foundation.layout.BoxWithConstraints(
             modifier = Modifier
                 .padding(18.dp)
-                .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+                .fillMaxWidth()
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = programmeDisplayName,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = "$activeProgramme • $facultyDisplayName",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
+            val stackSwitch = isTightFont && maxWidth < 300.dp
+            val profileTextBlock: @Composable (Modifier) -> Unit = { colMod ->
+                Column(modifier = colMod) {
+                    Text(
+                        text = programmeDisplayName,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = if (isTightFont) 4 else 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "$activeProgramme • $facultyDisplayName",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = if (isTightFont) 3 else 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
-            Spacer(modifier = Modifier.width(12.dp))
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-            ) {
-                Text(
-                    text = "Switch",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
-                )
+            val switchPill: @Composable () -> Unit = {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                ) {
+                    Text(
+                        text = "Switch",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
+                    )
+                }
+            }
+
+            if (stackSwitch) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    profileTextBlock(Modifier.fillMaxWidth())
+                    switchPill()
+                }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    profileTextBlock(Modifier.weight(1f))
+                    Spacer(modifier = Modifier.width(12.dp))
+                    switchPill()
+                }
             }
         }
     }

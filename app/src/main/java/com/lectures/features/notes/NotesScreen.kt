@@ -71,7 +71,11 @@ fun NotesScreen(
     onReconfigureAcademicProfile: () -> Unit = {},
     onNavigateToTimetable: () -> Unit = {},
     onPeekProgramme: (String) -> Unit = {},
+    onResetToEnrolled: () -> Unit = {},
     onSetOfficialProgramme: (String) -> Unit = {},
+    activeProgrammeOverride: String? = null,
+    enrolledProgrammeOverride: String? = null,
+    isPeeking: Boolean = false,
     onEditingChanged: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -124,6 +128,11 @@ fun NotesScreen(
     LaunchedEffect(isEditing) {
         onEditingChanged(isEditing)
     }
+    DisposableEffect(Unit) {
+        onDispose {
+            onEditingChanged(false)
+        }
+    }
 
     if (isEditing) {
         NoteEditorScreen(
@@ -131,23 +140,6 @@ fun NotesScreen(
             initialTab = editingInitialTab,
             availableCourses = uiState.availableCourses,
             timetableClasses = uiState.timetableClasses,
-            onSettingsClick = onSettingsClick,
-            onReconfigureAcademicProfile = onReconfigureAcademicProfile,
-            onNavigateToTimetable = {
-                isEditing = false
-                editingNoteKey = null
-                onNavigateToTimetable()
-            },
-            onPeekProgramme = { group ->
-                isEditing = false
-                editingNoteKey = null
-                onPeekProgramme(group)
-            },
-            onSetOfficialProgramme = { group ->
-                isEditing = false
-                editingNoteKey = null
-                onSetOfficialProgramme(group)
-            },
             onAttachmentError = { message ->
                 Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
             },
@@ -466,7 +458,16 @@ fun NotesScreen(
                     }
                 }
 
-                if (uiState.filteredNotes.isEmpty()) {
+                if (uiState.isLoading) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                    }
+                } else if (uiState.filteredNotes.isEmpty()) {
                     NotesEmptyStateView(
                         searchQuery = uiState.searchQuery,
                         selectedFilter = uiState.selectedFilter,
@@ -708,14 +709,23 @@ fun NotesScreen(
     }
 
     if (showProfileSheet) {
-        val enrolledProg = repository.getInitialProgramme() ?: ""
+        val enrolledProg = enrolledProgrammeOverride?.takeIf { it.isNotBlank() }
+            ?: (repository.getInitialProgramme() ?: "")
+        val activeProg = activeProgrammeOverride?.takeIf { it.isNotBlank() }
+            ?: uiState.userProgramme
         AcademicProfileSheet(
-            programme = uiState.userProgramme,
+            programme = activeProg,
             enrolledProgramme = enrolledProg,
+            isPeeking = isPeeking,
             onDismiss = { showProfileSheet = false },
             onPeekProgramme = { peekGroup ->
                 showProfileSheet = false
                 onPeekProgramme(peekGroup)
+                onNavigateToTimetable()
+            },
+            onResetToEnrolled = {
+                showProfileSheet = false
+                onResetToEnrolled()
                 onNavigateToTimetable()
             },
             onSetOfficialProgramme = { newGroup ->

@@ -20,6 +20,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -248,7 +249,7 @@ fun RoomScheduleDetailDialog(
                 status = status,
                 dayOfWeek = dayOfWeek,
                 isDark = isDark,
-                showCloseButton = true,
+                showBottomCloseButton = true,
                 onDismiss = onDismiss,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -319,7 +320,7 @@ internal fun RoomScheduleInspectorContent(
     status: RoomVacancyStatus,
     dayOfWeek: String,
     isDark: Boolean,
-    showCloseButton: Boolean,
+    showBottomCloseButton: Boolean,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -375,7 +376,10 @@ internal fun RoomScheduleInspectorContent(
 
             IconButton(
                 onClick = onDismiss,
-                modifier = Modifier.desktopHandCursor()
+                modifier = Modifier
+                    .size(48.dp)
+                    .desktopHandCursor()
+                    .testTag("room_inspector_close_btn")
             ) {
                 Box(
                     modifier = Modifier
@@ -584,7 +588,7 @@ internal fun RoomScheduleInspectorContent(
                     }
                 }
 
-        if (showCloseButton) {
+        if (showBottomCloseButton) {
             Spacer(modifier = Modifier.height(14.dp))
 
             Button(

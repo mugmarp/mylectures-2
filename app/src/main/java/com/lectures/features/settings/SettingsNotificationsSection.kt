@@ -209,6 +209,7 @@ private fun NotificationHealthWarningBanner(
         }
         Spacer(modifier = Modifier.height(8.dp))
     } else if (!canScheduleExactAlarms) {
+        val ext = com.lectures.ui.LocalExtendedColors.current
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -217,10 +218,8 @@ private fun NotificationHealthWarningBanner(
                 .desktopHoverable()
                 .clickable { NotificationPermissionHelper.openExactAlarmSettings(context) },
             shape = RoundedCornerShape(14.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = if (isDark) Color(0xFF78350F).copy(alpha = 0.35f) else Color(0xFFFEF3C7)
-            ),
-            border = BorderStroke(1.dp, if (isDark) Color(0xFFB45309).copy(alpha = 0.5f) else Color(0xFFFDE68A))
+            colors = CardDefaults.cardColors(containerColor = ext.warningBg),
+            border = BorderStroke(1.dp, ext.warningBorder.copy(alpha = 0.55f))
         ) {
             Row(
                 modifier = Modifier
@@ -231,7 +230,7 @@ private fun NotificationHealthWarningBanner(
                 Icon(
                     imageVector = Icons.Outlined.ErrorOutline,
                     contentDescription = null,
-                    tint = if (isDark) Color(0xFFFBBF24) else Color(0xFFD97706),
+                    tint = ext.warningIcon,
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(12.dp))
@@ -240,19 +239,19 @@ private fun NotificationHealthWarningBanner(
                         text = "Exact Alarm Timing Restricted",
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp,
-                        color = if (isDark) Color(0xFFFDE68A) else Color(0xFF92400E)
+                        color = ext.warningText
                     )
                     Text(
                         text = "Allow 'Alarms & reminders' so lecture alerts ring at the exact minute.",
                         fontSize = 12.sp,
-                        color = if (isDark) Color(0xFFFDE68A).copy(alpha = 0.9f) else Color(0xFF78350F)
+                        color = ext.warningText.copy(alpha = 0.9f)
                     )
                 }
                 Text(
                     text = "Fix",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
-                    color = if (isDark) Color(0xFFFBBF24) else Color(0xFFB45309)
+                    color = ext.warningText
                 )
             }
         }
@@ -792,6 +791,7 @@ internal fun NotificationSettingsView(
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)
                 )
 
+                val ext = com.lectures.ui.LocalExtendedColors.current
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -805,8 +805,7 @@ internal fun NotificationSettingsView(
                         modifier = Modifier
                             .size(34.dp)
                             .background(
-                                if (canScheduleExactAlarms) Color(0xFF10B981).copy(alpha = 0.12f)
-                                else Color(0xFFD97706).copy(alpha = 0.15f),
+                                if (canScheduleExactAlarms) ext.successBg else ext.warningBg,
                                 CircleShape
                             ),
                         contentAlignment = Alignment.Center
@@ -814,7 +813,7 @@ internal fun NotificationSettingsView(
                         Icon(
                             imageVector = if (canScheduleExactAlarms) Icons.Outlined.CheckCircle else Icons.Outlined.ErrorOutline,
                             contentDescription = null,
-                            tint = if (canScheduleExactAlarms) Color(0xFF10B981) else Color(0xFFD97706),
+                            tint = if (canScheduleExactAlarms) ext.successIcon else ext.warningIcon,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -839,21 +838,13 @@ internal fun NotificationSettingsView(
                     Spacer(modifier = Modifier.width(8.dp))
                     Surface(
                         shape = RoundedCornerShape(8.dp),
-                        color = if (canScheduleExactAlarms) {
-                            Color(0xFF10B981).copy(alpha = 0.12f)
-                        } else {
-                            Color(0xFFD97706).copy(alpha = 0.15f)
-                        }
+                        color = if (canScheduleExactAlarms) ext.successBg else ext.warningBg
                     ) {
                         Text(
                             text = if (canScheduleExactAlarms) "Active" else "Fix",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
-                            color = if (canScheduleExactAlarms) {
-                                if (isDark) Color(0xFF6EE7B7) else Color(0xFF15803D)
-                            } else {
-                                Color(0xFFD97706)
-                            },
+                            color = if (canScheduleExactAlarms) ext.successText else ext.warningText,
                             modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
                         )
                     }

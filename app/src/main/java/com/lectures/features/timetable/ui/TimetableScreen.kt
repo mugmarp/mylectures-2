@@ -609,10 +609,6 @@ fun TimetableScreen(
                         }
                     }
                 }
-
-                item(key = "bottom_nav_spacer") {
-                    Spacer(modifier = Modifier.height(110.dp))
-                }
             }
         }
         }

@@ -43,7 +43,12 @@ fun TimetableRoute(
         val alarmScheduler = remember(context) { TaskAlarmScheduler(context) }
         val classAlarmScheduler = remember(context) { AlarmScheduler(context) }
         viewModel(
-            factory = TimetableViewModel.provideFactory(repository, alarmScheduler, classAlarmScheduler)
+            factory = TimetableViewModel.provideFactory(
+                repository = repository,
+                alarmScheduler = alarmScheduler,
+                classAlarmScheduler = classAlarmScheduler,
+                appContext = context.applicationContext
+            )
         )
     }
 

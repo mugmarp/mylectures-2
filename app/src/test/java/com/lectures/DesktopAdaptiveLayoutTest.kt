@@ -14,6 +14,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -28,9 +29,11 @@ import com.lectures.features.account.AccountScreen
 import com.lectures.features.calendar.CalendarScreen
 import com.lectures.features.notes.CourseOption
 import com.lectures.features.notes.NoteEditorScreen
+import com.lectures.features.notes.NoteEditorTab
 import com.lectures.features.notes.NotesScreen
 import com.lectures.features.rooms.ui.VacantRoomsScreen
 import com.lectures.features.settings.SettingsScreen
+import com.lectures.features.tasks.TaskCard
 import com.lectures.features.tasks.TasksScreen
 import com.lectures.features.timetable.domain.Assignment
 import com.lectures.features.timetable.domain.TimetableEntry
@@ -42,11 +45,17 @@ import com.lectures.features.timetable.ui.WelcomeScreen
 import com.lectures.ui.AppTheme
 import com.lectures.ui.LecturesWindow
 import com.lectures.ui.MainScaffold
+import com.lectures.ui.MainScreenDestination
 import com.lectures.ui.ThemeMode
 import com.lectures.ui.WindowHeightTier
 import com.lectures.ui.WindowWidthTier
+import com.lectures.ui.components.AdaptiveNavigationRailOrSidebar
 import com.lectures.ui.components.NotificationCenterSheet
+import com.lectures.ui.rememberContainerWindow
 import com.lectures.ui.rememberLecturesWindow
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -654,5 +663,145 @@ class DesktopAdaptiveLayoutTest {
         composeRule.onNode(
             hasText("Appearance & Theme") and hasAnyAncestor(hasTestTag("settings_category_rail"))
         ).assertIsDisplayed()
+    }
+
+    @Test
+    fun containerWindowPreservesDesktopTiersInsideMainScaffoldPane() {
+        var desktopPane: LecturesWindow? = null
+        var foldablePane: LecturesWindow? = null
+
+        composeRule.setContent {
+            CompositionLocalProvider(LocalConfiguration provides configuredCopy(1280, 800)) {
+                desktopPane = rememberContainerWindow(containerWidthDp = 1051, containerHeightDp = 800)
+            }
+            CompositionLocalProvider(LocalConfiguration provides configuredCopy(640, 800)) {
+                foldablePane = rememberContainerWindow(containerWidthDp = 559, containerHeightDp = 800)
+            }
+        }
+        composeRule.waitForIdle()
+
+        assertTrue(desktopPane!!.isWideWorkspace)
+        assertTrue(desktopPane!!.isDesktop)
+        assertTrue(desktopPane!!.isAtLeastLarge)
+        assertTrue(desktopPane!!.supportsThreePanes)
+        assertEquals(1180.dp, desktopPane!!.maxReadingWidth)
+
+        assertFalse(foldablePane!!.isTablet)
+        assertFalse(foldablePane!!.isDualPane)
+        assertFalse(foldablePane!!.isDesktop)
+    }
+
+    @Test
+    fun taskCardCompletionToggleMeetsMinimum48dpTouchTarget() {
+        val sampleTask = Assignment(
+            id = 42L,
+            title = "Lab 3 Report",
+            courseCode = "CSC3101",
+            dueDate = "Tomorrow 17:00",
+            priority = "High",
+            completed = false
+        )
+
+        composeRule.setContent {
+            AppTheme(themeMode = ThemeMode.LIGHT) {
+                TaskCard(
+                    task = sampleTask,
+                    isDark = false,
+                    onToggleComplete = {},
+                    onEdit = {},
+                    onDelete = {}
+                )
+            }
+        }
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithTag("task_toggle_42")
+            .assertIsDisplayed()
+            .assertWidthIsAtLeast(48.dp)
+            .assertHeightIsAtLeast(48.dp)
+    }
+
+    @Test
+    @Config(qualifiers = "w1280dp-h800dp")
+    fun calendarScreenTaskDeadlineOpensEditDialog() {
+        val todayDue = SimpleDateFormat("EEE, MMM d, yyyy", Locale.US).format(Date()) + " 17:00"
+        runBlocking {
+            app.repository.saveAssignment(
+                Assignment(
+                    title = "CalAuditDeadline",
+                    courseCode = "CSC3101",
+                    dueDate = todayDue,
+                    priority = "High"
+                )
+            )
+        }
+
+        composeRule.setContent {
+            CompositionLocalProvider(LocalConfiguration provides configuredCopy(1280, 800)) {
+                AppTheme(themeMode = ThemeMode.LIGHT) {
+                    CalendarScreen()
+                }
+            }
+        }
+
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithText("CalAuditDeadline").fetchSemanticsNodes().isNotEmpty()
+        }
+
+        composeRule.onNodeWithContentDescription("Edit or Reschedule Task").performClick()
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithText("Edit & Reschedule Task").assertIsDisplayed()
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp")
+    fun noteEditorFallsBackFromSplitToWriteOnCompactWidth() {
+        composeRule.setContent {
+            CompositionLocalProvider(LocalConfiguration provides configuredCopy(360, 800)) {
+                AppTheme(themeMode = ThemeMode.LIGHT) {
+                    NoteEditorScreen(
+                        initialTab = NoteEditorTab.SPLIT,
+                        availableCourses = listOf(CourseOption("CSC3101", "OS", "#2563EB")),
+                        timetableClasses = emptyList(),
+                        onSave = { _, _, _, _, _, _, _, _, _ -> },
+                        onCancel = {}
+                    )
+                }
+            }
+        }
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithTag("note_content_editor").assertIsDisplayed()
+        assertEquals(0, composeRule.onAllNodesWithText("RICH PREVIEW").fetchSemanticsNodes().size)
+    }
+
+    @Test
+    @Config(qualifiers = "w1280dp-h800dp")
+    fun desktopSidebarReflectsPeekingProgrammeState() {
+        composeRule.setContent {
+            CompositionLocalProvider(LocalConfiguration provides configuredCopy(1280, 800)) {
+                AppTheme(themeMode = ThemeMode.LIGHT) {
+                    AdaptiveNavigationRailOrSidebar(
+                        expandedSidebar = true,
+                        canToggleSidebar = true,
+                        sidebarCollapsed = false,
+                        onToggleSidebar = {},
+                        currentDestination = MainScreenDestination.TABS,
+                        selectedTab = 0,
+                        savedProgramme = "BIT II",
+                        isPeeking = true,
+                        onSelectTab = {},
+                        onSelectDestination = {},
+                        onOpenAcademicProfile = {}
+                    )
+                }
+            }
+        }
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithTag("sidebar_programme_badge").assertIsDisplayed()
+        composeRule.onNodeWithText("PEEKING").assertIsDisplayed()
+        composeRule.onNodeWithText("BIT II").assertIsDisplayed()
     }
 }

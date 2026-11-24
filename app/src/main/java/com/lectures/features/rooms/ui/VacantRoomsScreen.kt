@@ -368,7 +368,7 @@ fun VacantRoomsScreen(
                                 Spacer(modifier = Modifier.width(3.dp))
                                 Icon(
                                     imageVector = Icons.Default.ArrowDropDown,
-                                    contentDescription = "Open Filter and Schedule Options",
+                                    contentDescription = if (showDesktopSplit) "Select query time" else "Open Filter and Schedule Options",
                                     tint = if (isLiveNow) (if (isDark) Color(0xFF86EFAC) else Color(0xFF15803D)) else accentColor,
                                     modifier = Modifier.size(15.dp)
                                 )
@@ -439,13 +439,14 @@ fun VacantRoomsScreen(
                         ),
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
+                    val railWidth = if (windowInfo.widthDp < 1160) 244.dp else 268.dp
                     // ZONE 1: Persistent Left Filter Rail
                     Surface(
                         shape = RoundedCornerShape(20.dp),
                         color = surfaceColor,
                         border = BorderStroke(1.dp, borderSubtle),
                         modifier = Modifier
-                            .width(268.dp)
+                            .width(railWidth)
                             .fillMaxHeight()
                             .padding(bottom = padding.calculateBottomPadding() + 16.dp)
                             .testTag("vacant_rooms_filter_rail")
@@ -605,8 +606,9 @@ fun VacantRoomsScreen(
                     if (windowInfo.isWideWorkspace || selectedRoomForSchedule != null) {
                         val inspectorWidth = when {
                             windowInfo.isExtraLargeWidth -> 360.dp
+                            windowInfo.widthDp < 1160 -> 288.dp
                             windowInfo.isWideWorkspace -> 320.dp
-                            else -> 300.dp
+                            else -> 288.dp
                         }
                         Box(
                             modifier = Modifier
@@ -626,7 +628,7 @@ fun VacantRoomsScreen(
                                         status = selectedRoomForSchedule,
                                         dayOfWeek = queryDay,
                                         isDark = isDark,
-                                        showCloseButton = false,
+                                        showBottomCloseButton = false,
                                         onDismiss = { selectedRoomIdForSchedule = null },
                                         modifier = Modifier
                                             .fillMaxSize()
