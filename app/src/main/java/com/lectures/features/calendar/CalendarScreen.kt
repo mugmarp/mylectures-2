@@ -209,6 +209,12 @@ fun CalendarScreen(
         list.sortedBy { it.startTime }
     }
 
+    val isSelectedViewEmpty = when (uiState.selectedFilter) {
+        CalendarFilter.ALL -> timelineItems.isEmpty() && selectedDayDeadlines.isEmpty()
+        CalendarFilter.LECTURES, CalendarFilter.ACTIVITIES -> timelineItems.isEmpty()
+        CalendarFilter.TASKS -> selectedDayDeadlines.isEmpty()
+    }
+
     val windowInfo = rememberLecturesWindow()
     val ext = LocalExtendedColors.current
     val reducedMotion = rememberPrefersReducedMotion()
@@ -510,11 +516,14 @@ fun CalendarScreen(
                                     }
                                 }
 
-                                if (timelineItems.isEmpty() && (selectedDayDeadlines.isEmpty() || uiState.selectedFilter != CalendarFilter.ALL)) {
+                                if (isSelectedViewEmpty) {
                                     item(key = "desktop_empty_day") {
-                                        EmptyDayScheduleCard(selectedDayOfWeek = uiState.selectedDayOfWeek)
+                                        EmptyDayScheduleCard(
+                                            selectedDayOfWeek = uiState.selectedDayOfWeek,
+                                            selectedFilter = uiState.selectedFilter
+                                        )
                                     }
-                                } else {
+                                } else if (timelineItems.isNotEmpty()) {
                                     items(timelineItems, key = { item ->
                                         when (item) {
                                             is CalendarTimelineItem.Lecture -> "lec_${item.entry.naturalKey}"
@@ -743,13 +752,16 @@ fun CalendarScreen(
                             }
                         }
 
-                        if (timelineItems.isEmpty() && (selectedDayDeadlines.isEmpty() || uiState.selectedFilter != CalendarFilter.ALL)) {
+                        if (isSelectedViewEmpty) {
                             item {
                                 Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) {
-                                    EmptyDayScheduleCard(selectedDayOfWeek = uiState.selectedDayOfWeek)
+                                    EmptyDayScheduleCard(
+                                        selectedDayOfWeek = uiState.selectedDayOfWeek,
+                                        selectedFilter = uiState.selectedFilter
+                                    )
                                 }
                             }
-                        } else {
+                        } else if (timelineItems.isNotEmpty()) {
                             items(timelineItems, key = { item ->
                                 when (item) {
                                     is CalendarTimelineItem.Lecture -> "lec_${item.entry.naturalKey}"
@@ -788,6 +800,7 @@ fun CalendarScreen(
         activityToEdit = activityToEdit,
         taskToEdit = taskToEdit,
         selectedLectureForDetail = selectedLectureForDetail,
+        selectedLectureNote = selectedLectureForDetail?.let { uiState.notes[it.naturalKey] },
         showAddActivitySheet = showAddActivitySheet,
         showProfileSheet = showProfileSheet,
         eventToDelete = eventToDelete,
@@ -903,10 +916,10 @@ private fun CalendarLegendCard(modifier: Modifier = Modifier) {
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            LegendDotLabel(color = Color(0xFFEF4444), label = "Deadlines")
+            LegendDotLabel(color = ext.dangerIcon, label = "Deadlines")
             LegendDotLabel(color = MaterialTheme.colorScheme.primary, label = "Classes")
-            LegendDotLabel(color = Color(0xFF10B981), label = "Activities")
-            LegendDotLabel(color = Color(0xFF8B5CF6), label = "Milestones")
+            LegendDotLabel(color = ext.successIcon, label = "Activities")
+            LegendDotLabel(color = MaterialTheme.colorScheme.tertiary, label = "Milestones")
         }
     }
 }
@@ -933,12 +946,13 @@ private fun LegendDotLabel(color: Color, label: String) {
 
 @Composable
 private fun DeadlinesSectionHeader() {
+    val ext = LocalExtendedColors.current
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Surface(
-            color = Color(0xFFEF4444),
+            color = ext.dangerIcon,
             shape = CircleShape,
             modifier = Modifier.size(8.dp)
         ) {}
@@ -946,7 +960,7 @@ private fun DeadlinesSectionHeader() {
             text = "Deadlines Due Today",
             fontSize = 14.sp,
             fontWeight = FontWeight.Bold,
-            color = Color(0xFFEF4444)
+            color = ext.dangerIcon
         )
     }
 }
@@ -987,7 +1001,20 @@ private fun NonInstructionalNoticeCard(phaseName: String) {
 }
 
 @Composable
-private fun EmptyDayScheduleCard(selectedDayOfWeek: String) {
+private fun EmptyDayScheduleCard(
+    selectedDayOfWeek: String,
+    selectedFilter: CalendarFilter = CalendarFilter.ALL
+) {
+    val (headline, subtitle) = when (selectedFilter) {
+        CalendarFilter.TASKS ->
+            "No deadlines due on $selectedDayOfWeek" to "No active tasks or exams are due on this day"
+        CalendarFilter.LECTURES ->
+            "No classes scheduled for $selectedDayOfWeek" to "Switch to All Events or check another weekday for regular classes"
+        CalendarFilter.ACTIVITIES ->
+            "No custom activities scheduled for $selectedDayOfWeek" to "Tap 'Schedule Activity' below to plan a revision session or lab prep"
+        CalendarFilter.ALL ->
+            "No commitments scheduled for $selectedDayOfWeek" to "Tap 'Schedule Activity' below to plan a revision session or lab prep"
+    }
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -1007,14 +1034,15 @@ private fun EmptyDayScheduleCard(selectedDayOfWeek: String) {
             )
             Spacer(modifier = Modifier.height(10.dp))
             Text(
-                text = "No commitments scheduled for $selectedDayOfWeek",
+                text = headline,
                 color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Tap 'Schedule Activity' below to plan a revision session or lab prep",
+                text = subtitle,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 13.sp,
                 textAlign = TextAlign.Center

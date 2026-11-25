@@ -29,7 +29,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lectures.R
 import com.lectures.TimetableApplication
-import com.lectures.features.timetable.ui.*
 import com.lectures.ui.LocalAppTheme
 import com.lectures.ui.LocalExtendedColors
 import kotlinx.coroutines.flow.flowOf
@@ -263,14 +262,14 @@ fun AcademicProfileSheet(
                         )
                         Box(
                             modifier = Modifier
-                                .background(StatusGreenLive.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
+                                .background(ext.successBg, RoundedCornerShape(8.dp))
                                 .padding(horizontal = 8.dp, vertical = 3.dp)
                         ) {
                             Text(
                                 text = if (effectiveEnrolled.isNotBlank()) "Active" else "Unset",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = StatusGreenLive
+                                color = ext.successText
                             )
                         }
                     }

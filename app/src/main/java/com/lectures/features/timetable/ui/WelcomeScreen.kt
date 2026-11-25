@@ -54,11 +54,11 @@ fun WelcomeScreen(
 
     val primaryBlue = MaterialTheme.colorScheme.primary
     val bgGradient = if (isDark) {
-        Brush.verticalGradient(listOf(DarkSurfaceBase, Color(0xFF141824), DarkSurfaceCard))
+        Brush.verticalGradient(listOf(ext.surfaceBase, ext.surfaceSubtle, ext.surfaceCard))
     } else {
         Brush.verticalGradient(listOf(Color(0xFFE0E7FF), Color(0xFFEEF2FF), Color(0xFFF8FAFC)))
     }
-    val cardBg = if (isDark) DarkSurfaceCard else Color.White
+    val cardBg = ext.surfaceCard
     val textPrimary = ext.textPrimary
     val textSecondary = ext.textSecondary
     val textMuted = ext.textMuted
@@ -71,7 +71,7 @@ fun WelcomeScreen(
             modifier = Modifier
                 .then(if (windowInfo.preferDesktopDialogs) Modifier.widthIn(min = 420.dp, max = 560.dp) else Modifier)
                 .onEscapeKey { showDisclaimerDialog = false },
-            containerColor = if (isDark) DarkSurfaceCard else Color.White,
+            containerColor = ext.surfaceCard,
             icon = { Icon(Icons.Default.VerifiedUser, contentDescription = null, tint = primaryBlue) },
             title = {
                 Text(
@@ -161,7 +161,7 @@ fun WelcomeScreen(
             modifier = Modifier
                 .then(if (windowInfo.preferDesktopDialogs) Modifier.widthIn(min = 420.dp, max = 560.dp) else Modifier)
                 .onEscapeKey { showTermsDialog = false },
-            containerColor = if (isDark) DarkSurfaceCard else Color.White,
+            containerColor = ext.surfaceCard,
             icon = { Icon(Icons.Default.Gavel, contentDescription = null, tint = primaryBlue) },
             title = {
                 Text(
@@ -258,7 +258,7 @@ fun WelcomeScreen(
                 shape = RoundedCornerShape(26.dp),
                 color = if (isDark) Color(0xFFF1F5F9) else Color.White,
                 shadowElevation = 6.dp,
-                border = BorderStroke(1.5.dp, if (isDark) DarkBorderSubtle else Color(0xFFDBEAFE))
+                border = BorderStroke(1.5.dp, if (isDark) ext.borderSubtle else Color(0xFFDBEAFE))
             ) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -291,12 +291,12 @@ fun WelcomeScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .background(
-                        if (isDark) DarkSurfaceContainer.copy(alpha = 0.85f) else Color.White.copy(alpha = 0.9f),
+                        if (isDark) ext.surfaceElevated.copy(alpha = 0.85f) else Color.White.copy(alpha = 0.9f),
                         RoundedCornerShape(20.dp)
                     )
                     .border(
                         1.dp,
-                        if (isDark) DarkBorderSubtle else Color(0xFFE2E8F0),
+                        if (isDark) ext.borderSubtle else Color(0xFFE2E8F0),
                         RoundedCornerShape(20.dp)
                     )
                     .padding(horizontal = 12.dp, vertical = 4.dp)
@@ -413,7 +413,7 @@ fun WelcomeScreen(
         Surface(
             shape = RoundedCornerShape(16.dp),
             color = cardBg,
-            border = BorderStroke(1.dp, if (isDark) DarkBorderSubtle else Color(0xFFCBD5E1)),
+            border = BorderStroke(1.dp, if (isDark) ext.borderSubtle else Color(0xFFCBD5E1)),
             shadowElevation = 2.dp,
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -611,7 +611,7 @@ fun WelcomeBentoCard(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         color = cardBg,
-        border = BorderStroke(1.dp, if (isDark) DarkBorderSubtle else Color(0xFFE2E8F0)),
+        border = BorderStroke(1.dp, LocalExtendedColors.current.borderSubtle),
         shadowElevation = 1.dp
     ) {
         Column(

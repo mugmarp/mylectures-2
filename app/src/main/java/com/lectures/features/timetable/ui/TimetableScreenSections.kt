@@ -21,7 +21,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lectures.features.timetable.domain.ActivityCategory
 import com.lectures.features.timetable.domain.CustomEvent
+import com.lectures.ui.LocalExtendedColors
+import com.lectures.ui.contrastOnColor
 
 @Composable
 internal fun PaddingBox(
@@ -47,10 +50,11 @@ internal fun TimetablePeekBanner(
     isDark: Boolean,
     onResetToEnrolled: () -> Unit
 ) {
+    val ext = LocalExtendedColors.current
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = if (isDark) Color(0xFF291B00) else Color(0xFFFEF3C7),
-        border = BorderStroke(1.dp, if (isDark) Color(0xFFB45309) else Color(0xFFF59E0B)),
+        color = ext.warningBg,
+        border = BorderStroke(1.dp, ext.warningBorder),
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 8.dp)
@@ -62,13 +66,13 @@ internal fun TimetablePeekBanner(
             Box(
                 modifier = Modifier
                     .size(38.dp)
-                    .background(if (isDark) Color(0xFF78350F) else Color(0xFFFDE68A), CircleShape),
+                    .background(ext.warningIcon.copy(alpha = 0.18f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Outlined.Visibility,
                     contentDescription = "Peek Mode",
-                    tint = if (isDark) Color(0xFFFBBF24) else Color(0xFFB45309),
+                    tint = ext.warningIcon,
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -78,12 +82,12 @@ internal fun TimetablePeekBanner(
                     text = "Previewing $programme",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
-                    color = if (isDark) Color(0xFFFDE68A) else Color(0xFF92400E)
+                    color = ext.warningText
                 )
                 Text(
                     text = "Viewing temporarily. Your alarms remain set for $enrolledProgramme.",
                     fontSize = 11.sp,
-                    color = if (isDark) Color(0xFFFCD34D) else Color(0xFFB45309),
+                    color = ext.warningText.copy(alpha = 0.85f),
                     lineHeight = 14.sp
                 )
             }
@@ -92,8 +96,8 @@ internal fun TimetablePeekBanner(
                 onClick = onResetToEnrolled,
                 shape = RoundedCornerShape(10.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isDark) Color(0xFFB45309) else Color(0xFFD97706),
-                    contentColor = Color.White
+                    containerColor = ext.warningIcon,
+                    contentColor = contrastOnColor(ext.warningIcon)
                 ),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
             ) {
@@ -108,6 +112,7 @@ internal fun NoProgrammePromptCard(
     isDark: Boolean,
     onSelectClick: () -> Unit
 ) {
+    val ext = LocalExtendedColors.current
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
@@ -132,19 +137,22 @@ internal fun NoProgrammePromptCard(
                     text = "No Programme Selected",
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp,
-                    color = if (isDark) Color.White else TextPrimaryLight
+                    color = ext.textPrimary
                 )
                 Text(
                     text = "Select your programme to view your class timetable.",
                     fontSize = 12.sp,
-                    color = if (isDark) Color(0xFF94A3B8) else TextMutedLight
+                    color = ext.textMuted
                 )
             }
             Spacer(modifier = Modifier.width(8.dp))
             Button(
                 onClick = onSelectClick,
                 shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = contrastOnColor(MaterialTheme.colorScheme.primary)
+                ),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
             ) {
                 Text("Select", fontSize = 12.sp, fontWeight = FontWeight.Bold)
@@ -159,6 +167,7 @@ internal fun TodaysScheduleHeader(
     todaySessionCount: Int,
     isDark: Boolean
 ) {
+    val ext = LocalExtendedColors.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -171,13 +180,13 @@ internal fun TodaysScheduleHeader(
                 text = "Today's Schedule",
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
-                color = if (isDark) Color.White else TextPrimaryLight
+                color = ext.textPrimary
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = todayDateFormatted,
                 fontSize = 13.sp,
-                color = if (isDark) Color(0xFF94A3B8) else TextMutedLight,
+                color = ext.textMuted,
                 fontWeight = FontWeight.Medium
             )
         }
@@ -201,11 +210,12 @@ internal fun TodaysScheduleHeader(
 
 @Composable
 internal fun TodayClassesCompletedBadge() {
+    val ext = LocalExtendedColors.current
     PaddingBox(top = 4.dp, bottom = 2.dp) {
         Surface(
             shape = RoundedCornerShape(10.dp),
-            color = Color(0xFF10B981).copy(alpha = 0.12f),
-            border = BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.25f)),
+            color = ext.successBg,
+            border = BorderStroke(1.dp, ext.successBorder),
             modifier = Modifier.fillMaxWidth()
         ) {
             Row(
@@ -215,7 +225,7 @@ internal fun TodayClassesCompletedBadge() {
                 Icon(
                     imageVector = Icons.Outlined.CheckCircle,
                     contentDescription = null,
-                    tint = Color(0xFF10B981),
+                    tint = ext.successIcon,
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
@@ -223,7 +233,7 @@ internal fun TodayClassesCompletedBadge() {
                     text = "All classes for today are completed",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF10B981)
+                    color = ext.successText
                 )
             }
         }
@@ -232,11 +242,12 @@ internal fun TodayClassesCompletedBadge() {
 
 @Composable
 internal fun NoClassesTodayCard(isDark: Boolean) {
+    val ext = LocalExtendedColors.current
     PaddingBox(top = 8.dp, bottom = 6.dp) {
         Surface(
             shape = RoundedCornerShape(16.dp),
-            color = if (isDark) DarkSurfaceCard else Color.White,
-            border = BorderStroke(1.dp, if (isDark) DarkBorderSubtle else BorderSubtleLight),
+            color = ext.surfaceCard,
+            border = BorderStroke(1.dp, ext.borderSubtle),
             modifier = Modifier.fillMaxWidth()
         ) {
             Row(
@@ -262,12 +273,12 @@ internal fun NoClassesTodayCard(isDark: Boolean) {
                         text = "No classes scheduled for today",
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 14.sp,
-                        color = if (isDark) Color.White else TextPrimaryLight
+                        color = ext.textPrimary
                     )
                     Text(
                         text = "Take time for self-study or add personal activities.",
                         fontSize = 12.sp,
-                        color = if (isDark) Color(0xFF94A3B8) else TextMutedLight
+                        color = ext.textMuted
                     )
                 }
             }
@@ -281,11 +292,12 @@ internal fun EmptyDayScheduleCard(
     isDark: Boolean,
     onAddCustomActivityClick: () -> Unit
 ) {
+    val ext = LocalExtendedColors.current
     PaddingBox(top = 24.dp, bottom = 24.dp) {
         Surface(
             shape = RoundedCornerShape(20.dp),
-            color = if (isDark) DarkSurfaceCard else Color.White,
-            border = BorderStroke(1.dp, if (isDark) DarkBorderSubtle else BorderSubtleLight),
+            color = ext.surfaceCard,
+            border = BorderStroke(1.dp, ext.borderSubtle),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(
@@ -310,20 +322,23 @@ internal fun EmptyDayScheduleCard(
                     text = "No classes scheduled for $selectedDay",
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,
-                    color = if (isDark) Color.White else TextPrimaryLight
+                    color = ext.textPrimary
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = "Take time to study, revise, or add a custom study session.",
                     fontSize = 12.sp,
-                    color = if (isDark) Color(0xFF94A3B8) else TextMutedLight,
+                    color = ext.textMuted,
                     textAlign = TextAlign.Center
                 )
                 Spacer(modifier = Modifier.height(18.dp))
                 Button(
                     onClick = onAddCustomActivityClick,
                     shape = ActionButtonShape,
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = contrastOnColor(MaterialTheme.colorScheme.primary)
+                    )
                 ) {
                     Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
@@ -353,7 +368,7 @@ internal fun TimetableActivityDetailDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    text = "Category: ${event.category}",
+                    text = "Category: ${ActivityCategory.fromName(event.category).displayName}",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.primary

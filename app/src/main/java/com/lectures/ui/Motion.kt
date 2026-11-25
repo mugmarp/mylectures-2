@@ -1,5 +1,8 @@
 package com.lectures.ui
 
+import android.database.ContentObserver
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.EnterTransition
@@ -15,8 +18,14 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 
 /**
  * Centralized motion tokens and reduced-motion utilities for Lectures.
@@ -63,7 +72,11 @@ object MotionSpec {
             return EnterTransition.None togetherWith ExitTransition.None
         }
         if (useFadeOnly) {
-            return fadeTransform(enterMs = TAB_FADE_IN_MS, exitMs = TAB_FADE_OUT_MS)
+            return fadeTransform(
+                enterMs = TAB_FADE_IN_MS,
+                exitMs = TAB_FADE_OUT_MS,
+                reducedMotion = reducedMotion
+            )
         }
         val dir = if (forward) 1 else -1
         return (slideInHorizontally(animationSpec = standardSpring()) { (dir * it * 0.25f).toInt() } +
@@ -75,23 +88,49 @@ object MotionSpec {
     }
 }
 
+private fun readPrefersReducedMotion(context: android.content.Context): Boolean {
+    return try {
+        val scale = Settings.Global.getFloat(
+            context.contentResolver,
+            Settings.Global.ANIMATOR_DURATION_SCALE,
+            1f
+        )
+        scale == 0f
+    } catch (_: Exception) {
+        false
+    }
+}
+
 /**
  * Checks whether the device has animations disabled via Accessibility / Developer Options
- * (`Settings.Global.ANIMATOR_DURATION_SCALE == 0f`).
+ * (`Settings.Global.ANIMATOR_DURATION_SCALE == 0f`) and reacts dynamically to changes.
  */
 @Composable
 fun rememberPrefersReducedMotion(): Boolean {
     val context = LocalContext.current
-    return remember(context) {
-        try {
-            val scale = Settings.Global.getFloat(
-                context.contentResolver,
-                Settings.Global.ANIMATOR_DURATION_SCALE,
-                1f
-            )
-            scale == 0f
-        } catch (_: Exception) {
-            false
+    var prefersReducedMotion by remember(context) {
+        mutableStateOf(readPrefersReducedMotion(context))
+    }
+
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        prefersReducedMotion = readPrefersReducedMotion(context)
+    }
+
+    DisposableEffect(context) {
+        val resolver = context.contentResolver
+        val uri = Settings.Global.getUriFor(Settings.Global.ANIMATOR_DURATION_SCALE)
+        val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                prefersReducedMotion = readPrefersReducedMotion(context)
+            }
+        }
+        runCatching {
+            resolver.registerContentObserver(uri, false, observer)
+        }
+        onDispose {
+            runCatching { resolver.unregisterContentObserver(observer) }
         }
     }
+
+    return prefersReducedMotion
 }

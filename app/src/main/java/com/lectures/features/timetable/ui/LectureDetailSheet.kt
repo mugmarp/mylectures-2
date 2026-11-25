@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lectures.features.timetable.domain.TimetableEntry
 import com.lectures.ui.LocalAppTheme
+import com.lectures.ui.LocalExtendedColors
 import com.lectures.ui.components.AdaptiveSheetOrDialog
 import com.lectures.ui.components.RoomFloorBadge
 import com.lectures.ui.components.desktopHandCursor
@@ -42,7 +43,7 @@ fun LectureDetailSheet(
     AdaptiveSheetOrDialog(
         onDismissRequest = onDismiss,
         sheetTestTag = "lecture_detail_sheet",
-        containerColor = if (LocalAppTheme.current.isDark) DarkSurfaceCard else Color.White,
+        containerColor = LocalExtendedColors.current.surfaceCard,
         desktopMaxWidth = 560.dp
     ) {
         LectureDetailContent(
@@ -73,10 +74,11 @@ fun LectureDetailContent(
     modifier: Modifier = Modifier
 ) {
     val isDark = LocalAppTheme.current.isDark
-    val textColor = if (isDark) Color.White else Color(0xFF0F172A)
-    val textSub = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
-    val inputBg = if (isDark) DarkSurfaceBase else Color(0xFFF8FAFC)
-    val inputBorder = if (isDark) DarkBorderSubtle else Color(0xFFE2E8F0)
+    val ext = LocalExtendedColors.current
+    val textColor = ext.textPrimary
+    val textSub = ext.textMuted
+    val inputBg = ext.surfaceBase
+    val inputBorder = ext.borderSubtle
 
     var noteText by remember(entry.naturalKey, initialNote) { mutableStateOf(initialNote) }
     val standardReminderOptions = listOf(5, 10, 15, 30, 45, 60)
@@ -176,14 +178,14 @@ fun LectureDetailContent(
                     allAttendingCohorts.forEach { cohort ->
                         Surface(
                             shape = RoundedCornerShape(8.dp),
-                            color = if (isDark) DarkSurfaceContainer else Color(0xFFF1F5F9),
-                            border = BorderStroke(1.dp, if (isDark) DarkBorderSubtle else Color(0xFFCBD5E1))
+                            color = ext.surfaceElevated,
+                            border = BorderStroke(1.dp, ext.borderSubtle)
                         ) {
                             Text(
                                 text = cohort,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = if (isDark) Color(0xFFCBD5E1) else Color(0xFF334155),
+                                color = ext.textSecondary,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                             )
                         }
@@ -216,7 +218,7 @@ fun LectureDetailContent(
                             .background(if (isSelected) accentColor else Color.Transparent)
                             .border(
                                 1.dp,
-                                if (isSelected) accentColor else (if (isDark) DarkBorderSubtle else Color(0xFFCBD5E1)),
+                                if (isSelected) accentColor else ext.borderSubtle,
                                 RoundedCornerShape(20.dp)
                             )
                             .clickable {
@@ -228,7 +230,7 @@ fun LectureDetailContent(
                     ) {
                         Text(
                             text = "${minutes}m before",
-                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else (if (isDark) Color(0xFFCBD5E1) else Color(0xFF1E293B)),
+                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else ext.textSecondary,
                             fontSize = 12.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                         )
@@ -242,7 +244,7 @@ fun LectureDetailContent(
                         .background(if (isCustomReminder) accentColor else Color.Transparent)
                         .border(
                             1.dp,
-                            if (isCustomReminder) accentColor else (if (isDark) DarkBorderSubtle else Color(0xFFCBD5E1)),
+                            if (isCustomReminder) accentColor else ext.borderSubtle,
                             RoundedCornerShape(20.dp)
                         )
                         .clickable {
@@ -256,7 +258,7 @@ fun LectureDetailContent(
                 ) {
                     Text(
                         text = "Custom",
-                        color = if (isCustomReminder) MaterialTheme.colorScheme.onPrimary else (if (isDark) Color(0xFFCBD5E1) else Color(0xFF1E293B)),
+                        color = if (isCustomReminder) MaterialTheme.colorScheme.onPrimary else ext.textSecondary,
                         fontSize = 12.sp,
                         fontWeight = if (isCustomReminder) FontWeight.Bold else FontWeight.Medium
                     )
@@ -291,7 +293,7 @@ fun LectureDetailContent(
             OutlinedTextField(
                 value = noteText,
                 onValueChange = { noteText = it },
-                placeholder = { Text("Add lecture takeaways, exam prep notes...", color = Color(0xFF94A3B8)) },
+                placeholder = { Text("Add lecture takeaways, exam prep notes...", color = textSub) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(100.dp),
@@ -348,6 +350,7 @@ private fun DetailRow(
     isDark: Boolean,
     trailingContent: (@Composable () -> Unit)? = null
 ) {
+    val ext = LocalExtendedColors.current
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
@@ -355,13 +358,13 @@ private fun DetailRow(
         Icon(
             icon,
             contentDescription = null,
-            tint = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
+            tint = ext.textMuted,
             modifier = Modifier.size(18.dp)
         )
         Spacer(modifier = Modifier.width(12.dp))
         Text(
             label,
-            color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
+            color = ext.textMuted,
             fontSize = 14.sp,
             modifier = Modifier.weight(1f)
         )
@@ -373,7 +376,7 @@ private fun DetailRow(
                 value,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 14.sp,
-                color = if (isDark) Color.White else Color(0xFF0F172A)
+                color = ext.textPrimary
             )
             if (trailingContent != null) {
                 trailingContent()

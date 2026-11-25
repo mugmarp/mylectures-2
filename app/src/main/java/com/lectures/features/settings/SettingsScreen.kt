@@ -147,21 +147,6 @@ fun SettingsScreen(
         }
     }
 
-    AnimatedContent(
-        targetState = isAccountScreenOpen,
-        transitionSpec = {
-            MotionSpec.directionalSlideTransform(
-                forward = targetState,
-                reducedMotion = reducedMotion,
-                useFadeOnly = windowInfo.useNavigationRail
-            )
-        },
-        label = "settings_account_transition"
-    ) { accountOpen ->
-        if (accountOpen) {
-            AccountScreen(onBack = { isAccountScreenOpen = false })
-        } else {
-
     val context = LocalContext.current
     val app = context.applicationContext as? TimetableApplication
     val repository = app?.repository
@@ -174,7 +159,8 @@ fun SettingsScreen(
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
         }
-    } else {
+        return
+    }
 
     val viewModel: SettingsViewModel = viewModel(
         factory = SettingsViewModel.provideFactory(
@@ -289,10 +275,32 @@ fun SettingsScreen(
         )
     }
 
+    val updateInfoToShow = uiState.availableUpdateInfo
+    if (uiState.showAppUpdateDialog && updateInfoToShow != null) {
+        AppUpdateDialog(
+            updateInfo = updateInfoToShow,
+            onDismiss = { viewModel.dismissUpdateDialog() }
+        )
+    }
+
     val scrollState = rememberScrollState()
 
-    Scaffold(
-        containerColor = ext.surfaceBase,
+    AnimatedContent(
+        targetState = isAccountScreenOpen,
+        transitionSpec = {
+            MotionSpec.directionalSlideTransform(
+                forward = targetState,
+                reducedMotion = reducedMotion,
+                useFadeOnly = windowInfo.useNavigationRail
+            )
+        },
+        label = "settings_account_transition"
+    ) { accountOpen ->
+        if (accountOpen) {
+            AccountScreen(onBack = { isAccountScreenOpen = false })
+        } else {
+            Scaffold(
+                containerColor = ext.surfaceBase,
         topBar = {
             FloatingIslandTopBar {
                 Row(
@@ -790,17 +798,8 @@ fun SettingsScreen(
             }
         }
     }
-
-    val updateInfoToShow = uiState.availableUpdateInfo
-    if (uiState.showAppUpdateDialog && updateInfoToShow != null) {
-        AppUpdateDialog(
-            updateInfo = updateInfoToShow,
-            onDismiss = { viewModel.dismissUpdateDialog() }
-        )
+        }
     }
-    }
-    }
-}
 }
 
 @Composable

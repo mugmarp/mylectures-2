@@ -9,8 +9,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import com.lectures.features.tasks.AddTaskDialog
+import com.lectures.features.timetable.domain.ActivityCategory
 import com.lectures.features.timetable.domain.Assignment
 import com.lectures.features.timetable.domain.CustomEvent
+import com.lectures.features.timetable.domain.LectureNote
 import com.lectures.features.timetable.domain.TaskCategory
 import com.lectures.features.timetable.domain.TimetableEntry
 import com.lectures.features.timetable.ui.AddActivitySheet
@@ -27,6 +29,7 @@ internal fun CalendarActionDialogs(
     activityToEdit: CustomEvent?,
     taskToEdit: Assignment?,
     selectedLectureForDetail: TimetableEntry?,
+    selectedLectureNote: LectureNote? = null,
     showAddActivitySheet: Boolean,
     showProfileSheet: Boolean,
     eventToDelete: CustomEvent?,
@@ -80,7 +83,7 @@ internal fun CalendarActionDialogs(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        text = "Category: ${event.category}",
+                        text = "Category: ${ActivityCategory.fromName(event.category).displayName}",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.primary
@@ -186,6 +189,8 @@ internal fun CalendarActionDialogs(
     if (selectedLectureForDetail != null) {
         LectureDetailSheet(
             entry = selectedLectureForDetail,
+            initialNote = selectedLectureNote?.content ?: "",
+            initialReminder = selectedLectureNote?.alarmMinutes,
             onSaveNote = { noteText, reminderMinutes ->
                 onSaveLectureNote(selectedLectureForDetail, noteText, reminderMinutes)
             },

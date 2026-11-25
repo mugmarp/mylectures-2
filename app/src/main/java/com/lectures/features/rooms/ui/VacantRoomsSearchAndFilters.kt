@@ -31,12 +31,6 @@ import androidx.compose.ui.unit.sp
 import com.lectures.features.rooms.Building
 import com.lectures.features.rooms.Campus
 import com.lectures.features.rooms.UniversityDirectory
-import com.lectures.features.timetable.ui.BorderSubtleLight
-import com.lectures.features.timetable.ui.DarkBorderSubtle
-import com.lectures.features.timetable.ui.DarkSurfaceCard
-import com.lectures.features.timetable.ui.StatusGreenLive
-import com.lectures.features.timetable.ui.TextMutedLight
-import com.lectures.features.timetable.ui.TextPrimaryLight
 import com.lectures.ui.LocalExtendedColors
 import com.lectures.ui.components.desktopHandCursor
 import com.lectures.ui.components.desktopHoverable
@@ -456,14 +450,14 @@ internal fun VacantRoomsSearchAndFilters(
                     } else null,
                     shape = RoundedCornerShape(10.dp),
                     colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = StatusGreenLive.copy(alpha = 0.15f),
-                        selectedLabelColor = if (isDark) Color(0xFF86EFAC) else Color(0xFF15803D),
-                        selectedLeadingIconColor = if (isDark) Color(0xFF86EFAC) else Color(0xFF15803D)
+                        selectedContainerColor = ext.successBg,
+                        selectedLabelColor = ext.successText,
+                        selectedLeadingIconColor = ext.successText
                     ),
                     border = FilterChipDefaults.filterChipBorder(
                         enabled = true,
                         selected = freeOnly,
-                        borderColor = if (freeOnly) StatusGreenLive else borderSubtle
+                        borderColor = if (freeOnly) ext.successBorder else borderSubtle
                     ),
                     modifier = Modifier.desktopHandCursor()
                 )
@@ -550,14 +544,14 @@ internal fun VacantRoomsSearchAndFilters(
                         } else null,
                         shape = RoundedCornerShape(10.dp),
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = StatusGreenLive.copy(alpha = 0.15f),
-                            selectedLabelColor = if (isDark) Color(0xFF86EFAC) else Color(0xFF15803D),
-                            selectedLeadingIconColor = if (isDark) Color(0xFF86EFAC) else Color(0xFF15803D)
+                            selectedContainerColor = ext.successBg,
+                            selectedLabelColor = ext.successText,
+                            selectedLeadingIconColor = ext.successText
                         ),
                         border = FilterChipDefaults.filterChipBorder(
                             enabled = true,
                             selected = freeOnly,
-                            borderColor = if (freeOnly) StatusGreenLive else borderSubtle
+                            borderColor = if (freeOnly) ext.successBorder else borderSubtle
                         ),
                         modifier = Modifier.desktopHandCursor()
                     )

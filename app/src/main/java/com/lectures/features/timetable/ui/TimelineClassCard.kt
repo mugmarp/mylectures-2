@@ -63,7 +63,7 @@ fun TimelineClassCard(
             .background(cardBg, TimelineCardShape)
             .border(
                 width = if (session.hasConflict) 2.dp else 1.dp,
-                color = if (session.hasConflict) Color(0xFFDC2626) else borderSubtle,
+                color = if (session.hasConflict) ext.dangerIcon else borderSubtle,
                 shape = TimelineCardShape
             )
             .desktopHandCursor()
@@ -132,13 +132,13 @@ fun TimelineClassCard(
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
-                        .background(Color(0xFFDC2626).copy(alpha = 0.08f), RoundedCornerShape(6.dp))
+                        .background(ext.dangerBg, RoundedCornerShape(6.dp))
                         .padding(horizontal = 8.dp, vertical = 4.dp)
                 ) {
                     Icon(
                         Icons.Default.Warning,
                         contentDescription = null,
-                        tint = Color(0xFFDC2626),
+                        tint = ext.dangerIcon,
                         modifier = Modifier.size(14.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
@@ -146,7 +146,7 @@ fun TimelineClassCard(
                         text = "Schedule conflict detected",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFFDC2626)
+                        color = ext.dangerText
                     )
                 }
                 Spacer(modifier = Modifier.height(6.dp))
@@ -248,14 +248,14 @@ fun TimelineClassCard(
                             Box(
                                 modifier = Modifier
                                     .size(5.dp)
-                                    .background(StatusGreenLive, CircleShape)
+                                    .background(ext.successIcon, CircleShape)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 text = session.startsInText!!,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = StatusGreenLive
+                                color = ext.successText
                             )
                         }
                     }

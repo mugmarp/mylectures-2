@@ -58,8 +58,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lectures.core.storage.AttachmentStore
 import com.lectures.features.timetable.domain.LectureNote
-import com.lectures.features.timetable.ui.DarkBorderSubtle
-import com.lectures.features.timetable.ui.DarkSurfaceCard
 import com.lectures.ui.LocalExtendedColors
 import com.lectures.ui.MotionSpec
 import com.lectures.ui.components.desktopHandCursor

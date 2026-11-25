@@ -305,7 +305,7 @@ fun QuickAddBottomSheet(
                                             endTime = activityEndTime.trim(),
                                             location = activityLocation.trim(),
                                             notes = activityNotes.trim(),
-                                            category = selectedActivityCategory.displayName,
+                                            category = selectedActivityCategory.name,
                                             colorTag = selectedActivityCategory.colorHex,
                                             alarmMinutes = activityAlarmMinutes
                                         )

@@ -18,10 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lectures.features.rooms.BuildingLevel
-import com.lectures.features.timetable.ui.DarkSurfaceCard
-import com.lectures.features.timetable.ui.StatusGreenLive
-import com.lectures.features.timetable.ui.TextMutedLight
-import com.lectures.features.timetable.ui.TextPrimaryLight
+import com.lectures.ui.LocalExtendedColors
 import com.lectures.ui.components.AdaptiveSheetOrDialog
 import com.lectures.ui.components.desktopHandCursor
 import com.lectures.ui.contrastOnColor
@@ -47,7 +44,7 @@ internal fun VacantRoomsFilterSheet(
     onToggleStudyFriendly: () -> Unit,
     onToggleHideLibrary: () -> Unit
 ) {
-    val surfaceColor = if (isDark) DarkSurfaceCard else Color.White
+    val surfaceColor = LocalExtendedColors.current.surfaceCard
 
     AdaptiveSheetOrDialog(
         onDismissRequest = onDismiss,
@@ -111,9 +108,10 @@ internal fun VacantRoomsFilterOptionsContent(
     onToggleHideLibrary: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val ext = LocalExtendedColors.current
     val accentColor = MaterialTheme.colorScheme.primary
-    val textPrimary = if (isDark) Color.White else TextPrimaryLight
-    val textMuted = if (isDark) Color(0xFF94A3B8) else TextMutedLight
+    val textPrimary = ext.textPrimary
+    val textMuted = ext.textMuted
 
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -158,7 +156,7 @@ internal fun VacantRoomsFilterOptionsContent(
                             Box(
                                 modifier = Modifier
                                     .size(6.dp)
-                                    .background(if (isLiveNow) StatusGreenLive else textMuted, CircleShape)
+                                    .background(if (isLiveNow) ext.successIcon else textMuted, CircleShape)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text("Live Now", fontSize = 11.sp, fontWeight = FontWeight.Bold)

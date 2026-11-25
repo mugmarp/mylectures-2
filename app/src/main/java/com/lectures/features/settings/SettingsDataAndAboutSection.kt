@@ -638,10 +638,10 @@ internal fun SettingsAboutAndDangerSection(
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(4.dp))
-                                .background(Color(0xFF10B981).copy(alpha = 0.15f))
+                                .background(LocalExtendedColors.current.successBg)
                                 .padding(horizontal = 5.dp, vertical = 1.dp)
                         ) {
-                            Text("Stateless", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color(0xFF10B981))
+                            Text("Stateless", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = LocalExtendedColors.current.successText)
                         }
                     }
                     Text("Report timetable errors, venue bugs, or suggestions anonymously", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)

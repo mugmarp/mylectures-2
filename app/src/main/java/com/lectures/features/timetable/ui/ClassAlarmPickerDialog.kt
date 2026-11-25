@@ -25,6 +25,7 @@ import com.lectures.core.util.TimeUtil
 import com.lectures.features.timetable.domain.TimetableEntry
 import com.lectures.ui.LocalAppTheme
 import com.lectures.ui.components.RoomFloorBadge
+import com.lectures.ui.contrastOnColor
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -38,7 +39,7 @@ fun ClassAlarmPickerDialog(
     val isDark = LocalAppTheme.current.isDark
     val ext = com.lectures.ui.LocalExtendedColors.current
     val primaryColor = MaterialTheme.colorScheme.primary
-    val surfaceColor = if (isDark) DarkSurfaceCard else Color.White
+    val surfaceColor = ext.surfaceCard
     val textColor = ext.textPrimary
     val textSub = ext.textMuted
 
@@ -148,7 +149,7 @@ fun ClassAlarmPickerDialog(
                         ) {
                             Text(
                                 text = "${mins}m before",
-                                color = if (isSelected) Color.White else textColor,
+                                color = if (isSelected) contrastOnColor(primaryColor) else textColor,
                                 fontSize = 12.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                             )
@@ -173,7 +174,7 @@ fun ClassAlarmPickerDialog(
                     ) {
                         Text(
                             text = "Custom",
-                            color = if (isCustomSelected) Color.White else textColor,
+                            color = if (isCustomSelected) contrastOnColor(primaryColor) else textColor,
                             fontSize = 12.sp,
                             fontWeight = if (isCustomSelected) FontWeight.Bold else FontWeight.Medium
                         )
@@ -240,7 +241,10 @@ fun ClassAlarmPickerDialog(
                     onConfirm(finalMinutes)
                 },
                 enabled = effectiveMinutes != null && effectiveMinutes > 0,
-                colors = ButtonDefaults.buttonColors(containerColor = primaryColor),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = primaryColor,
+                    contentColor = contrastOnColor(primaryColor)
+                ),
                 shape = RoundedCornerShape(10.dp)
             ) {
                 Text("Set Alarm")
@@ -251,7 +255,7 @@ fun ClassAlarmPickerDialog(
                 if (currentMinutes != null) {
                     TextButton(
                         onClick = { onConfirm(null) },
-                        colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFDC2626))
+                        colors = ButtonDefaults.textButtonColors(contentColor = ext.dangerIcon)
                     ) {
                         Icon(Icons.Default.AlarmOff, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))

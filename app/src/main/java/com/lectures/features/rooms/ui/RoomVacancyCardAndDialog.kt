@@ -41,13 +41,6 @@ import com.lectures.features.rooms.RoomItem
 import com.lectures.features.rooms.RoomType
 import com.lectures.features.rooms.RoomVacancyStatus
 import com.lectures.features.timetable.domain.TimetableEntry
-import com.lectures.features.timetable.ui.BorderSubtleLight
-import com.lectures.features.timetable.ui.DarkBorderSubtle
-import com.lectures.features.timetable.ui.DarkSurfaceBase
-import com.lectures.features.timetable.ui.DarkSurfaceCard
-import com.lectures.features.timetable.ui.StatusGreenLive
-import com.lectures.features.timetable.ui.TextMutedLight
-import com.lectures.features.timetable.ui.TextPrimaryLight
 import com.lectures.ui.LocalExtendedColors
 import com.lectures.ui.MotionSpec
 import com.lectures.ui.components.FloorIndicatorBadge
@@ -93,10 +86,10 @@ fun RoomVacancyCard(
 
     val statusColor = when {
         !room.isStudyFriendly -> Color(0xFF8B5CF6)
-        status.isOccupied -> Color(0xFFEF4444)
+        status.isOccupied -> ext.dangerIcon
         room.isPermanentlyVacant -> Color(0xFF0EA5E9)
-        status.gapMinutes >= 60 || status.freeUntil == "Rest of day" -> Color(0xFF16A34A)
-        else -> Color(0xFFF59E0B)
+        status.gapMinutes >= 60 || status.freeUntil == "Rest of day" -> ext.successIcon
+        else -> ext.warningIcon
     }
 
     val cardBg by animateColorAsState(
@@ -162,10 +155,7 @@ fun RoomVacancyCard(
                     if (showTypeBadge) {
                         Box(
                             modifier = Modifier
-                                .background(
-                                    if (isDark) Color(0xFF334155).copy(alpha = 0.5f) else Color(0xFFF1F5F9),
-                                    RoundedCornerShape(6.dp)
-                                )
+                                .background(ext.surfaceElevated, RoundedCornerShape(6.dp))
                                 .padding(horizontal = 6.dp, vertical = 2.dp)
                         ) {
                             Text(
@@ -371,8 +361,9 @@ internal fun RoomScheduleInspectorContent(
 ) {
     val room = status.room
     val sessions = status.allDaySessions
-    val textPrimary = if (isDark) Color.White else TextPrimaryLight
-    val textMuted = if (isDark) Color(0xFF94A3B8) else TextMutedLight
+    val ext = LocalExtendedColors.current
+    val textPrimary = ext.textPrimary
+    val textMuted = ext.textMuted
 
     Column(modifier = modifier) {
         Row(
@@ -429,7 +420,7 @@ internal fun RoomScheduleInspectorContent(
                 Box(
                     modifier = Modifier
                         .size(32.dp)
-                        .background(if (isDark) Color(0xFF334155) else Color(0xFFF1F5F9), CircleShape),
+                        .background(ext.surfaceElevated, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -490,8 +481,8 @@ internal fun RoomScheduleInspectorContent(
 
                         Surface(
                             shape = RoundedCornerShape(16.dp),
-                            color = if (isDark) DarkSurfaceBase else Color(0xFFF0FDF4),
-                            border = BorderStroke(1.dp, if (isDark) DarkBorderSubtle else Color(0xFFBBF7D0)),
+                            color = if (isDark) ext.surfaceBase else ext.successBg,
+                            border = BorderStroke(1.dp, if (isDark) ext.borderSubtle else ext.successBorder),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Column(
@@ -501,13 +492,13 @@ internal fun RoomScheduleInspectorContent(
                                 Box(
                                     modifier = Modifier
                                         .size(42.dp)
-                                        .background(StatusGreenLive.copy(alpha = 0.15f), CircleShape),
+                                        .background(ext.successIcon.copy(alpha = 0.15f), CircleShape),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
                                         imageVector = if (isLibraryVenue) Icons.Outlined.LocalLibrary else Icons.Outlined.CheckCircle,
                                         contentDescription = null,
-                                        tint = StatusGreenLive,
+                                        tint = ext.successIcon,
                                         modifier = Modifier.size(24.dp)
                                     )
                                 }
@@ -542,11 +533,11 @@ internal fun RoomScheduleInspectorContent(
                                 ) {
                                     Surface(
                                         shape = RoundedCornerShape(8.dp),
-                                        color = StatusGreenLive.copy(alpha = 0.12f)
+                                        color = ext.successBg
                                     ) {
                                         Text(
                                             text = if (isLibraryVenue) "✓ Quiet Study Friendly" else "✓ Full Day Free",
-                                            color = StatusGreenLive,
+                                            color = ext.successText,
                                             fontSize = 11.5.sp,
                                             fontWeight = FontWeight.SemiBold,
                                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
@@ -572,8 +563,8 @@ internal fun RoomScheduleInspectorContent(
                             sessions.forEach { session: TimetableEntry ->
                                 Surface(
                                     shape = RoundedCornerShape(12.dp),
-                                    color = if (isDark) DarkSurfaceBase else Color(0xFFF8FAFC),
-                                    border = BorderStroke(1.dp, if (isDark) DarkBorderSubtle else BorderSubtleLight),
+                                    color = ext.surfaceBase,
+                                    border = BorderStroke(1.dp, ext.borderSubtle),
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     Row(

@@ -317,5 +317,5 @@ private fun cleanReleaseHighlights(raw: String): List<String> {
         items.addAll(fallbackLines.take(3))
     }
 
-    return if (items.isNotEmpty()) items.distinct().take(4) else listOf("Bug fixes and performance improvements.")
+    return if (items.isNotEmpty()) items.distinct() else listOf("Bug fixes and performance improvements.")
 }

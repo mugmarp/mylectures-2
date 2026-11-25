@@ -295,11 +295,11 @@ fun MainScaffold(
                 Icons.Outlined.TaskAlt
             )
 
-            val isDark = com.lectures.ui.LocalAppTheme.current.isDark
-            val navBg = if (isDark) com.lectures.features.timetable.ui.DarkSurfaceCard else Color.White
-            val navBorder = if (isDark) com.lectures.features.timetable.ui.DarkBorderSubtle else com.lectures.features.timetable.ui.BorderSubtleLight
+            val ext = LocalExtendedColors.current
+            val navBg = ext.surfaceCard
+            val navBorder = ext.borderSubtle
             val primaryBlue = MaterialTheme.colorScheme.primary
-            val textMuted = if (isDark) Color(0xFF94A3B8) else com.lectures.features.timetable.ui.TextMutedLight
+            val textMuted = ext.textMuted
 
             val classAlarmScheduler = remember(context) { com.lectures.core.alarm.AlarmScheduler(context) }
             val taskAlarmScheduler = remember(context) { com.lectures.core.alarm.TaskAlarmScheduler(context) }
@@ -404,14 +404,22 @@ fun MainScaffold(
             fun ForegroundAlertOverlay(modifier: Modifier = Modifier) {
                 AnimatedVisibility(
                     visible = activeForegroundAlert != null,
-                    enter = slideInVertically(
-                        initialOffsetY = { -it },
-                        animationSpec = spring(dampingRatio = 0.75f, stiffness = Spring.StiffnessMedium)
-                    ) + fadeIn(),
-                    exit = slideOutVertically(
-                        targetOffsetY = { -it },
-                        animationSpec = tween(180)
-                    ) + fadeOut(),
+                    enter = if (reducedMotion) {
+                        fadeIn(animationSpec = tween(0))
+                    } else {
+                        slideInVertically(
+                            initialOffsetY = { -it },
+                            animationSpec = spring(dampingRatio = 0.75f, stiffness = Spring.StiffnessMedium)
+                        ) + fadeIn()
+                    },
+                    exit = if (reducedMotion) {
+                        fadeOut(animationSpec = tween(0))
+                    } else {
+                        slideOutVertically(
+                            targetOffsetY = { -it },
+                            animationSpec = tween(180)
+                        ) + fadeOut()
+                    },
                     modifier = modifier
                         .statusBarsPadding()
                         .padding(horizontal = 16.dp, vertical = 8.dp)
@@ -420,7 +428,7 @@ fun MainScaffold(
                     activeForegroundAlert?.let { alert ->
                         Surface(
                             shape = RoundedCornerShape(16.dp),
-                            color = if (isDark) com.lectures.features.timetable.ui.DarkSurfaceCard else Color.White,
+                            color = ext.surfaceCard,
                             border = BorderStroke(1.dp, primaryBlue.copy(alpha = 0.4f)),
                             shadowElevation = 8.dp,
                             modifier = Modifier
@@ -453,7 +461,6 @@ fun MainScaffold(
                                 }
                                 Spacer(modifier = Modifier.width(10.dp))
                                 Column(modifier = Modifier.weight(1f)) {
-                                    val ext = LocalExtendedColors.current
                                     Text(
                                         text = alert.title,
                                         fontSize = 13.5.sp,

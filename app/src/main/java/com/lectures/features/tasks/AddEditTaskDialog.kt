@@ -87,19 +87,21 @@ fun AddTaskDialog(
     onDismiss: () -> Unit,
     onConfirm: (title: String, course: String, dueDate: String, priority: String, reminder: Int?, notes: String, category: TaskCategory) -> Unit
 ) {
+    val taskSaveKey = initialTask?.id ?: -1L
     val initialCatAndTitle = remember(initialTask) {
         if (initialTask != null) resolveTaskCategoryAndTitle(initialTask.title)
         else TaskCategory.ASSIGNMENT to ""
     }
 
-    var title by remember(initialTask) { mutableStateOf(initialCatAndTitle.second) }
-    var category by remember(initialTask) { mutableStateOf(initialCatAndTitle.first) }
-    var course by remember(initialTask) { mutableStateOf(initialTask?.courseCode ?: "") }
-    var dueTime by remember(initialTask) {
+    var title by rememberSaveable(taskSaveKey) { mutableStateOf(initialCatAndTitle.second) }
+    var categoryName by rememberSaveable(taskSaveKey) { mutableStateOf(initialCatAndTitle.first.name) }
+    val category = TaskCategory.entries.firstOrNull { it.name == categoryName } ?: TaskCategory.ASSIGNMENT
+    var course by rememberSaveable(taskSaveKey) { mutableStateOf(initialTask?.courseCode ?: "") }
+    var dueTime by rememberSaveable(taskSaveKey) {
         val extractedTime = TaskDateTimeParser.extractTime(initialTask?.dueDate)
         mutableStateOf(extractedTime ?: "17:00")
     }
-    var dueDateOnly by remember(initialTask) {
+    var dueDateOnly by rememberSaveable(taskSaveKey) {
         val raw = initialTask?.dueDate
         val extractedTime = TaskDateTimeParser.extractTime(raw)
         val cleanDate = if (extractedTime != null && raw != null) {
@@ -114,7 +116,6 @@ fun AddTaskDialog(
     val fullDueDateTime = remember(dueDateOnly, dueTime) {
         if (dueTime.isNotBlank()) "$dueDateOnly $dueTime".trim() else dueDateOnly
     }
-    val taskSaveKey = initialTask?.id ?: -1L
     var priority by rememberSaveable(taskSaveKey) { mutableStateOf(initialTask?.priority ?: "Medium") }
     var reminderMinutes by rememberSaveable(taskSaveKey) { mutableStateOf<Int?>(initialTask?.reminderMinutes ?: defaultReminderMinutes) }
     var notes by rememberSaveable(taskSaveKey) { mutableStateOf(initialTask?.notes ?: "") }
@@ -212,7 +213,7 @@ fun AddTaskDialog(
                         label = "task_cat_border"
                     )
                     Surface(
-                        onClick = { category = cat },
+                        onClick = { categoryName = cat.name },
                         shape = RoundedCornerShape(10.dp),
                         color = chipBg,
                         border = BorderStroke(1.dp, chipBorder),
@@ -316,7 +317,7 @@ fun AddTaskDialog(
                                             Text(
                                                 text = cCode,
                                                 fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.SemiBold,
-                                                color = if (isSelected) primaryColor else (if (isDark) Color.White else Color(0xFF0F172A)),
+                                                color = if (isSelected) primaryColor else ext.textPrimary,
                                                 fontSize = 13.sp
                                             )
                                             if (cTitle.isNotBlank()) {
@@ -556,29 +557,22 @@ fun AddTaskDialog(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(
-                            if (isDark) Color(0xFF064E3B).copy(alpha = 0.4f) else Color(0xFFF0FDF4),
-                            RoundedCornerShape(8.dp)
-                        )
-                        .border(
-                            1.dp,
-                            if (isDark) Color(0xFF065F46) else Color(0xFFBBF7D0),
-                            RoundedCornerShape(8.dp)
-                        )
+                        .background(ext.successBg, RoundedCornerShape(8.dp))
+                        .border(1.dp, ext.successBorder, RoundedCornerShape(8.dp))
                         .padding(horizontal = 10.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
                         Icons.Default.AccessTime,
                         contentDescription = null,
-                        tint = if (isDark) Color(0xFF34D399) else Color(0xFF16A34A),
+                        tint = ext.successIcon,
                         modifier = Modifier.size(14.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         schedulePreview,
                         fontSize = 11.sp,
-                        color = if (isDark) Color(0xFFA7F3D0) else Color(0xFF166534),
+                        color = ext.successText,
                         fontWeight = FontWeight.Medium
                     )
                 }

@@ -22,11 +22,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.PopupProperties
 import com.lectures.features.rooms.Campus
 import com.lectures.features.timetable.domain.TimetableMatcher
-import com.lectures.features.timetable.ui.BorderSubtleLight
-import com.lectures.features.timetable.ui.DarkBorderSubtle
-import com.lectures.features.timetable.ui.DarkSurfaceCard
-import com.lectures.features.timetable.ui.TextMutedLight
-import com.lectures.features.timetable.ui.TextPrimaryLight
+import com.lectures.ui.LocalExtendedColors
 import java.util.Locale
 
 data class ProgrammeLocationDefault(
@@ -100,11 +96,12 @@ fun LocationDropdownSelector(
     menuAlignmentEnd: Boolean = false,
     menuContent: @Composable ColumnScope.() -> Unit
 ) {
+    val ext = LocalExtendedColors.current
     val accentColor = MaterialTheme.colorScheme.primary
-    val surfaceColor = if (isDark) DarkSurfaceCard else Color.White
-    val textPrimary = if (isDark) Color.White else TextPrimaryLight
-    val textMuted = if (isDark) Color(0xFF94A3B8) else TextMutedLight
-    val borderSubtle = if (isDark) DarkBorderSubtle else BorderSubtleLight
+    val surfaceColor = ext.surfaceCard
+    val textPrimary = ext.textPrimary
+    val textMuted = ext.textMuted
+    val borderSubtle = ext.borderSubtle
 
     Box(modifier = modifier) {
         Surface(

@@ -53,7 +53,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lectures.TimetableApplication
 import com.lectures.core.alarm.AlarmScheduler
 import com.lectures.features.timetable.domain.LectureNote
-import com.lectures.features.timetable.ui.DarkSurfaceBase
 import com.lectures.ui.Chrome
 import com.lectures.ui.LocalAppTheme
 import com.lectures.ui.LocalExtendedColors

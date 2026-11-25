@@ -35,6 +35,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lectures.ui.LocalAppTheme
+import com.lectures.ui.LocalExtendedColors
 import com.lectures.ui.components.desktopHandCursor
 import com.lectures.ui.components.desktopHoverable
 
@@ -48,6 +49,7 @@ fun MarkdownViewer(
 ) {
     val context = LocalContext.current
     val isDark = LocalAppTheme.current.isDark
+    val ext = LocalExtendedColors.current
     val blocks = remember(markdown) { MarkdownUtils.parseBlocks(markdown) }
 
     if (markdown.isBlank()) {
@@ -151,8 +153,8 @@ fun MarkdownViewer(
                             Icons.Outlined.Science
                         )
                         CalloutType.QUOTE -> Triple(
-                            if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
-                            if (isDark) com.lectures.features.timetable.ui.DarkSurfaceContainer else Color(0xFFF8FAFC),
+                            ext.textMuted,
+                            ext.surfaceElevated,
                             Icons.Default.FormatQuote
                         )
                     }
@@ -191,6 +193,8 @@ fun MarkdownViewer(
                                         block.content,
                                         isDark,
                                         calloutColor,
+                                        onSurfaceColor = ext.textPrimary,
+                                        codeBgColor = ext.surfaceElevated,
                                         onWikiLinkClick = onWikiLinkClick,
                                         onUrlClick = onUrlClick
                                     ),
@@ -210,8 +214,8 @@ fun MarkdownViewer(
                             .fillMaxWidth()
                             .padding(vertical = 6.dp),
                         shape = RoundedCornerShape(10.dp),
-                        colors = CardDefaults.cardColors(containerColor = if (isDark) com.lectures.features.timetable.ui.DarkSurfaceCard else Color.White),
-                        border = BorderStroke(1.dp, if (isDark) com.lectures.features.timetable.ui.DarkBorderSubtle else Color(0xFFE2E8F0))
+                        colors = CardDefaults.cardColors(containerColor = ext.surfaceCard),
+                        border = BorderStroke(1.dp, ext.borderSubtle)
                     ) {
                         Column(
                             modifier = Modifier
@@ -221,7 +225,7 @@ fun MarkdownViewer(
                             // Header Row
                             Row(
                                 modifier = Modifier
-                                    .background(if (isDark) com.lectures.features.timetable.ui.DarkSurfaceContainer else Color(0xFFF1F5F9))
+                                    .background(ext.surfaceElevated)
                                     .padding(horizontal = 4.dp, vertical = 8.dp)
                             ) {
                                 block.headers.forEachIndexed { colIndex, header ->
@@ -241,6 +245,8 @@ fun MarkdownViewer(
                                                 header,
                                                 isDark,
                                                 MaterialTheme.colorScheme.primary,
+                                                onSurfaceColor = ext.textPrimary,
+                                                codeBgColor = ext.surfaceElevated,
                                                 onWikiLinkClick = onWikiLinkClick,
                                                 onUrlClick = onUrlClick
                                             ),
@@ -257,12 +263,12 @@ fun MarkdownViewer(
                                 }
                             }
 
-                            HorizontalDivider(color = if (isDark) com.lectures.features.timetable.ui.DarkBorderSubtle else Color(0xFFCBD5E1), thickness = 1.dp)
+                            HorizontalDivider(color = ext.borderStrong, thickness = 1.dp)
 
                             // Data Rows
                             block.rows.forEachIndexed { rowIndex, row ->
                                 val rowBg = if (rowIndex % 2 == 1) {
-                                    if (isDark) com.lectures.features.timetable.ui.DarkSurfaceBase.copy(alpha = 0.55f) else Color(0xFFF8FAFC)
+                                    ext.surfaceBase.copy(alpha = 0.6f)
                                 } else Color.Transparent
 
                                 Row(
@@ -287,6 +293,8 @@ fun MarkdownViewer(
                                                     cell,
                                                     isDark,
                                                     MaterialTheme.colorScheme.primary,
+                                                    onSurfaceColor = ext.textPrimary,
+                                                    codeBgColor = ext.surfaceElevated,
                                                     onWikiLinkClick = onWikiLinkClick,
                                                     onUrlClick = onUrlClick
                                                 ),
@@ -303,7 +311,7 @@ fun MarkdownViewer(
                                     }
                                 }
                                 if (rowIndex < block.rows.lastIndex) {
-                                    HorizontalDivider(color = if (isDark) com.lectures.features.timetable.ui.DarkBorderSubtle.copy(alpha = 0.55f) else Color(0xFFE2E8F0), thickness = 0.5.dp)
+                                    HorizontalDivider(color = ext.borderSubtle.copy(alpha = 0.65f), thickness = 0.5.dp)
                                 }
                             }
                         }
@@ -318,9 +326,9 @@ fun MarkdownViewer(
                             .padding(vertical = 6.dp),
                         shape = RoundedCornerShape(12.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = if (isDark) com.lectures.features.timetable.ui.DarkSurfaceBase else Color(0xFFF0FDF4)
+                            containerColor = if (isDark) ext.surfaceBase else ext.infoBg
                         ),
-                        border = BorderStroke(1.dp, if (isDark) com.lectures.features.timetable.ui.DarkBorderSubtle else Color(0xFFBFDBFE))
+                        border = BorderStroke(1.dp, if (isDark) ext.borderSubtle else ext.infoBorder)
                     ) {
                         Column(
                             modifier = Modifier
@@ -354,7 +362,7 @@ fun MarkdownViewer(
                                         Icon(
                                             Icons.Outlined.ContentCopy,
                                             contentDescription = "Copy formula",
-                                            tint = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
+                                            tint = ext.textMuted,
                                             modifier = Modifier.size(18.dp)
                                         )
                                     }
@@ -410,6 +418,8 @@ fun MarkdownViewer(
                                 block.text,
                                 isDark,
                                 MaterialTheme.colorScheme.primary,
+                                onSurfaceColor = ext.textPrimary,
+                                codeBgColor = ext.surfaceElevated,
                                 onWikiLinkClick = onWikiLinkClick,
                                 onUrlClick = onUrlClick
                             ),
@@ -447,6 +457,8 @@ fun MarkdownViewer(
                                 block.text,
                                 isDark,
                                 MaterialTheme.colorScheme.primary,
+                                onSurfaceColor = ext.textPrimary,
+                                codeBgColor = ext.surfaceElevated,
                                 onWikiLinkClick = onWikiLinkClick,
                                 onUrlClick = onUrlClick
                             ),
@@ -488,6 +500,8 @@ fun MarkdownViewer(
                                 block.text,
                                 isDark,
                                 MaterialTheme.colorScheme.primary,
+                                onSurfaceColor = ext.textPrimary,
+                                codeBgColor = ext.surfaceElevated,
                                 onWikiLinkClick = onWikiLinkClick,
                                 onUrlClick = onUrlClick
                             ),
@@ -527,6 +541,8 @@ fun MarkdownViewer(
                                     block.text,
                                     isDark,
                                     MaterialTheme.colorScheme.primary,
+                                    onSurfaceColor = ext.textPrimary,
+                                    codeBgColor = ext.surfaceElevated,
                                     onWikiLinkClick = onWikiLinkClick,
                                     onUrlClick = onUrlClick
                                 ),
@@ -611,6 +627,8 @@ fun MarkdownViewer(
                             block.text,
                             isDark,
                             MaterialTheme.colorScheme.primary,
+                            onSurfaceColor = ext.textPrimary,
+                            codeBgColor = ext.surfaceElevated,
                             onWikiLinkClick = onWikiLinkClick,
                             onUrlClick = onUrlClick
                         ),

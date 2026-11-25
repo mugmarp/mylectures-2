@@ -61,8 +61,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.lectures.features.timetable.ui.DarkSurfaceBase
-import com.lectures.features.timetable.ui.DarkSurfaceCard
 import com.lectures.ui.AccentColorNames
 import com.lectures.ui.AppThemeState
 import com.lectures.ui.LocalExtendedColors
@@ -193,7 +191,7 @@ internal fun ThemeSelectionCard(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
-                            .background(DarkSurfaceBase)
+                            .background(Color(0xFF101216))
                             .padding(5.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
@@ -208,7 +206,7 @@ internal fun ThemeSelectionCard(
                                 .fillMaxWidth()
                                 .height(18.dp)
                                 .clip(RoundedCornerShape(4.dp))
-                                .background(DarkSurfaceCard)
+                                .background(Color(0xFF181B22))
                                 .padding(4.dp)
                         ) {
                             Box(
@@ -356,8 +354,8 @@ internal fun AppearanceSettingsView(
                     subtitle = "Night comfort",
                     icon = Icons.Default.DarkMode,
                     isSelected = appTheme.themeMode == ThemeMode.DARK,
-                    previewBgColor = DarkSurfaceBase,
-                    previewCardColor = DarkSurfaceCard,
+                    previewBgColor = Color(0xFF101216),
+                    previewCardColor = Color(0xFF181B22),
                     previewTextColor = Color(0xFFF1F5F9),
                     modifier = Modifier
                         .weight(1f)
@@ -371,7 +369,7 @@ internal fun AppearanceSettingsView(
                     icon = Icons.Default.BrightnessAuto,
                     isSelected = appTheme.themeMode == ThemeMode.SYSTEM,
                     previewBgColor = Color(0xFFE2E8F0),
-                    previewCardColor = DarkSurfaceCard,
+                    previewCardColor = Color(0xFF181B22),
                     previewTextColor = Color(0xFF1E293B),
                     isSplitSystemPreview = true,
                     modifier = Modifier

@@ -75,7 +75,6 @@ fun NextUpHeroCard(
         }
     }
     val darkAccentGlow = AccentDarkColors[safeAccentIdx]
-    val cardTextPrimary = if (isDark) ext.textPrimary else Color.White
 
     Box(
         modifier = modifier
@@ -120,7 +119,7 @@ fun NextUpHeroCard(
                     Box(
                         modifier = Modifier
                             .size(6.dp)
-                            .background(StatusGreenLive, CircleShape)
+                            .background(Color(0xFF4ADE80), CircleShape)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
@@ -342,7 +341,7 @@ fun NextUpHeroCard(
                         .desktopHandCursor(),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color.White.copy(alpha = if (isDark) 0.14f else 0.2f),
-                        contentColor = cardTextPrimary
+                        contentColor = Color.White
                     ),
                     shape = ActionButtonShape,
                     contentPadding = PaddingValues(horizontal = 12.dp)

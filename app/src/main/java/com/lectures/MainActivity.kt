@@ -48,8 +48,33 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val savedMode = runCatching {
+                val repo = (application as? TimetableApplication)?.repository
+                ThemeMode.valueOf((repo?.getThemeMode() ?: "LIGHT").uppercase(java.util.Locale.ROOT))
+            }.getOrDefault(ThemeMode.LIGHT)
+            val targetNightMode = when (savedMode) {
+                ThemeMode.LIGHT -> UiModeManager.MODE_NIGHT_NO
+                ThemeMode.DARK -> UiModeManager.MODE_NIGHT_YES
+                ThemeMode.SYSTEM -> UiModeManager.MODE_NIGHT_AUTO
+            }
+            runCatching {
+                getSystemService(UiModeManager::class.java)?.setApplicationNightMode(targetNightMode)
+            }
+        }
         val splashScreen = installSplashScreen()
         splashScreen.setOnExitAnimationListener { splashScreenView ->
+            val prefersReducedMotion = runCatching {
+                android.provider.Settings.Global.getFloat(
+                    contentResolver,
+                    android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,
+                    1f
+                ) == 0f
+            }.getOrDefault(false)
+            if (prefersReducedMotion) {
+                splashScreenView.remove()
+                return@setOnExitAnimationListener
+            }
             val iconView = splashScreenView.iconView
             splashScreenView.view.animate()
                 .alpha(0f)

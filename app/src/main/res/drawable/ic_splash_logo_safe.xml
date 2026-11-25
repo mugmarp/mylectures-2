@@ -5,12 +5,12 @@
     android:viewportWidth="1024"
     android:viewportHeight="1024">
 
-    <!-- Scaled group centered at (512, 512) scaled to 0.62 so the entire crest fits inside the 2/3 Android 12+ splash circular safe zone without clipping -->
+    <!-- Scaled group centered at (512, 512) scaled to 0.58 so the entire crest fits cleanly inside the 2/3 Android 12+ splash circular badge without clipping -->
     <group
         android:pivotX="512"
         android:pivotY="512"
-        android:scaleX="0.62"
-        android:scaleY="0.62">
+        android:scaleX="0.58"
+        android:scaleY="0.58">
 
         <!-- Inner circular crest disc (clean white backing for emblem details) -->
         <path

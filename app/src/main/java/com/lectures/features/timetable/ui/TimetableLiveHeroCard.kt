@@ -115,7 +115,7 @@ fun HappeningNowHeroCard(
             ) {
                 LivePulseBadge(
                     text = "HAPPENING NOW",
-                    dotColor = StatusGreenLive,
+                    dotColor = Color(0xFF4ADE80),
                     containerColor = Color.White.copy(alpha = 0.2f),
                     contentColor = Color.White,
                     shape = RoundedCornerShape(12.dp),
@@ -206,7 +206,7 @@ fun HappeningNowHeroCard(
                         Box(
                             modifier = Modifier
                                 .size(5.dp)
-                                .background(ProgressIndicatorActive, CircleShape)
+                                .background(Color(0xFF4ADE80), CircleShape)
                         )
                         Spacer(modifier = Modifier.width(5.dp))
                         Text(
@@ -220,7 +220,7 @@ fun HappeningNowHeroCard(
                     Text(
                         text = remainingText,
                         fontSize = 11.sp,
-                        color = ProgressIndicatorActive,
+                        color = Color(0xFF4ADE80),
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -238,7 +238,7 @@ fun HappeningNowHeroCard(
                         .fillMaxWidth()
                         .height(8.dp)
                         .clip(ProgressTrackShape)
-                        .background(ProgressTrackBackground)
+                        .background(Color.White.copy(alpha = 0.25f))
                 ) {
                     Box(
                         modifier = Modifier

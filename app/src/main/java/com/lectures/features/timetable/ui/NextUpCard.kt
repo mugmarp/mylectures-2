@@ -54,33 +54,46 @@ fun NextUpCard(entry: TimetableEntry, minutesUntil: Int, onClick: () -> Unit) {
     val safeAccentIdx = appTheme.accentIndex.coerceIn(0, AccentColors.lastIndex)
     val darkBorderGlow = AccentDarkColors[safeAccentIdx]
     val cardBrush = if (isDark) {
+        val start = when (safeAccentIdx) {
+            0 -> Color(0xFF15223B)
+            1 -> Color(0xFF0A2E25)
+            2 -> Color(0xFF22163B)
+            3 -> Color(0xFF2E1B08)
+            else -> Color(0xFF0D283A)
+        }
+        val end = when (safeAccentIdx) {
+            0 -> Color(0xFF1B1938)
+            1 -> Color(0xFF0B221D)
+            2 -> Color(0xFF1A1430)
+            3 -> Color(0xFF22160A)
+            else -> Color(0xFF0C1E2E)
+        }
         if (isLive) {
-            Brush.horizontalGradient(listOf(Color(0xFF152544), Color(0xFF1F1D45), Color(0xFF281A4B)))
+            Brush.horizontalGradient(listOf(start, end, darkBorderGlow.copy(alpha = 0.35f)))
         } else {
-            val start = when (safeAccentIdx) {
-                0 -> Color(0xFF15223B)
-                1 -> Color(0xFF0A2E25)
-                2 -> Color(0xFF22163B)
-                3 -> Color(0xFF2E1B08)
-                else -> Color(0xFF0D283A)
-            }
-            val end = when (safeAccentIdx) {
-                0 -> Color(0xFF1B1938)
-                1 -> Color(0xFF0B221D)
-                2 -> Color(0xFF1A1430)
-                3 -> Color(0xFF22160A)
-                else -> Color(0xFF0C1E2E)
-            }
             Brush.horizontalGradient(listOf(start, end))
         }
     } else {
-        Brush.horizontalGradient(
-            if (isLive) {
-                listOf(Color(0xFF1E40AF), Color(0xFF4338CA), Color(0xFF6D28D9))
-            } else {
-                listOf(MaterialTheme.colorScheme.primary, Color(0xFF6D28D9))
+        val start = AccentColors[safeAccentIdx]
+        val end = when (safeAccentIdx) {
+            0 -> Color(0xFF4F46E5)
+            1 -> Color(0xFF047857)
+            2 -> Color(0xFF5B21B6)
+            3 -> Color(0xFFB45309)
+            else -> Color(0xFF0369A1)
+        }
+        if (isLive) {
+            val mid = when (safeAccentIdx) {
+                0 -> Color(0xFF1E40AF)
+                1 -> Color(0xFF059669)
+                2 -> Color(0xFF6D28D9)
+                3 -> Color(0xFFD97706)
+                else -> Color(0xFF0284C7)
             }
-        )
+            Brush.horizontalGradient(listOf(mid, start, end))
+        } else {
+            Brush.horizontalGradient(listOf(start, end))
+        }
     }
 
     Box(

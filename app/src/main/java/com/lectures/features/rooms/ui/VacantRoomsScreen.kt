@@ -47,7 +47,6 @@ import com.lectures.features.rooms.BuildingLevel
 import com.lectures.features.rooms.RoomType
 import com.lectures.features.rooms.SuggestionValue
 import com.lectures.features.rooms.UniversityDirectory
-import com.lectures.features.timetable.ui.*
 import com.lectures.ui.LocalAppTheme
 import com.lectures.ui.LocalExtendedColors
 import com.lectures.ui.MotionSpec
@@ -330,21 +329,21 @@ fun VacantRoomsScreen(
                             Spacer(modifier = Modifier.width(8.dp))
                             Box(
                                 modifier = Modifier
-                                    .background(StatusGreenLive.copy(alpha = 0.15f), RoundedCornerShape(6.dp))
+                                    .background(ext.successBg, RoundedCornerShape(6.dp))
                                     .padding(horizontal = 6.dp, vertical = 2.dp)
                             ) {
                                 Text(
                                     text = "${vacancyStatuses.size} rooms",
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = StatusGreenLive
+                                    color = ext.successText
                                 )
                             }
                         }
                         Spacer(modifier = Modifier.height(2.dp))
                         Surface(
                             shape = RoundedCornerShape(6.dp),
-                            color = if (isLiveNow) StatusGreenLive.copy(alpha = 0.12f) else accentColor.copy(alpha = 0.12f),
+                            color = if (isLiveNow) ext.successBg else accentColor.copy(alpha = 0.12f),
                             modifier = Modifier
                                 .minimumInteractiveComponentSize()
                                 .desktopHandCursor()
@@ -363,20 +362,20 @@ fun VacantRoomsScreen(
                                 Box(
                                     modifier = Modifier
                                         .size(6.dp)
-                                        .background(if (isLiveNow) StatusGreenLive else accentColor, CircleShape)
+                                        .background(if (isLiveNow) ext.successIcon else accentColor, CircleShape)
                                 )
                                 Spacer(modifier = Modifier.width(5.dp))
                                 Text(
                                     text = if (isLiveNow) "Live Now · $queryDay $queryTime" else "$queryDay · $queryTime",
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.SemiBold,
-                                    color = if (isLiveNow) (if (isDark) Color(0xFF86EFAC) else Color(0xFF15803D)) else accentColor
+                                    color = if (isLiveNow) ext.successText else accentColor
                                 )
                                 Spacer(modifier = Modifier.width(3.dp))
                                 Icon(
                                     imageVector = Icons.Default.ArrowDropDown,
                                     contentDescription = if (showDesktopSplit) "Select query time" else "Open Filter and Schedule Options",
-                                    tint = if (isLiveNow) (if (isDark) Color(0xFF86EFAC) else Color(0xFF15803D)) else accentColor,
+                                    tint = if (isLiveNow) ext.successText else accentColor,
                                     modifier = Modifier.size(15.dp)
                                 )
                             }
@@ -848,6 +847,7 @@ private fun VacantRoomsStatusSummaryRow(
     isDark: Boolean,
     textMuted: Color
 ) {
+    val ext = LocalExtendedColors.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -862,14 +862,14 @@ private fun VacantRoomsStatusSummaryRow(
             Box(
                 modifier = Modifier
                     .size(7.dp)
-                    .background(if (isLiveNow) StatusGreenLive else Color(0xFFF59E0B), CircleShape)
+                    .background(if (isLiveNow) ext.successIcon else ext.warningIcon, CircleShape)
             )
             Spacer(modifier = Modifier.width(6.dp))
             Text(
                 text = if (isLiveNow) "$freeCount free now" else "$queryDay $queryTime · $freeCount free",
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
-                color = if (isDark) Color(0xFF86EFAC) else Color(0xFF15803D)
+                color = ext.successText
             )
             if (occupiedCount > 0) {
                 Text(

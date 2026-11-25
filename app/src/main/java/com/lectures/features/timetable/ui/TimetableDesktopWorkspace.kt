@@ -349,13 +349,13 @@ private fun DesktopTimetableToolbar(
                 ) {
                     Surface(
                         shape = RoundedCornerShape(8.dp),
-                        color = if (globalNextUp.isLive) StatusGreenLive else accent
+                        color = if (globalNextUp.isLive) ext.successIcon else accent
                     ) {
                         Text(
                             text = if (globalNextUp.isLive) "LIVE" else "NEXT",
                             fontSize = 10.sp,
                             fontWeight = FontWeight.ExtraBold,
-                            color = contrastOnColor(if (globalNextUp.isLive) StatusGreenLive else accent),
+                            color = contrastOnColor(if (globalNextUp.isLive) ext.successIcon else accent),
                             modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
                         )
                     }
@@ -519,6 +519,7 @@ private fun WeeklyTimetableMatrix(
     val ext = LocalExtendedColors.current
     val reducedMotion = rememberPrefersReducedMotion()
     val accent = MaterialTheme.colorScheme.primary
+    val clockPulse = com.lectures.core.util.rememberLiveClockPulse()
     val hasSundayItems = remember(entries, customEvents) {
         entries.any { it.dayOfWeek.equals("Sunday", ignoreCase = true) } ||
             customEvents.any { it.dayOfWeek.equals("Sunday", ignoreCase = true) }
@@ -696,8 +697,10 @@ private fun WeeklyTimetableMatrix(
 
                                 // Current time line on Today column
                                 if (isToday) {
-                                    val nowCal = Calendar.getInstance()
-                                    val nowMin = nowCal.get(Calendar.HOUR_OF_DAY) * 60 + nowCal.get(Calendar.MINUTE)
+                                    val nowMin = remember(clockPulse) {
+                                        val nowCal = Calendar.getInstance()
+                                        nowCal.get(Calendar.HOUR_OF_DAY) * 60 + nowCal.get(Calendar.MINUTE)
+                                    }
                                     if (nowMin in (startHour * 60)..(endHour * 60)) {
                                         val offsetY = hourHeightDp * ((nowMin - startHour * 60) / 60f)
                                         Box(
@@ -927,6 +930,7 @@ private fun DesktopDayTimelinePane(
 ) {
     val isDark = LocalAppTheme.current.isDark
     val isViewingToday = selectedDay.equals(todayName, ignoreCase = true)
+    val clockPulse = if (isViewingToday) com.lectures.core.util.rememberLiveClockPulse() else 0L
     val specDays = remember(daysList, selectedDay, todayName) {
         daysList.map { d -> SpecDayItem(d, d.equals(todayName, ignoreCase = true), d.equals(selectedDay, ignoreCase = true)) }
     }
@@ -961,11 +965,14 @@ private fun DesktopDayTimelinePane(
             }
         } else {
             items(dayEntries, key = { it.naturalKey.ifBlank { "${it.courseCode}_${it.startTime}" } }) { entry ->
+                val progress = remember(entry, isViewingToday, clockPulse) {
+                    if (isViewingToday) TimeUtil.calculateProgress(entry.startTime, entry.endTime, entry.dayOfWeek) else null
+                }
                 val spec = entry.toSpecClassSession(
                     currentProgramme = programme,
                     hasConflict = TimetableConflictDetector.hasConflict(entry, dayEntries),
                     note = notes[entry.naturalKey],
-                    progress = if (isViewingToday) TimeUtil.calculateProgress(entry.startTime, entry.endTime, entry.dayOfWeek) else null
+                    progress = progress
                 )
                 val isSelected = entry.naturalKey == selectedEntryKey
                 Box(
@@ -1041,7 +1048,11 @@ private fun DockedActivityInspector(
     val ext = LocalExtendedColors.current
     val accent = MaterialTheme.colorScheme.primary
     Column(modifier = Modifier.fillMaxSize()) {
-        InspectorHeader(title = "Activity Inspector", subtitle = event.category, onClose = onClose)
+        InspectorHeader(
+            title = "Activity Inspector",
+            subtitle = ActivityCategory.fromName(event.category).displayName,
+            onClose = onClose
+        )
         HorizontalDivider(color = ext.borderSubtle)
         Column(
             modifier = Modifier

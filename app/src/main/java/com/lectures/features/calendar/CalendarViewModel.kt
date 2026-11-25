@@ -10,6 +10,7 @@ import com.lectures.core.util.TimeUtil
 import com.lectures.features.timetable.data.TimetableRepository
 import com.lectures.features.timetable.domain.Assignment
 import com.lectures.features.timetable.domain.CustomEvent
+import com.lectures.features.timetable.domain.LectureNote
 import com.lectures.features.timetable.domain.TimetableEntry
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -58,6 +59,7 @@ data class CalendarUiState(
     val entries: List<TimetableEntry> = emptyList(),
     val assignments: List<Assignment> = emptyList(),
     val customEvents: List<CustomEvent> = emptyList(),
+    val notes: Map<String, LectureNote> = emptyMap(),
     val selectedFilter: CalendarFilter = CalendarFilter.ALL,
     val activeTabMode: CalendarTabMode = CalendarTabMode.MONTH_PLANNER,
     val yearMonthText: String = "",
@@ -129,6 +131,15 @@ class CalendarViewModel(
         viewModelScope.launch {
             repository.getCustomEvents().collect { events ->
                 _uiState.value = _uiState.value.copy(customEvents = events)
+            }
+        }
+
+        // Observe lecture notes and class alarms
+        viewModelScope.launch {
+            repository.getAllNotes().collect { notesList ->
+                _uiState.value = _uiState.value.copy(
+                    notes = notesList.associateBy { it.naturalKey }
+                )
             }
         }
     }

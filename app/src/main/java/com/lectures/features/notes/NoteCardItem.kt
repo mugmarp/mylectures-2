@@ -23,8 +23,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lectures.core.util.rememberLifecycleGatedClockPulse
 import com.lectures.features.timetable.domain.LectureNote
-import com.lectures.features.timetable.ui.DarkBorderSubtle
-import com.lectures.features.timetable.ui.DarkSurfaceCard
 import com.lectures.ui.LocalExtendedColors
 import com.lectures.ui.MotionSpec
 import com.lectures.ui.components.desktopHandCursor
@@ -121,14 +119,14 @@ fun NoteCardItem(
                         "Study Guide" -> if (isDark) Color(0xFF1E3A8A) else Color(0xFFEFF6FF)
                         "Revision", "Exam Prep" -> if (isDark) Color(0xFF064E3B) else Color(0xFFECFDF5)
                         "Assignment" -> if (isDark) Color(0xFF581C87) else Color(0xFFF3E8FF)
-                        else -> if (isDark) com.lectures.features.timetable.ui.DarkSurfaceContainer else Color(0xFFF1F5F9)
+                        else -> ext.surfaceElevated
                     }
                     val tagText = when (categoryTag) {
                         "Lab Prep" -> if (isDark) Color(0xFFA5B4FC) else Color(0xFF4338CA)
                         "Study Guide" -> if (isDark) Color(0xFF93C5FD) else Color(0xFF1D4ED8)
                         "Revision", "Exam Prep" -> if (isDark) Color(0xFF6EE7B7) else Color(0xFF047857)
                         "Assignment" -> if (isDark) Color(0xFFD8B4FE) else Color(0xFF7E22CE)
-                        else -> if (isDark) Color(0xFFCBD5E1) else Color(0xFF334155)
+                        else -> ext.textSecondary
                     }
 
                     Box(
@@ -152,7 +150,7 @@ fun NoteCardItem(
                         modifier = Modifier
                             .weight(1f, fill = false)
                             .clip(RoundedCornerShape(8.dp))
-                            .background(if (isDark) com.lectures.features.timetable.ui.DarkSurfaceContainer else Color(0xFFF1F5F9))
+                            .background(ext.surfaceElevated)
                             .padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
                         Text(
@@ -250,7 +248,7 @@ fun NoteCardItem(
                 text = note.title ?: "Academic Note: $courseCode",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
-                color = if (isDark) Color.White else Color(0xFF0F172A),
+                color = ext.textPrimary,
                 lineHeight = 22.sp
             )
 
@@ -263,7 +261,7 @@ fun NoteCardItem(
             Text(
                 text = cleanPreview,
                 fontSize = 13.sp,
-                color = if (isDark) Color(0xFFCBD5E1) else Color(0xFF475569),
+                color = ext.textSecondary,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 lineHeight = 18.sp
@@ -321,7 +319,7 @@ fun NoteCardItem(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(
-                                    if (isComplete) (if (isDark) Color(0xFF064E3B).copy(alpha = 0.5f) else Color(0xFFDCFCE7))
+                                    if (isComplete) ext.successBg
                                     else accentColor.copy(alpha = if (isDark) 0.22f else 0.1f)
                                 )
                                 .padding(horizontal = 8.dp, vertical = 4.dp)
@@ -330,14 +328,14 @@ fun NoteCardItem(
                                 Icon(
                                     if (isComplete) Icons.Default.CheckCircle else Icons.Default.Checklist,
                                     contentDescription = null,
-                                    tint = if (isComplete) (if (isDark) Color(0xFF6EE7B7) else Color(0xFF15803D)) else accentColor,
+                                    tint = if (isComplete) ext.successIcon else accentColor,
                                     modifier = Modifier.size(12.dp)
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
                                     "$done/$total tasks",
                                     fontSize = 11.sp,
-                                    color = if (isComplete) (if (isDark) Color(0xFF6EE7B7) else Color(0xFF15803D)) else accentColor,
+                                    color = if (isComplete) ext.successText else accentColor,
                                     fontWeight = FontWeight.SemiBold,
                                     maxLines = 1,
                                     softWrap = false
@@ -354,14 +352,14 @@ fun NoteCardItem(
                         Icon(
                             Icons.Default.AttachFile,
                             contentDescription = null,
-                            tint = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
+                            tint = ext.textMuted,
                             modifier = Modifier.size(13.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             if (note.attachmentPath != null) "1 File" else "Name only",
                             fontSize = 11.sp,
-                            color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
+                            color = ext.textMuted,
                             fontWeight = FontWeight.Medium,
                             maxLines = 1,
                             softWrap = false
@@ -383,7 +381,7 @@ fun NoteCardItem(
                     Text(
                         text = relativeTime,
                         fontSize = 11.sp,
-                        color = Color(0xFF94A3B8),
+                        color = ext.textMuted,
                         maxLines = 1,
                         softWrap = false
                     )

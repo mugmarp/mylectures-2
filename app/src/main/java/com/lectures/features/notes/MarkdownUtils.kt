@@ -434,7 +434,7 @@ object MarkdownUtils {
         isDark: Boolean,
         primaryColor: Color = Color(0xFF2563EB),
         onSurfaceColor: Color = if (isDark) Color(0xFFF1F5F9) else Color(0xFF0F172A),
-        codeBgColor: Color = if (isDark) com.lectures.features.timetable.ui.DarkSurfaceContainer else Color(0xFFF1F5F9),
+        codeBgColor: Color = if (isDark) Color(0xFF20242D) else Color(0xFFF1F5F9),
         onWikiLinkClick: ((String) -> Unit)? = null,
         onUrlClick: ((String) -> Unit)? = null
     ): AnnotatedString {
@@ -505,7 +505,7 @@ object MarkdownUtils {
                                 fontStyle = FontStyle.Italic,
                                 fontFamily = FontFamily.Serif,
                                 color = if (isDark) Color(0xFF93C5FD) else Color(0xFF1D4ED8),
-                                background = if (isDark) com.lectures.features.timetable.ui.DarkSurfaceContainer else Color(0xFFEFF6FF),
+                                background = if (isDark) Color(0xFF20242D) else Color(0xFFEFF6FF),
                                 fontWeight = FontWeight.Medium
                             )
                         )
@@ -750,7 +750,7 @@ object MarkdownUtils {
                     SpanStyle(
                         fontFamily = FontFamily.Monospace,
                         color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0369A1),
-                        background = if (isDark) com.lectures.features.timetable.ui.DarkSurfaceContainer else Color(0xFFF1F5F9)
+                        background = if (isDark) Color(0xFF20242D) else Color(0xFFF1F5F9)
                     ),
                     match.range.first,
                     match.range.last + 1
