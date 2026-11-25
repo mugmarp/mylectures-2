@@ -3,7 +3,9 @@ package com.lectures
 import android.app.Application
 import android.content.Context
 import android.content.res.Configuration
+import android.graphics.drawable.ColorDrawable
 import androidx.compose.material3.MaterialTheme
+import androidx.core.content.ContextCompat
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -58,6 +60,7 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
@@ -337,5 +340,37 @@ class ThemeAndDarkModeTest {
         composeRule.onNodeWithText("WCAG Contrast OK")
             .performScrollTo()
             .assertIsDisplayed()
+    }
+
+    @Test
+    fun splashResources_useStandardIntrinsicBoundsAndOpaqueThemeColors() {
+        val splashIcon = ContextCompat.getDrawable(app, R.drawable.ic_splash_logo_safe)
+        assertTrue("Splash logo drawable must load cleanly", splashIcon != null)
+        val density = app.resources.displayMetrics.density
+        val expectedPx = (288f * density).toInt()
+        assertEquals(expectedPx, splashIcon!!.intrinsicWidth)
+        assertEquals(expectedPx, splashIcon.intrinsicHeight)
+
+        val lightLaunchColor = ContextCompat.getColor(app, R.color.launch_background)
+        assertEquals(0xFFF8FAFC.toInt(), lightLaunchColor)
+
+        val nightConfig = Configuration(app.resources.configuration).apply {
+            uiMode = (uiMode and Configuration.UI_MODE_NIGHT_MASK.inv()) or Configuration.UI_MODE_NIGHT_YES
+        }
+        val nightContext = app.createConfigurationContext(nightConfig)
+        val nightLaunchColor = ContextCompat.getColor(nightContext, R.color.launch_background)
+        assertEquals(0xFF101216.toInt(), nightLaunchColor)
+    }
+
+    @Test
+    fun mainActivity_setsOpaqueWindowBackgroundMatchingThemeInsteadOfTransparentBlack() {
+        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val activity = controller.get()
+        composeRule.waitForIdle()
+
+        val bg = activity.window.decorView.background as? ColorDrawable
+        assertTrue("Activity window background must be an opaque ColorDrawable, not transparent", bg != null)
+        assertEquals(0xFFF8FAFC.toInt(), bg!!.color)
+        controller.pause().stop().destroy()
     }
 }

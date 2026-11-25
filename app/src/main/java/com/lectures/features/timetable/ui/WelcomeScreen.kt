@@ -256,7 +256,7 @@ fun WelcomeScreen(
             Surface(
                 modifier = Modifier.size(logoSize),
                 shape = RoundedCornerShape(26.dp),
-                color = cardBg,
+                color = if (isDark) Color(0xFFF1F5F9) else Color.White,
                 shadowElevation = 6.dp,
                 border = BorderStroke(1.5.dp, if (isDark) DarkBorderSubtle else Color(0xFFDBEAFE))
             ) {

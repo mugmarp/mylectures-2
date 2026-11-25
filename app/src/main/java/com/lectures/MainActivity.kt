@@ -1,11 +1,15 @@
 package com.lectures
 
+import android.app.UiModeManager
 import android.content.Intent
+import android.graphics.drawable.ColorDrawable
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -44,9 +48,9 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        window.setBackgroundDrawableResource(android.R.color.transparent)
 
         if (savedInstanceState == null) {
             // Process notification intent extras on cold start only (never replay across rotation).
@@ -98,7 +102,23 @@ class MainActivity : ComponentActivity() {
                 }
             ) {
                 val isDarkEffective = LocalAppTheme.current.isDark
+                LaunchedEffect(themeMode) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        val uiModeManager = getSystemService(UiModeManager::class.java)
+                        val targetNightMode = when (themeMode) {
+                            ThemeMode.LIGHT -> UiModeManager.MODE_NIGHT_NO
+                            ThemeMode.DARK -> UiModeManager.MODE_NIGHT_YES
+                            ThemeMode.SYSTEM -> UiModeManager.MODE_NIGHT_AUTO
+                        }
+                        runCatching { uiModeManager?.setApplicationNightMode(targetNightMode) }
+                    }
+                }
                 DisposableEffect(isDarkEffective) {
+                    window.setBackgroundDrawable(
+                        ColorDrawable(
+                            if (isDarkEffective) 0xFF101216.toInt() else 0xFFF8FAFC.toInt()
+                        )
+                    )
                     enableEdgeToEdge(
                         statusBarStyle = if (isDarkEffective) {
                             SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)

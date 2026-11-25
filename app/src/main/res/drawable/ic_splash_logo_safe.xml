@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="1024dp"
-    android:height="1024dp"
+    android:width="288dp"
+    android:height="288dp"
     android:viewportWidth="1024"
     android:viewportHeight="1024">
 
-    <!-- Scaled group centered at (512, 512) scaled to 0.72 so that entire crest is well inside the 160dp/100dp Android 12 circle safe zone -->
+    <!-- Scaled group centered at (512, 512) scaled to 0.62 so the entire crest fits inside the 2/3 Android 12+ splash circular safe zone without clipping -->
     <group
         android:pivotX="512"
         android:pivotY="512"
-        android:scaleX="0.72"
-        android:scaleY="0.72">
+        android:scaleX="0.62"
+        android:scaleY="0.62">
 
         <!-- Inner circular crest disc (clean white backing for emblem details) -->
         <path

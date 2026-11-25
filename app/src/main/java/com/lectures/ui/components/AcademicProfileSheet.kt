@@ -126,7 +126,7 @@ fun AcademicProfileSheet(
                     modifier = Modifier
                         .size(56.dp)
                         .clip(CircleShape)
-                        .background(if (isDark) DarkSurfaceContainer else Color.White)
+                        .background(if (isDark) Color(0xFFF1F5F9) else Color.White)
                         .border(1.5.dp, accentColor.copy(alpha = 0.5f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
