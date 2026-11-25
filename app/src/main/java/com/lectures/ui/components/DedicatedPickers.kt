@@ -34,7 +34,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -541,14 +546,9 @@ fun DedicatedCalendarDatePickerDialog(
 
                                             Box(
                                                 modifier = Modifier
-                                                    .size(38.dp)
-                                                    .clip(RoundedCornerShape(10.dp))
-                                                    .background(cellBg)
-                                                    .then(
-                                                        if (isCellToday && !isCellSelected) {
-                                                            Modifier.border(1.5.dp, primaryColor, RoundedCornerShape(10.dp))
-                                                        } else Modifier
-                                                    )
+                                                    .fillMaxWidth()
+                                                    .defaultMinSize(minHeight = 48.dp)
+                                                    .clip(RoundedCornerShape(12.dp))
                                                     .desktopHandCursor()
                                                     .clickable {
                                                         selectedYear = gridYear
@@ -557,16 +557,29 @@ fun DedicatedCalendarDatePickerDialog(
                                                     },
                                                 contentAlignment = Alignment.Center
                                             ) {
-                                                Text(
-                                                    text = "$currentDay",
-                                                    fontSize = 13.sp,
-                                                    fontWeight = if (isCellSelected || isCellToday) FontWeight.Bold else FontWeight.Medium,
-                                                    color = cellTextColor
-                                                )
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(38.dp)
+                                                        .clip(RoundedCornerShape(10.dp))
+                                                        .background(cellBg)
+                                                        .then(
+                                                            if (isCellToday && !isCellSelected) {
+                                                                Modifier.border(1.5.dp, primaryColor, RoundedCornerShape(10.dp))
+                                                            } else Modifier
+                                                        ),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Text(
+                                                        text = "$currentDay",
+                                                        fontSize = 13.sp,
+                                                        fontWeight = if (isCellSelected || isCellToday) FontWeight.Bold else FontWeight.Medium,
+                                                        color = cellTextColor
+                                                    )
+                                                }
                                             }
                                             dayCounter++
                                         } else {
-                                            Spacer(modifier = Modifier.size(38.dp))
+                                            Spacer(modifier = Modifier.height(48.dp))
                                         }
                                     }
                                 }
@@ -1017,6 +1030,8 @@ fun DedicatedCoursePickerDialog(
     val accentColor = MaterialTheme.colorScheme.primary
     val ext = LocalExtendedColors.current
     val reducedMotion = rememberPrefersReducedMotion()
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     PickerDesktopDialogWrapper(
         onDismiss = onDismiss,
@@ -1071,7 +1086,20 @@ fun DedicatedCoursePickerDialog(
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    singleLine = true
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(
+                        onSearch = {
+                            if (filteredList.size == 1) {
+                                val (code, title) = filteredList.first()
+                                onCourseSelected(code, title)
+                                onDismiss()
+                            } else {
+                                focusManager.clearFocus()
+                                keyboardController?.hide()
+                            }
+                        }
+                    )
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))

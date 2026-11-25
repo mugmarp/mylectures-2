@@ -133,7 +133,9 @@ fun ActivityCard(
                         if (onEdit != null) {
                             IconButton(
                                 onClick = onEdit,
-                                modifier = Modifier.desktopHandCursor()
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .desktopHandCursor()
                             ) {
                                 Icon(
                                     imageVector = Icons.Outlined.Edit,
@@ -147,7 +149,9 @@ fun ActivityCard(
                         if (onDelete != null) {
                             IconButton(
                                 onClick = onDelete,
-                                modifier = Modifier.desktopHandCursor()
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .desktopHandCursor()
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.DeleteOutline,

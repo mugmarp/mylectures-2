@@ -130,7 +130,9 @@ internal fun VacantRoomsFilterOptionsContent(
             )
             TextButton(
                 onClick = onResetAll,
-                modifier = Modifier.desktopHandCursor()
+                modifier = Modifier
+                    .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                    .desktopHandCursor()
             ) {
                 Text("Reset All", color = accentColor, fontSize = 12.5.sp)
             }
@@ -175,6 +177,7 @@ internal fun VacantRoomsFilterOptionsContent(
                     onClick = onOpenDayPicker,
                     modifier = Modifier
                         .weight(1f)
+                        .defaultMinSize(minHeight = 48.dp)
                         .desktopHandCursor(),
                     shape = RoundedCornerShape(12.dp),
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
@@ -188,6 +191,7 @@ internal fun VacantRoomsFilterOptionsContent(
                     onClick = onOpenTimePicker,
                     modifier = Modifier
                         .weight(1f)
+                        .defaultMinSize(minHeight = 48.dp)
                         .desktopHandCursor(),
                     shape = RoundedCornerShape(12.dp),
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
@@ -323,6 +327,7 @@ internal fun VacantRoomsFilterOptionsContent(
                 onClick = onDismiss,
                 modifier = Modifier
                     .fillMaxWidth()
+                    .defaultMinSize(minHeight = 48.dp)
                     .desktopHandCursor(),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(

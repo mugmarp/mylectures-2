@@ -8,6 +8,8 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
@@ -23,8 +25,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -66,20 +71,23 @@ internal fun VacantRoomsSearchAndFilters(
     val textPrimary = ext.textPrimary
     val textMuted = ext.textMuted
     val borderSubtle = ext.borderSubtle
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         // 1. Sleek Compact Pill-shaped Search Bar
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(44.dp),
+                .defaultMinSize(minHeight = 48.dp),
             shape = RoundedCornerShape(24.dp),
             color = surfaceColor,
             border = BorderStroke(1.dp, borderSubtle)
         ) {
             Row(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .fillMaxWidth()
+                    .defaultMinSize(minHeight = 48.dp)
                     .padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -102,6 +110,13 @@ internal fun VacantRoomsSearchAndFilters(
                         value = searchQuery,
                         onValueChange = onSearchQueryChange,
                         singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(
+                            onSearch = {
+                                focusManager.clearFocus()
+                                keyboardController?.hide()
+                            }
+                        ),
                         textStyle = TextStyle(
                             fontSize = 13.5.sp,
                             color = textPrimary,

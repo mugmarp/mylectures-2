@@ -940,7 +940,9 @@ private fun VacantRoomsEmptyStateCard(
                 OutlinedButton(
                     onClick = onClearFilters,
                     shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.desktopHandCursor()
+                    modifier = Modifier
+                        .defaultMinSize(minHeight = 48.dp)
+                        .desktopHandCursor()
                 ) {
                     Text("Clear Search & Filters", fontSize = 12.sp)
                 }

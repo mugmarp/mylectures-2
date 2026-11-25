@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -36,6 +37,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -57,6 +59,13 @@ internal fun CustomLeadMinutesDialog(
 ) {
     val windowInfo = rememberLecturesWindow()
     val ext = LocalExtendedColors.current
+    val saveAction: () -> Unit = {
+        val mins = input.toIntOrNull()
+        if (mins != null && mins > 0) {
+            onSave(mins)
+        }
+        onDismiss()
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = !windowInfo.preferDesktopDialogs),
@@ -83,7 +92,13 @@ internal fun CustomLeadMinutesDialog(
                     },
                     placeholder = { Text("30") },
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onDone = { saveAction() }
+                    ),
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
                 )
@@ -91,13 +106,7 @@ internal fun CustomLeadMinutesDialog(
         },
         confirmButton = {
             Button(
-                onClick = {
-                    val mins = input.toIntOrNull()
-                    if (mins != null && mins > 0) {
-                        onSave(mins)
-                    }
-                    onDismiss()
-                },
+                onClick = saveAction,
                 shape = RoundedCornerShape(10.dp),
                 modifier = Modifier
                     .defaultMinSize(minHeight = 48.dp)

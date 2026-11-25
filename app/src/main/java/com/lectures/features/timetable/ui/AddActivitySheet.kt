@@ -9,6 +9,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Notes
@@ -19,12 +21,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lectures.core.util.TimeUtil
@@ -34,6 +38,7 @@ import com.lectures.ui.components.AdaptiveSheetOrDialog
 import com.lectures.ui.components.DedicatedTimePickerDialog
 import com.lectures.ui.components.RoomFloorBadge
 import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.components.onCtrlEnter
 import com.lectures.ui.contrastOnColor
 import com.lectures.ui.rememberLecturesWindow
 
@@ -71,6 +76,29 @@ fun AddActivitySheet(
     var showStartTimePicker by remember { mutableStateOf(false) }
     var showEndTimePicker by remember { mutableStateOf(false) }
 
+    val saveAction: () -> Unit = {
+        if (title.isBlank()) {
+            hasError = true
+        } else {
+            val event = CustomEvent(
+                id = eventToEdit?.id ?: 0L,
+                title = title.trim(),
+                dayOfWeek = selectedDay,
+                startTime = startTime.trim(),
+                endTime = endTime.trim(),
+                location = location.trim(),
+                notes = notes.trim(),
+                repeatWeekly = true,
+                category = selectedCategory.name,
+                colorTag = selectedCategory.colorHex
+            )
+            focusManager.clearFocus()
+            keyboardController?.hide()
+            onSave(event)
+            onDismiss()
+        }
+    }
+
     AdaptiveSheetOrDialog(
         onDismissRequest = onDismiss,
         containerColor = MaterialTheme.colorScheme.surface,
@@ -80,6 +108,7 @@ fun AddActivitySheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .imePadding()
+                .onCtrlEnter(onSubmit = saveAction)
         ) {
             // Scrollable Content Column (takes available height, but scrolls smoothly if content exceeds screen)
             Column(
@@ -114,7 +143,9 @@ fun AddActivitySheet(
                             keyboardController?.hide()
                             onDismiss()
                         },
-                        modifier = Modifier.desktopHandCursor()
+                        modifier = Modifier
+                            .size(48.dp)
+                            .desktopHandCursor()
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
@@ -137,6 +168,8 @@ fun AddActivitySheet(
                     placeholder = { Text("e.g., Biochemistry Revision, Gym Session") },
                     isError = hasError && title.isBlank(),
                     singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
                 )
@@ -170,6 +203,7 @@ fun AddActivitySheet(
                             val selectedFg = contrastOnColor(cat.color)
                             Surface(
                                 modifier = Modifier
+                                    .defaultMinSize(minHeight = 48.dp)
                                     .clip(RoundedCornerShape(12.dp))
                                     .desktopHandCursor()
                                     .clickable { selectedCategory = cat },
@@ -178,7 +212,9 @@ fun AddActivitySheet(
                                 border = if (isSelected) null else BorderStroke(1.dp, cat.color.copy(alpha = 0.4f))
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                                    modifier = Modifier
+                                        .defaultMinSize(minHeight = 48.dp)
+                                        .padding(horizontal = 12.dp, vertical = 7.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Box(
@@ -207,14 +243,18 @@ fun AddActivitySheet(
                             val selectedFg = contrastOnColor(cat.color)
                             Surface(
                                 modifier = Modifier
+                                    .defaultMinSize(minHeight = 48.dp)
                                     .clip(RoundedCornerShape(12.dp))
+                                    .desktopHandCursor()
                                     .clickable { selectedCategory = cat },
                                 shape = RoundedCornerShape(12.dp),
                                 color = if (isSelected) cat.color else cat.color.copy(alpha = 0.1f),
                                 border = if (isSelected) null else BorderStroke(1.dp, cat.color.copy(alpha = 0.4f))
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                                    modifier = Modifier
+                                        .defaultMinSize(minHeight = 48.dp)
+                                        .padding(horizontal = 12.dp, vertical = 7.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Box(
@@ -276,6 +316,7 @@ fun AddActivitySheet(
                                 selected = isSelected,
                                 onClick = { selectedDay = day },
                                 label = { Text(day.take(3), fontSize = 12.sp) },
+                                modifier = Modifier.desktopHandCursor(),
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = MaterialTheme.colorScheme.primary,
                                     selectedLabelColor = contrastOnColor(MaterialTheme.colorScheme.primary)
@@ -300,6 +341,8 @@ fun AddActivitySheet(
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                         modifier = Modifier
                             .weight(1f)
+                            .defaultMinSize(minHeight = 48.dp)
+                            .desktopHandCursor()
                             .testTag("add_activity_start_time_input")
                     ) {
                         Column(
@@ -331,6 +374,8 @@ fun AddActivitySheet(
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                         modifier = Modifier
                             .weight(1f)
+                            .defaultMinSize(minHeight = 48.dp)
+                            .desktopHandCursor()
                             .testTag("add_activity_end_time_input")
                     ) {
                         Column(
@@ -391,6 +436,7 @@ fun AddActivitySheet(
                                     startTime = times.first
                                     endTime = times.second
                                 },
+                                modifier = Modifier.desktopHandCursor(),
                                 label = { Text(label, fontSize = 11.sp) }
                             )
                         }
@@ -406,6 +452,8 @@ fun AddActivitySheet(
                     label = { Text("Location (Optional)") },
                     placeholder = { Text("e.g., Library Study Room 4, Sports Hall") },
                     singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     leadingIcon = {
@@ -452,28 +500,7 @@ fun AddActivitySheet(
                         .padding(horizontal = 20.dp, vertical = 10.dp)
                 ) {
                     Button(
-                        onClick = {
-                            if (title.isBlank()) {
-                                hasError = true
-                                return@Button
-                            }
-                            val event = CustomEvent(
-                                id = eventToEdit?.id ?: 0L,
-                                title = title.trim(),
-                                dayOfWeek = selectedDay,
-                                startTime = startTime.trim(),
-                                endTime = endTime.trim(),
-                                location = location.trim(),
-                                notes = notes.trim(),
-                                repeatWeekly = true,
-                                category = selectedCategory.name,
-                                colorTag = selectedCategory.colorHex
-                            )
-                            focusManager.clearFocus()
-                            keyboardController?.hide()
-                            onSave(event)
-                            onDismiss()
-                        },
+                        onClick = saveAction,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(48.dp)

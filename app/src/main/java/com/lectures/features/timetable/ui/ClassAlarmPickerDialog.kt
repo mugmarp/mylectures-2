@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Alarm
@@ -18,14 +19,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.DialogProperties
 import com.lectures.core.util.TimeUtil
 import com.lectures.features.timetable.domain.TimetableEntry
 import com.lectures.ui.LocalAppTheme
 import com.lectures.ui.components.RoomFloorBadge
+import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.components.onEscapeKey
 import com.lectures.ui.contrastOnColor
+import com.lectures.ui.rememberLecturesWindow
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -35,6 +41,7 @@ fun ClassAlarmPickerDialog(
     onConfirm: (Int?) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val windowInfo = rememberLecturesWindow()
     val context = androidx.compose.ui.platform.LocalContext.current
     val isDark = LocalAppTheme.current.isDark
     val ext = com.lectures.ui.LocalExtendedColors.current
@@ -52,6 +59,20 @@ fun ClassAlarmPickerDialog(
 
     val startMinutes = remember(entry.startTime) { TimeUtil.toMinutes(entry.startTime) }
     val effectiveMinutes = if (isCustomSelected) customText.toIntOrNull() else selectedMinutes
+    val canConfirm = effectiveMinutes != null && effectiveMinutes > 0
+    val confirmAlarm: () -> Unit = {
+        val finalMinutes = if (isCustomSelected) customText.toIntOrNull() else selectedMinutes
+        if (finalMinutes != null && finalMinutes > 0) {
+            if (!com.lectures.core.util.NotificationPermissionHelper.areNotificationsEnabled(context)) {
+                android.widget.Toast.makeText(
+                    context,
+                    "Alarm saved! Enable notifications in Settings if you'd like audible alerts.",
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+            }
+            onConfirm(finalMinutes)
+        }
+    }
 
     val triggerTimeDisplay = remember(effectiveMinutes, startMinutes) {
         if (effectiveMinutes == null || effectiveMinutes <= 0 || startMinutes <= 0) null
@@ -63,6 +84,17 @@ fun ClassAlarmPickerDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = !windowInfo.preferDesktopDialogs),
+        modifier = Modifier
+            .then(
+                if (windowInfo.preferDesktopDialogs) {
+                    Modifier.widthIn(min = 400.dp, max = 520.dp)
+                } else {
+                    Modifier
+                }
+            )
+            .heightIn(max = (windowInfo.heightDp - 48).coerceAtLeast(360).dp)
+            .onEscapeKey(onDismiss),
         containerColor = surfaceColor,
         shape = RoundedCornerShape(20.dp),
         icon = {
@@ -133,6 +165,7 @@ fun ClassAlarmPickerDialog(
                         val isSelected = !isCustomSelected && selectedMinutes == mins
                         Box(
                             modifier = Modifier
+                                .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(if (isSelected) primaryColor else MaterialTheme.colorScheme.surfaceVariant)
                                 .border(
@@ -140,11 +173,12 @@ fun ClassAlarmPickerDialog(
                                     if (isSelected) primaryColor else MaterialTheme.colorScheme.outlineVariant,
                                     RoundedCornerShape(12.dp)
                                 )
+                                .desktopHandCursor()
                                 .clickable {
                                     isCustomSelected = false
                                     selectedMinutes = mins
                                 }
-                                .padding(horizontal = 14.dp, vertical = 8.dp),
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
@@ -159,6 +193,7 @@ fun ClassAlarmPickerDialog(
                     // Custom Option Chip
                     Box(
                         modifier = Modifier
+                            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
                             .clip(RoundedCornerShape(12.dp))
                             .background(if (isCustomSelected) primaryColor else MaterialTheme.colorScheme.surfaceVariant)
                             .border(
@@ -166,10 +201,11 @@ fun ClassAlarmPickerDialog(
                                 if (isCustomSelected) primaryColor else MaterialTheme.colorScheme.outlineVariant,
                                 RoundedCornerShape(12.dp)
                             )
+                            .desktopHandCursor()
                             .clickable {
                                 isCustomSelected = true
                             }
-                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
@@ -196,7 +232,13 @@ fun ClassAlarmPickerDialog(
                         leadingIcon = {
                             Icon(Icons.Outlined.Timer, contentDescription = null, tint = primaryColor)
                         },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Number,
+                            imeAction = ImeAction.Done
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onDone = { confirmAlarm() }
+                        ),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp)
@@ -229,23 +271,16 @@ fun ClassAlarmPickerDialog(
         },
         confirmButton = {
             Button(
-                onClick = {
-                    val finalMinutes = if (isCustomSelected) customText.toIntOrNull() else selectedMinutes
-                    if (finalMinutes != null && !com.lectures.core.util.NotificationPermissionHelper.areNotificationsEnabled(context)) {
-                        android.widget.Toast.makeText(
-                            context,
-                            "Alarm saved! Enable notifications in Settings if you'd like audible alerts.",
-                            android.widget.Toast.LENGTH_SHORT
-                        ).show()
-                    }
-                    onConfirm(finalMinutes)
-                },
-                enabled = effectiveMinutes != null && effectiveMinutes > 0,
+                onClick = confirmAlarm,
+                enabled = canConfirm,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = primaryColor,
                     contentColor = contrastOnColor(primaryColor)
                 ),
-                shape = RoundedCornerShape(10.dp)
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier
+                    .defaultMinSize(minHeight = 48.dp)
+                    .desktopHandCursor(enabled = canConfirm)
             ) {
                 Text("Set Alarm")
             }
@@ -255,14 +290,22 @@ fun ClassAlarmPickerDialog(
                 if (currentMinutes != null) {
                     TextButton(
                         onClick = { onConfirm(null) },
-                        colors = ButtonDefaults.textButtonColors(contentColor = ext.dangerIcon)
+                        colors = ButtonDefaults.textButtonColors(contentColor = ext.dangerIcon),
+                        modifier = Modifier
+                            .defaultMinSize(minHeight = 48.dp)
+                            .desktopHandCursor()
                     ) {
                         Icon(Icons.Default.AlarmOff, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
                         Text("Turn Off")
                     }
                 }
-                TextButton(onClick = onDismiss) {
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier
+                        .defaultMinSize(minHeight = 48.dp)
+                        .desktopHandCursor()
+                ) {
                     Text("Cancel")
                 }
             }

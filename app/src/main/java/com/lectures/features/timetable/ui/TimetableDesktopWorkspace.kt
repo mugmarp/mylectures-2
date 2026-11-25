@@ -449,10 +449,12 @@ private fun DesktopTimetableToolbar(
                 shape = RoundedCornerShape(12.dp),
                 color = ext.surfaceElevated,
                 border = BorderStroke(1.dp, ext.borderSubtle),
-                modifier = Modifier.desktopHandCursor()
+                modifier = Modifier
+                    .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                    .desktopHandCursor()
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(Icons.Outlined.Tune, contentDescription = "Filter", tint = accent, modifier = Modifier.size(15.dp))
@@ -482,12 +484,15 @@ private fun DesktopTimetableToolbar(
                         )
                         Box(
                             modifier = Modifier
+                                .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
                                 .clip(RoundedCornerShape(9.dp))
                                 .background(pillBg)
+                                .desktopHandCursor()
                                 .desktopHoverable(enabled = !active, hoverContainerColor = accent.copy(alpha = 0.08f))
                                 .clickable { onViewModeChange(key) }
                                 .padding(horizontal = 10.dp, vertical = 6.dp)
-                                .testTag("timetable_view_${key.lowercase(Locale.ROOT)}_btn")
+                                .testTag("timetable_view_${key.lowercase(Locale.ROOT)}_btn"),
+                            contentAlignment = Alignment.Center
                         ) {
                             Text(
                                 text = label,
@@ -603,9 +608,11 @@ private fun WeeklyTimetableMatrix(
                     Box(
                         modifier = Modifier
                             .weight(1f)
+                            .defaultMinSize(minHeight = 48.dp)
                             .padding(horizontal = 3.dp)
                             .clip(RoundedCornerShape(10.dp))
                             .background(headerBg)
+                            .desktopHandCursor()
                             .desktopHoverable(enabled = !isSelected, hoverContainerColor = accent.copy(alpha = 0.08f))
                             .clickable { onSelectDay(day) }
                             .padding(vertical = 6.dp, horizontal = 4.dp),
@@ -1077,7 +1084,13 @@ private fun DockedActivityInspector(
             }
             Spacer(modifier = Modifier.height(6.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                Button(onClick = onEdit, modifier = Modifier.weight(1f).desktopHandCursor()) {
+                Button(
+                    onClick = onEdit,
+                    modifier = Modifier
+                        .weight(1f)
+                        .defaultMinSize(minHeight = 48.dp)
+                        .desktopHandCursor()
+                ) {
                     Icon(Icons.Outlined.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text("Edit")
@@ -1085,7 +1098,9 @@ private fun DockedActivityInspector(
                 OutlinedButton(
                     onClick = onDelete,
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                    modifier = Modifier.desktopHandCursor()
+                    modifier = Modifier
+                        .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                        .desktopHandCursor()
                 ) {
                     Icon(Icons.Outlined.DeleteOutline, contentDescription = "Delete", modifier = Modifier.size(16.dp))
                 }
@@ -1182,7 +1197,10 @@ private fun TimetableOverviewInspector(
         if (globalNextUp != null) {
             OutlinedButton(
                 onClick = { onInspectEntry(globalNextUp.entry.naturalKey) },
-                modifier = Modifier.fillMaxWidth().desktopHandCursor()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .defaultMinSize(minHeight = 48.dp)
+                    .desktopHandCursor()
             ) {
                 Icon(Icons.Outlined.PlayCircleOutline, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(6.dp))
@@ -1192,7 +1210,10 @@ private fun TimetableOverviewInspector(
 
         Button(
             onClick = onOpenQuickAdd,
-            modifier = Modifier.fillMaxWidth().desktopHandCursor(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .defaultMinSize(minHeight = 48.dp)
+                .desktopHandCursor(),
             colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = contrastOnColor(accent))
         ) {
             Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(16.dp))

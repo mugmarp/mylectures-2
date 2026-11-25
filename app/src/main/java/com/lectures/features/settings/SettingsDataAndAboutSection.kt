@@ -593,6 +593,7 @@ internal fun SettingsAboutAndDangerSection(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .heightIn(min = 48.dp)
                     .clip(RoundedCornerShape(12.dp))
                     .desktopHoverable()
                     .clickable(onClick = onOpenDeveloper)
@@ -625,6 +626,7 @@ internal fun SettingsAboutAndDangerSection(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .heightIn(min = 48.dp)
                     .clip(RoundedCornerShape(10.dp))
                     .desktopHoverable()
                     .clickable(onClick = onOpenFeedback)
@@ -770,6 +772,7 @@ internal fun SettingsAboutAndDangerSection(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .heightIn(min = 48.dp)
                     .clip(RoundedCornerShape(10.dp))
                     .desktopHoverable()
                     .clickable(onClick = onRequestResetNotes)
@@ -801,6 +804,7 @@ internal fun SettingsAboutAndDangerSection(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .heightIn(min = 48.dp)
                     .clip(RoundedCornerShape(10.dp))
                     .desktopHoverable()
                     .clickable(onClick = onRequestResetTasks)

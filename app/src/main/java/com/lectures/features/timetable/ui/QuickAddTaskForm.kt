@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -20,9 +21,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -61,6 +66,8 @@ internal fun QuickAddTaskForm(
     onNotesChange: (String) -> Unit
 ) {
     val windowInfo = rememberLecturesWindow()
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
     // Task Category Header
     Text(
         text = "Task Category",
@@ -80,7 +87,9 @@ internal fun QuickAddTaskForm(
                 else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
             ),
             border = if (isSelected) BorderStroke(1.5.dp, cat.color) else null,
-            modifier = Modifier.desktopHandCursor()
+            modifier = Modifier
+                .defaultMinSize(minHeight = 48.dp)
+                .desktopHandCursor()
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
@@ -152,11 +161,13 @@ internal fun QuickAddTaskForm(
                 border = if (isSelected) BorderStroke(1.5.dp, textColor) else null,
                 modifier = Modifier
                     .weight(1f)
+                    .defaultMinSize(minHeight = 48.dp)
                     .desktopHandCursor()
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .defaultMinSize(minHeight = 48.dp)
                         .padding(vertical = 8.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -187,7 +198,9 @@ internal fun QuickAddTaskForm(
             .fillMaxWidth()
             .testTag("task_title_input"),
         shape = RoundedCornerShape(12.dp),
-        singleLine = true
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+        keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })
     )
 
     Spacer(modifier = Modifier.height(12.dp))
@@ -202,7 +215,12 @@ internal fun QuickAddTaskForm(
             Icon(Icons.Outlined.School, contentDescription = null, modifier = Modifier.size(18.dp))
         },
         trailingIcon = {
-            IconButton(onClick = onOpenCoursePicker, modifier = Modifier.desktopHandCursor()) {
+            IconButton(
+                onClick = onOpenCoursePicker,
+                modifier = Modifier
+                    .size(48.dp)
+                    .desktopHandCursor()
+            ) {
                 Icon(Icons.Default.ArrowDropDown, contentDescription = "Pick Course", modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
             }
         },
@@ -210,7 +228,9 @@ internal fun QuickAddTaskForm(
             .fillMaxWidth()
             .testTag("task_course_input"),
         shape = RoundedCornerShape(12.dp),
-        singleLine = true
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+        keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })
     )
 
     val courseSuggestions = availableCourses.distinct().take(5)
@@ -244,13 +264,15 @@ internal fun QuickAddTaskForm(
                 item {
                     AssistChip(
                         onClick = onOpenCoursePicker,
-                        label = { Text("Select Course ▼", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+                        label = { Text("Select Course ▼", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                        modifier = Modifier.desktopHandCursor()
                     )
                 }
                 items(courseSuggestions) { code ->
                     SuggestionChip(
                         onClick = { onCourseCodeChange(code) },
-                        label = { Text(code, fontSize = 11.sp) }
+                        label = { Text(code, fontSize = 11.sp) },
+                        modifier = Modifier.desktopHandCursor()
                     )
                 }
             }
@@ -277,6 +299,7 @@ internal fun QuickAddTaskForm(
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
             modifier = Modifier
                 .weight(1.3f)
+                .defaultMinSize(minHeight = 48.dp)
                 .desktopHandCursor()
                 .clickable(onClick = onOpenDueDatePicker)
                 .testTag("task_due_date_button")
@@ -316,6 +339,7 @@ internal fun QuickAddTaskForm(
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
             modifier = Modifier
                 .weight(1f)
+                .defaultMinSize(minHeight = 48.dp)
                 .desktopHandCursor()
                 .clickable(onClick = onOpenDueTimePicker)
                 .testTag("task_due_time_button")
@@ -428,7 +452,16 @@ internal fun QuickAddTaskForm(
             label = { Text("Custom lead minutes before deadline") },
             placeholder = { Text("e.g. 45, 90, 120, 2880") },
             singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Number,
+                imeAction = ImeAction.Done
+            ),
+            keyboardActions = KeyboardActions(
+                onDone = {
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+                }
+            ),
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(10.dp)
         )

@@ -21,10 +21,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.DialogProperties
 import com.lectures.features.timetable.domain.ActivityCategory
 import com.lectures.features.timetable.domain.CustomEvent
 import com.lectures.ui.LocalExtendedColors
+import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.components.onEscapeKey
 import com.lectures.ui.contrastOnColor
+import com.lectures.ui.rememberLecturesWindow
 
 @Composable
 internal fun PaddingBox(
@@ -99,7 +103,10 @@ internal fun TimetablePeekBanner(
                     containerColor = ext.warningIcon,
                     contentColor = contrastOnColor(ext.warningIcon)
                 ),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                modifier = Modifier
+                    .defaultMinSize(minHeight = 48.dp)
+                    .desktopHandCursor()
             ) {
                 Text("Exit Preview", fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
@@ -153,7 +160,10 @@ internal fun NoProgrammePromptCard(
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = contrastOnColor(MaterialTheme.colorScheme.primary)
                 ),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                modifier = Modifier
+                    .defaultMinSize(minHeight = 48.dp)
+                    .desktopHandCursor()
             ) {
                 Text("Select", fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
@@ -338,7 +348,10 @@ internal fun EmptyDayScheduleCard(
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = contrastOnColor(MaterialTheme.colorScheme.primary)
-                    )
+                    ),
+                    modifier = Modifier
+                        .defaultMinSize(minHeight = 48.dp)
+                        .desktopHandCursor()
                 ) {
                     Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
@@ -356,8 +369,19 @@ internal fun TimetableActivityDetailDialog(
     onEdit: (Long) -> Unit,
     onDelete: (Long) -> Unit
 ) {
+    val windowInfo = rememberLecturesWindow()
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = !windowInfo.preferDesktopDialogs),
+        modifier = Modifier
+            .then(
+                if (windowInfo.preferDesktopDialogs) {
+                    Modifier.widthIn(min = 360.dp, max = 500.dp)
+                } else {
+                    Modifier
+                }
+            )
+            .onEscapeKey(onDismiss),
         title = {
             Text(
                 text = event.title,
@@ -394,10 +418,20 @@ internal fun TimetableActivityDetailDialog(
         },
         confirmButton = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = { onEdit(event.id) }) {
+                TextButton(
+                    onClick = { onEdit(event.id) },
+                    modifier = Modifier
+                        .defaultMinSize(minHeight = 48.dp)
+                        .desktopHandCursor()
+                ) {
                     Text("Edit", fontWeight = FontWeight.Bold)
                 }
-                TextButton(onClick = onDismiss) {
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier
+                        .defaultMinSize(minHeight = 48.dp)
+                        .desktopHandCursor()
+                ) {
                     Text("Close")
                 }
             }
@@ -405,7 +439,10 @@ internal fun TimetableActivityDetailDialog(
         dismissButton = {
             TextButton(
                 onClick = { onDelete(event.id) },
-                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                modifier = Modifier
+                    .defaultMinSize(minHeight = 48.dp)
+                    .desktopHandCursor()
             ) {
                 Text("Delete Activity")
             }

@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
@@ -19,8 +20,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -60,6 +65,8 @@ internal fun QuickAddActivityForm(
 ) {
     val daysOfWeek = TimeUtil.DAYS
     val windowInfo = rememberLecturesWindow()
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     // Category Selection Header
     Text(
@@ -88,7 +95,9 @@ internal fun QuickAddActivityForm(
                 else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
             ),
             border = if (isSelected) BorderStroke(1.5.dp, cat.color) else null,
-            modifier = Modifier.desktopHandCursor()
+            modifier = Modifier
+                .defaultMinSize(minHeight = 48.dp)
+                .desktopHandCursor()
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
@@ -146,7 +155,9 @@ internal fun QuickAddActivityForm(
             .fillMaxWidth()
             .testTag("activity_title_input"),
         shape = RoundedCornerShape(12.dp),
-        singleLine = true
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+        keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })
     )
 
     // Title quick suggestions
@@ -175,7 +186,8 @@ internal fun QuickAddActivityForm(
             items(suggestions) { sugg ->
                 SuggestionChip(
                     onClick = { onSuggestionClick(sugg) },
-                    label = { Text(sugg, fontSize = 11.sp) }
+                    label = { Text(sugg, fontSize = 11.sp) },
+                    modifier = Modifier.desktopHandCursor()
                 )
             }
         }
@@ -223,7 +235,8 @@ internal fun QuickAddActivityForm(
                     selected = isSelected,
                     onClick = { onDayChange(day) },
                     label = { Text(day.take(3), fontSize = 12.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
-                    shape = RoundedCornerShape(10.dp)
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.desktopHandCursor()
                 )
             }
         }
@@ -243,6 +256,7 @@ internal fun QuickAddActivityForm(
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             modifier = Modifier
                 .weight(1f)
+                .defaultMinSize(minHeight = 48.dp)
                 .desktopHandCursor()
                 .testTag("activity_start_time_input")
         ) {
@@ -274,6 +288,7 @@ internal fun QuickAddActivityForm(
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             modifier = Modifier
                 .weight(1f)
+                .defaultMinSize(minHeight = 48.dp)
                 .desktopHandCursor()
                 .testTag("activity_end_time_input")
         ) {
@@ -340,7 +355,9 @@ internal fun QuickAddActivityForm(
             .fillMaxWidth()
             .testTag("activity_location_input"),
         shape = RoundedCornerShape(12.dp),
-        singleLine = true
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+        keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })
     )
 
     Spacer(modifier = Modifier.height(16.dp))
@@ -403,7 +420,8 @@ internal fun QuickAddActivityForm(
                     leadingIcon = if (isSelected && minutes != null) {
                         { Icon(Icons.Outlined.NotificationsActive, contentDescription = null, modifier = Modifier.size(14.dp)) }
                     } else null,
-                    shape = RoundedCornerShape(10.dp)
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.desktopHandCursor()
                 )
             }
 
@@ -412,7 +430,8 @@ internal fun QuickAddActivityForm(
                     selected = isCustomAlarm,
                     onClick = onToggleCustomAlarm,
                     label = { Text("Custom", fontSize = 12.sp) },
-                    shape = RoundedCornerShape(10.dp)
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.desktopHandCursor()
                 )
             }
         }
@@ -428,7 +447,16 @@ internal fun QuickAddActivityForm(
             label = { Text("Custom lead minutes") },
             placeholder = { Text("e.g. 20, 45, 90") },
             singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Number,
+                imeAction = ImeAction.Done
+            ),
+            keyboardActions = KeyboardActions(
+                onDone = {
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+                }
+            ),
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(10.dp)
         )

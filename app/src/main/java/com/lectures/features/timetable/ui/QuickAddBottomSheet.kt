@@ -35,6 +35,7 @@ import com.lectures.ui.components.DedicatedCalendarDatePickerDialog
 import com.lectures.ui.components.DedicatedCoursePickerDialog
 import com.lectures.ui.components.DedicatedTimePickerDialog
 import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.components.onCtrlEnter
 import com.lectures.ui.contrastOnColor
 import com.lectures.ui.rememberPrefersReducedMotion
 import java.text.SimpleDateFormat
@@ -115,6 +116,55 @@ fun QuickAddBottomSheet(
     var showDueCalendarPicker by remember { mutableStateOf(false) }
     var showDueTimePicker by remember { mutableStateOf(false) }
 
+    val submitCurrentMode: () -> Unit = {
+        when (currentMode) {
+            QuickAddMode.ACTIVITY -> {
+                if (activityTitle.isBlank()) {
+                    activityHasError = true
+                } else {
+                    val newEvent = CustomEvent(
+                        title = activityTitle.trim(),
+                        dayOfWeek = activityDay,
+                        startTime = activityStartTime.trim(),
+                        endTime = activityEndTime.trim(),
+                        location = activityLocation.trim(),
+                        notes = activityNotes.trim(),
+                        category = selectedActivityCategory.name,
+                        colorTag = selectedActivityCategory.colorHex,
+                        alarmMinutes = activityAlarmMinutes
+                    )
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+                    onSaveActivity(newEvent)
+                    onDismiss()
+                }
+            }
+            QuickAddMode.TASK -> {
+                if (taskTitle.isBlank()) {
+                    taskHasError = true
+                } else {
+                    val effectiveCourse = taskCourseCode.ifBlank { "GEN100" }
+                    val fullTitle = if (selectedTaskCategory != TaskCategory.GENERAL && !taskTitle.startsWith(selectedTaskCategory.displayName)) {
+                        "[${selectedTaskCategory.displayName}] ${taskTitle.trim()}"
+                    } else {
+                        taskTitle.trim()
+                    }
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+                    onSaveTask(
+                        fullTitle,
+                        effectiveCourse.trim(),
+                        fullTaskDueDateTime.trim(),
+                        taskPriority,
+                        taskReminderMinutes,
+                        taskNotes.trim()
+                    )
+                    onDismiss()
+                }
+            }
+        }
+    }
+
     AdaptiveSheetOrDialog(
         onDismissRequest = onDismiss,
         sheetTestTag = "quick_add_bottom_sheet",
@@ -125,6 +175,7 @@ fun QuickAddBottomSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .imePadding()
+                .onCtrlEnter(onSubmit = submitCurrentMode)
         ) {
             Column(
                 modifier = Modifier
@@ -159,6 +210,7 @@ fun QuickAddBottomSheet(
                             onDismiss()
                         },
                         modifier = Modifier
+                            .size(48.dp)
                             .desktopHandCursor()
                             .testTag("close_quick_add_sheet")
                     ) {
@@ -293,27 +345,7 @@ fun QuickAddBottomSheet(
                         when (mode) {
                             QuickAddMode.ACTIVITY -> {
                                 Button(
-                                    onClick = {
-                                        if (activityTitle.isBlank()) {
-                                            activityHasError = true
-                                            return@Button
-                                        }
-                                        val newEvent = CustomEvent(
-                                            title = activityTitle.trim(),
-                                            dayOfWeek = activityDay,
-                                            startTime = activityStartTime.trim(),
-                                            endTime = activityEndTime.trim(),
-                                            location = activityLocation.trim(),
-                                            notes = activityNotes.trim(),
-                                            category = selectedActivityCategory.name,
-                                            colorTag = selectedActivityCategory.colorHex,
-                                            alarmMinutes = activityAlarmMinutes
-                                        )
-                                        focusManager.clearFocus()
-                                        keyboardController?.hide()
-                                        onSaveActivity(newEvent)
-                                        onDismiss()
-                                    },
+                                    onClick = submitCurrentMode,
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .height(48.dp)
@@ -336,29 +368,7 @@ fun QuickAddBottomSheet(
                             }
                             QuickAddMode.TASK -> {
                                 Button(
-                                    onClick = {
-                                        if (taskTitle.isBlank()) {
-                                            taskHasError = true
-                                            return@Button
-                                        }
-                                        val effectiveCourse = taskCourseCode.ifBlank { "GEN100" }
-                                        val fullTitle = if (selectedTaskCategory != TaskCategory.GENERAL && !taskTitle.startsWith(selectedTaskCategory.displayName)) {
-                                            "[${selectedTaskCategory.displayName}] ${taskTitle.trim()}"
-                                        } else {
-                                            taskTitle.trim()
-                                        }
-                                        focusManager.clearFocus()
-                                        keyboardController?.hide()
-                                        onSaveTask(
-                                            fullTitle,
-                                            effectiveCourse.trim(),
-                                            fullTaskDueDateTime.trim(),
-                                            taskPriority,
-                                            taskReminderMinutes,
-                                            taskNotes.trim()
-                                        )
-                                        onDismiss()
-                                    },
+                                    onClick = submitCurrentMode,
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .height(48.dp)

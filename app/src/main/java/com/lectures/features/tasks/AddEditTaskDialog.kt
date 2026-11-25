@@ -24,6 +24,8 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
@@ -46,6 +48,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -55,8 +58,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -69,6 +75,7 @@ import com.lectures.ui.MotionSpec
 import com.lectures.ui.components.DedicatedCalendarDatePickerDialog
 import com.lectures.ui.components.DedicatedTimePickerDialog
 import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.components.onCtrlEnter
 import com.lectures.ui.components.onEscapeKey
 import com.lectures.ui.contrastOnColor
 import com.lectures.ui.rememberLecturesWindow
@@ -137,9 +144,27 @@ fun AddTaskDialog(
     }
 
     val windowInfo = rememberLecturesWindow()
+    val focusManager = LocalFocusManager.current
     val handleDismiss = {
         courseDropdownExpanded = false
         onDismiss()
+    }
+    val canConfirm = title.isNotBlank() && course.isNotBlank()
+    val confirmTask: () -> Unit = {
+        courseDropdownExpanded = false
+        titleTouched = true
+        courseTouched = true
+        if (title.isNotBlank() && course.isNotBlank()) {
+            onConfirm(
+                title.trim(),
+                course.trim(),
+                fullDueDateTime.ifBlank { "Soon" },
+                priority,
+                reminderMinutes,
+                notes.trim(),
+                category
+            )
+        }
     }
 
     AlertDialog(
@@ -159,7 +184,8 @@ fun AddTaskDialog(
             )
             .heightIn(max = (windowInfo.heightDp - 48).coerceAtLeast(360).dp)
             .imePadding()
-            .onEscapeKey(handleDismiss),
+            .onEscapeKey(handleDismiss)
+            .onCtrlEnter(enabled = canConfirm, onSubmit = confirmTask),
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
@@ -197,7 +223,11 @@ fun AddTaskDialog(
                         { Text("Title is required", color = MaterialTheme.colorScheme.error, fontSize = 11.sp) }
                     } else null,
                     modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                    keyboardActions = KeyboardActions(
+                        onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                    )
                 )
 
                 val categoryChipContent: @Composable (TaskCategory) -> Unit = { cat ->
@@ -217,7 +247,9 @@ fun AddTaskDialog(
                         shape = RoundedCornerShape(10.dp),
                         color = chipBg,
                         border = BorderStroke(1.dp, chipBorder),
-                        modifier = Modifier.desktopHandCursor()
+                        modifier = Modifier
+                            .minimumInteractiveComponentSize()
+                            .desktopHandCursor()
                     ) {
                         val selectedInk = contrastOnColor(cat.color)
                         Row(
@@ -355,7 +387,11 @@ fun AddTaskDialog(
                             { Text("Course code is required", color = MaterialTheme.colorScheme.error, fontSize = 11.sp) }
                         } else null,
                         modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                        keyboardActions = KeyboardActions(
+                            onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                        )
                     )
                 }
 
@@ -470,18 +506,26 @@ fun AddTaskDialog(
                         )
                         Box(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(chipBg)
+                                .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                                .clip(RoundedCornerShape(10.dp))
                                 .desktopHandCursor()
-                                .clickable { priority = p }
-                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                                .clickable { priority = p },
+                            contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                p,
-                                color = chipFg,
-                                fontSize = 11.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(chipBg)
+                                    .padding(horizontal = 10.dp, vertical = 5.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    p,
+                                    color = chipFg,
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                )
+                            }
                         }
                     }
                 }
@@ -516,18 +560,26 @@ fun AddTaskDialog(
                         )
                         Box(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(alertBg)
+                                .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                                .clip(RoundedCornerShape(10.dp))
                                 .desktopHandCursor()
-                                .clickable { reminderMinutes = mins }
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                .clickable { reminderMinutes = mins },
+                            contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                label,
-                                color = alertFg,
-                                fontSize = 11.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(alertBg)
+                                    .padding(horizontal = 8.dp, vertical = 5.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    label,
+                                    color = alertFg,
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                )
+                            }
                         }
                     }
                     if (windowInfo.isTablet) {
@@ -580,30 +632,15 @@ fun AddTaskDialog(
         },
         confirmButton = {
             Button(
-                onClick = {
-                    courseDropdownExpanded = false
-                    titleTouched = true
-                    courseTouched = true
-                    if (title.isNotBlank() && course.isNotBlank()) {
-                        onConfirm(
-                            title.trim(),
-                            course.trim(),
-                            fullDueDateTime.ifBlank { "Soon" },
-                            priority,
-                            reminderMinutes,
-                            notes.trim(),
-                            category
-                        )
-                    }
-                },
-                enabled = title.isNotBlank() && course.isNotBlank(),
+                onClick = confirmTask,
+                enabled = canConfirm,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = primaryColor,
                     contentColor = contrastOnColor(primaryColor)
                 ),
                 modifier = Modifier
                     .defaultMinSize(minHeight = 48.dp)
-                    .desktopHandCursor(enabled = title.isNotBlank() && course.isNotBlank())
+                    .desktopHandCursor(enabled = canConfirm)
             ) {
                 Text(if (initialTask != null) "Save & Reschedule" else "Schedule & Save")
             }

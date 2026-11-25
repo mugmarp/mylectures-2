@@ -361,7 +361,9 @@ internal fun SettingsNotificationsSection(
                 Switch(
                     checked = uiState.notificationsEnabled,
                     onCheckedChange = onToggleNotifications,
-                    modifier = Modifier.testTag("settings_notifications_switch")
+                    modifier = Modifier
+                        .desktopHandCursor()
+                        .testTag("settings_notifications_switch")
                 )
             }
 
@@ -374,6 +376,7 @@ internal fun SettingsNotificationsSection(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .defaultMinSize(minHeight = 48.dp)
                     .clip(RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp))
                     .desktopHoverable()
                     .clickable(onClick = onOpenNotificationPreferences)
@@ -509,7 +512,9 @@ internal fun NotificationSettingsView(
                 Switch(
                     checked = uiState.notificationsEnabled,
                     onCheckedChange = onToggleNotifications,
-                    modifier = Modifier.testTag("settings_notifications_switch")
+                    modifier = Modifier
+                        .desktopHandCursor()
+                        .testTag("settings_notifications_switch")
                 )
             }
         }
@@ -755,7 +760,9 @@ internal fun NotificationSettingsView(
                     Switch(
                         checked = uiState.dailyDigestEnabled,
                         onCheckedChange = onToggleDailyDigest,
-                        modifier = Modifier.testTag("settings_daily_digest_switch")
+                        modifier = Modifier
+                            .desktopHandCursor()
+                            .testTag("settings_daily_digest_switch")
                     )
                 }
             }

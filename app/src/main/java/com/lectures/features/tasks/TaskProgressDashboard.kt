@@ -381,30 +381,37 @@ fun TaskProgressDashboard(
 
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     if (metrics.highPriorityPending > 0) {
-                        Surface(
-                            onClick = { onFilterChange("High Priority") },
-                            shape = RoundedCornerShape(10.dp),
-                            color = if (isDark) Color(0xFF7F1D1D).copy(alpha = 0.4f) else Color(0xFFFEF2F2),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, if (isDark) Color(0xFF991B1B) else Color(0xFFFCA5A5)),
-                            modifier = Modifier.desktopHandCursor()
+                        Box(
+                            modifier = Modifier
+                                .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .desktopHandCursor()
+                                .clickable { onFilterChange("High Priority") },
+                            contentAlignment = Alignment.Center
                         ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = if (isDark) Color(0xFF7F1D1D).copy(alpha = 0.4f) else Color(0xFFFEF2F2),
+                                border = BorderStroke(1.dp, if (isDark) Color(0xFF991B1B) else Color(0xFFFCA5A5))
                             ) {
-                                Icon(
-                                    Icons.Default.WarningAmber,
-                                    contentDescription = null,
-                                    tint = if (isDark) Color(0xFFF87171) else Color(0xFFDC2626),
-                                    modifier = Modifier.size(12.dp)
-                                )
-                                Spacer(modifier = Modifier.width(3.dp))
-                                Text(
-                                    "${metrics.highPriorityPending} High",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isDark) Color(0xFFFCA5A5) else Color(0xFFB91C1C)
-                                )
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        Icons.Default.WarningAmber,
+                                        contentDescription = null,
+                                        tint = if (isDark) Color(0xFFF87171) else Color(0xFFDC2626),
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                    Text(
+                                        "${metrics.highPriorityPending} High",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isDark) Color(0xFFFCA5A5) else Color(0xFFB91C1C)
+                                    )
+                                }
                             }
                         }
                     }
@@ -493,10 +500,11 @@ fun TaskProgressDashboard(
                 // Completed indicator
                 Row(
                     modifier = Modifier
+                        .defaultMinSize(minHeight = 48.dp)
                         .clip(RoundedCornerShape(8.dp))
                         .desktopHandCursor()
                         .clickable { onFilterChange("Completed") }
-                        .padding(horizontal = 4.dp, vertical = 4.dp),
+                        .padding(horizontal = 6.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(
@@ -516,10 +524,11 @@ fun TaskProgressDashboard(
                 // Pending indicator
                 Row(
                     modifier = Modifier
+                        .defaultMinSize(minHeight = 48.dp)
                         .clip(RoundedCornerShape(8.dp))
                         .desktopHandCursor()
                         .clickable { onFilterChange("Pending") }
-                        .padding(horizontal = 4.dp, vertical = 4.dp),
+                        .padding(horizontal = 6.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(

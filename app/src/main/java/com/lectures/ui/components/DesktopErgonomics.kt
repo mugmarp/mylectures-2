@@ -36,6 +36,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isMetaPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
@@ -99,6 +101,26 @@ fun Modifier.onEscapeKey(onEscape: () -> Unit): Modifier =
     this.onPreviewKeyEvent { event ->
         if (event.type == KeyEventType.KeyDown && event.key == Key.Escape) {
             onEscape()
+            true
+        } else {
+            false
+        }
+    }
+
+/**
+ * Intercepts Ctrl+Enter or Cmd+Enter presses on desktop hardware keyboards to submit dialog/sheet forms.
+ */
+fun Modifier.onCtrlEnter(
+    enabled: Boolean = true,
+    onSubmit: () -> Unit
+): Modifier =
+    this.onPreviewKeyEvent { event ->
+        if (enabled &&
+            event.type == KeyEventType.KeyDown &&
+            (event.isCtrlPressed || event.isMetaPressed) &&
+            event.key == Key.Enter
+        ) {
+            onSubmit()
             true
         } else {
             false

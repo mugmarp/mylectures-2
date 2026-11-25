@@ -9,6 +9,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.School
@@ -22,7 +24,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lectures.features.timetable.domain.TimetableEntry
@@ -31,6 +37,7 @@ import com.lectures.ui.LocalExtendedColors
 import com.lectures.ui.components.AdaptiveSheetOrDialog
 import com.lectures.ui.components.RoomFloorBadge
 import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.components.onCtrlEnter
 
 @Composable
 fun LectureDetailSheet(
@@ -90,8 +97,17 @@ fun LectureDetailContent(
     var selectedReminder by remember(entry.naturalKey, initialReminder) {
         mutableStateOf<Int?>(initialReminder ?: 30)
     }
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val effectiveMinutesToSave = if (isCustomReminder) customReminderText.toIntOrNull() else selectedReminder
 
-    Column(modifier = modifier) {
+    Column(
+        modifier = modifier.onCtrlEnter {
+            focusManager.clearFocus()
+            keyboardController?.hide()
+            onSaveNote(noteText, effectiveMinutesToSave)
+        }
+    ) {
             Text(
                 text = entry.courseTitle,
                 fontSize = 22.sp,
@@ -214,6 +230,7 @@ fun LectureDetailContent(
                     val isSelected = !isCustomReminder && selectedReminder == minutes
                     Box(
                         modifier = Modifier
+                            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
                             .clip(RoundedCornerShape(20.dp))
                             .background(if (isSelected) accentColor else Color.Transparent)
                             .border(
@@ -221,6 +238,7 @@ fun LectureDetailContent(
                                 if (isSelected) accentColor else ext.borderSubtle,
                                 RoundedCornerShape(20.dp)
                             )
+                            .desktopHandCursor()
                             .clickable {
                                 isCustomReminder = false
                                 selectedReminder = if (isSelected) null else minutes
@@ -240,6 +258,7 @@ fun LectureDetailContent(
                 // Custom chip
                 Box(
                     modifier = Modifier
+                        .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
                         .clip(RoundedCornerShape(20.dp))
                         .background(if (isCustomReminder) accentColor else Color.Transparent)
                         .border(
@@ -247,6 +266,7 @@ fun LectureDetailContent(
                             if (isCustomReminder) accentColor else ext.borderSubtle,
                             RoundedCornerShape(20.dp)
                         )
+                        .desktopHandCursor()
                         .clickable {
                             isCustomReminder = !isCustomReminder
                             if (!isCustomReminder) {
@@ -277,8 +297,15 @@ fun LectureDetailContent(
                     label = { Text("Custom minutes before class") },
                     placeholder = { Text("e.g. 20, 25, 40, 90") },
                     singleLine = true,
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onDone = {
+                            focusManager.clearFocus()
+                            keyboardController?.hide()
+                        }
                     ),
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
@@ -317,10 +344,10 @@ fun LectureDetailContent(
 
             Spacer(modifier = Modifier.height(18.dp))
 
-            val effectiveMinutesToSave = if (isCustomReminder) customReminderText.toIntOrNull() else selectedReminder
-
             Button(
                 onClick = {
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
                     onSaveNote(noteText, effectiveMinutesToSave)
                 },
                 modifier = Modifier

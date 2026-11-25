@@ -434,6 +434,8 @@ fun MainScaffold(
                             modifier = Modifier
                                 .widthIn(max = 520.dp)
                                 .fillMaxWidth()
+                                .defaultMinSize(minHeight = 48.dp)
+                                .desktopHandCursor()
                                 .clickable {
                                     val targetTab = alert.navTab
                                     if (targetTab != null) {
@@ -479,7 +481,9 @@ fun MainScaffold(
                                 }
                                 IconButton(
                                     onClick = { activeForegroundAlert = null },
-                                    modifier = Modifier.desktopHandCursor()
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .desktopHandCursor()
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Close,

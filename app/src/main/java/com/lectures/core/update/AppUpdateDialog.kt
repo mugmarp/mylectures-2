@@ -25,9 +25,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.lectures.BuildConfig
 import com.lectures.ui.LocalAppTheme
 import com.lectures.ui.LocalExtendedColors
+import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.components.onEscapeKey
+import com.lectures.ui.rememberLecturesWindow
 
 /**
  * Material 3 Dialog displaying verified remote release notes and routing users
@@ -55,6 +59,7 @@ fun AppUpdateDialog(
         return
     }
 
+    val windowInfo = rememberLecturesWindow()
     val context = LocalContext.current
     val isDark = LocalAppTheme.current.isDark
     val ext = LocalExtendedColors.current
@@ -62,10 +67,16 @@ fun AppUpdateDialog(
 
     var errorMessage by rememberSaveable { mutableStateOf<String?>(null) }
     var showFullChangelog by rememberSaveable { mutableStateOf(false) }
+    val canDismiss = !updateInfo.isMandatory || errorMessage != null
 
-    Dialog(onDismissRequest = {
-        if (!updateInfo.isMandatory || errorMessage != null) onDismiss()
-    }) {
+    Dialog(
+        onDismissRequest = { if (canDismiss) onDismiss() },
+        properties = DialogProperties(
+            usePlatformDefaultWidth = !windowInfo.preferDesktopDialogs,
+            dismissOnBackPress = canDismiss,
+            dismissOnClickOutside = canDismiss
+        )
+    ) {
         Card(
             shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(
@@ -74,8 +85,18 @@ fun AppUpdateDialog(
             border = if (isDark) BorderStroke(1.dp, ext.borderSubtle) else null,
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
             modifier = Modifier
+                .then(
+                    if (windowInfo.preferDesktopDialogs) {
+                        Modifier
+                            .padding(horizontal = 24.dp, vertical = 16.dp)
+                            .widthIn(min = 420.dp, max = 560.dp)
+                    } else {
+                        Modifier.padding(horizontal = 4.dp)
+                    }
+                )
                 .fillMaxWidth()
-                .padding(horizontal = 4.dp)
+                .heightIn(max = (windowInfo.heightDp - 48).coerceAtLeast(360).dp)
+                .onEscapeKey { if (canDismiss) onDismiss() }
         ) {
             Column(
                 modifier = Modifier
@@ -121,8 +142,13 @@ fun AppUpdateDialog(
                         }
                     }
 
-                    if (!updateInfo.isMandatory || errorMessage != null) {
-                        IconButton(onClick = onDismiss) {
+                    if (canDismiss) {
+                        IconButton(
+                            onClick = onDismiss,
+                            modifier = Modifier
+                                .size(48.dp)
+                                .desktopHandCursor()
+                        ) {
                             Icon(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = "Close",
@@ -184,16 +210,22 @@ fun AppUpdateDialog(
                                 }
 
                                 if (highlights.size > 4) {
-                                    Text(
-                                        text = if (showFullChangelog) "Show less" else "Show all (${highlights.size} highlights)",
-                                        fontSize = 11.5.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = primaryColor,
+                                    Box(
                                         modifier = Modifier
-                                            .clip(RoundedCornerShape(6.dp))
+                                            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .desktopHandCursor()
                                             .clickable { showFullChangelog = !showFullChangelog }
-                                            .padding(vertical = 4.dp)
-                                    )
+                                            .padding(horizontal = 4.dp),
+                                        contentAlignment = Alignment.CenterStart
+                                    ) {
+                                        Text(
+                                            text = if (showFullChangelog) "Show less" else "Show all (${highlights.size} highlights)",
+                                            fontSize = 11.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = primaryColor
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -231,7 +263,10 @@ fun AppUpdateDialog(
                                     errorMessage = err.localizedMessage ?: "Unable to open update page"
                                 }
                         },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .defaultMinSize(minHeight = 48.dp)
+                            .desktopHandCursor(),
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = primaryColor,
@@ -250,14 +285,20 @@ fun AppUpdateDialog(
                     if (!updateInfo.isMandatory) {
                         TextButton(
                             onClick = onDismiss,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .defaultMinSize(minHeight = 48.dp)
+                                .desktopHandCursor()
                         ) {
                             Text("Remind Me Later", fontSize = 13.sp, color = ext.textMuted)
                         }
                     } else if (errorMessage != null) {
                         TextButton(
                             onClick = onDismiss,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .defaultMinSize(minHeight = 48.dp)
+                                .desktopHandCursor()
                         ) {
                             Text(
                                 text = "Continue to Offline Timetable",

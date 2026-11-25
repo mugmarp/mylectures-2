@@ -167,7 +167,7 @@ internal fun CalendarMonthGridCard(
         val cellHeightDp = when {
             windowInfo.isWideWorkspace -> 54.dp
             useCompactDesktopCells -> 50.dp
-            else -> 0.dp
+            else -> 50.dp
         }
 
         // Calendar Grid with directional month transition
@@ -201,7 +201,7 @@ internal fun CalendarMonthGridCard(
                                 Box(
                                     modifier = Modifier
                                         .weight(1f)
-                                        .let { if (useCompactDesktopCells) it.height(cellHeightDp) else it.aspectRatio(1f) }
+                                        .height(cellHeightDp)
                                 )
                             } else {
                                 val dayNum = currentDay
@@ -244,7 +244,8 @@ internal fun CalendarMonthGridCard(
                                 Box(
                                     modifier = Modifier
                                         .weight(1f)
-                                        .let { if (useCompactDesktopCells) it.height(cellHeightDp) else it.aspectRatio(1f) }
+                                        .heightIn(min = 48.dp)
+                                        .height(cellHeightDp)
                                         .clip(RoundedCornerShape(10.dp))
                                         .background(cellBg)
                                         .then(
@@ -256,6 +257,7 @@ internal fun CalendarMonthGridCard(
                                                 )
                                             } else Modifier
                                         )
+                                        .desktopHandCursor()
                                         .desktopHoverable(
                                             enabled = !isSelected,
                                             hoverContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)

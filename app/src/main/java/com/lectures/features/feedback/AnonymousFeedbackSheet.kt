@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -68,6 +69,7 @@ import androidx.compose.ui.unit.sp
 import com.lectures.ui.LocalExtendedColors
 import com.lectures.ui.components.AdaptiveSheetOrDialog
 import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.components.onCtrlEnter
 import com.lectures.ui.contrastOnColor
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -88,6 +90,25 @@ fun AnonymousFeedbackSheet(
     var isSubmittedSuccess by remember { mutableStateOf(false) }
 
     val appInstanceId = remember { feedbackManager.getOrCreateAppInstanceId() }
+    val submitFeedbackAction: () -> Unit = {
+        if (messageText.isNotBlank() && !isSubmitting && !isSubmittedSuccess) {
+            isSubmitting = true
+            scope.launch {
+                delay(600) // smooth feel
+                val res = feedbackManager.submitFeedback(
+                    category = selectedCategory,
+                    message = messageText,
+                    includeDiagnostics = includeDiagnostics
+                )
+                isSubmitting = false
+                if (res.isSuccess) {
+                    isSubmittedSuccess = true
+                } else {
+                    Toast.makeText(context, "Failed to record feedback", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
 
     AdaptiveSheetOrDialog(
         onDismissRequest = onDismiss,
@@ -98,6 +119,10 @@ fun AnonymousFeedbackSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
+                .onCtrlEnter(
+                    enabled = messageText.isNotBlank() && !isSubmitting && !isSubmittedSuccess,
+                    onSubmit = submitFeedbackAction
+                )
                 .padding(horizontal = 24.dp, vertical = 20.dp)
                 .verticalScroll(rememberScrollState())
         ) {
@@ -140,7 +165,9 @@ fun AnonymousFeedbackSheet(
 
                 IconButton(
                     onClick = onDismiss,
-                    modifier = Modifier.desktopHandCursor()
+                    modifier = Modifier
+                        .size(48.dp)
+                        .desktopHandCursor()
                 ) {
                     Icon(Icons.Default.Close, contentDescription = "Close", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -189,7 +216,10 @@ fun AnonymousFeedbackSheet(
                     Spacer(modifier = Modifier.height(24.dp))
                     Button(
                         onClick = onDismiss,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .defaultMinSize(minHeight = 48.dp)
+                            .desktopHandCursor(),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Text("Done")
@@ -242,6 +272,7 @@ fun AnonymousFeedbackSheet(
                             onClick = { selectedCategory = category },
                             label = { Text(category.title, fontSize = 12.sp) },
                             shape = RoundedCornerShape(20.dp),
+                            modifier = Modifier.desktopHandCursor(),
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                                 selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -296,7 +327,9 @@ fun AnonymousFeedbackSheet(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .defaultMinSize(minHeight = 48.dp)
                         .clip(RoundedCornerShape(8.dp))
+                        .desktopHandCursor()
                         .clickable { includeDiagnostics = !includeDiagnostics }
                         .padding(vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -348,7 +381,9 @@ fun AnonymousFeedbackSheet(
                                 Toast.makeText(context, "Instance ID copied", Toast.LENGTH_SHORT).show()
                             }
                         },
-                        modifier = Modifier.desktopHandCursor()
+                        modifier = Modifier
+                            .size(48.dp)
+                            .desktopHandCursor()
                     ) {
                         Icon(Icons.Default.ContentCopy, contentDescription = "Copy", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                     }
@@ -358,24 +393,7 @@ fun AnonymousFeedbackSheet(
 
                 // Submit Button
                 Button(
-                    onClick = {
-                        if (messageText.isBlank()) return@Button
-                        isSubmitting = true
-                        scope.launch {
-                            delay(600) // smooth feel
-                            val res = feedbackManager.submitFeedback(
-                                category = selectedCategory,
-                                message = messageText,
-                                includeDiagnostics = includeDiagnostics
-                            )
-                            isSubmitting = false
-                            if (res.isSuccess) {
-                                isSubmittedSuccess = true
-                            } else {
-                                Toast.makeText(context, "Failed to record feedback", Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                    },
+                    onClick = submitFeedbackAction,
                     enabled = messageText.isNotBlank() && !isSubmitting,
                     modifier = Modifier
                         .fillMaxWidth()

@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -98,7 +99,9 @@ fun DeveloperProfileSheet(
                 )
                 IconButton(
                     onClick = onDismiss,
-                    modifier = Modifier.desktopHandCursor()
+                    modifier = Modifier
+                        .size(48.dp)
+                        .desktopHandCursor()
                 ) {
                     Icon(Icons.Default.Close, contentDescription = "Close", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -201,6 +204,7 @@ fun DeveloperProfileSheet(
                 onClick = onDismiss,
                 modifier = Modifier
                     .fillMaxWidth()
+                    .defaultMinSize(minHeight = 48.dp)
                     .desktopHandCursor(),
                 shape = RoundedCornerShape(12.dp)
             ) {
@@ -221,6 +225,7 @@ private fun DeveloperLinkRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .defaultMinSize(minHeight = 48.dp)
             .clip(RoundedCornerShape(12.dp))
             .desktopHoverable()
             .clickable(onClick = onClick)

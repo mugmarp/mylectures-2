@@ -303,7 +303,7 @@ internal fun TasksFilterChipsRow(
 
         Box(
             modifier = Modifier
-                .defaultMinSize(minHeight = 40.dp)
+                .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
                 .clip(RoundedCornerShape(16.dp))
                 .background(chipBg)
                 .border(1.dp, chipBorder, RoundedCornerShape(16.dp))

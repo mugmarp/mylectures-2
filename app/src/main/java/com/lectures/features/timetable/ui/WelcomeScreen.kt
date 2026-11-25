@@ -141,7 +141,9 @@ fun WelcomeScreen(
                 Button(
                     onClick = { showDisclaimerDialog = false },
                     shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.desktopHandCursor(),
+                    modifier = Modifier
+                        .defaultMinSize(minHeight = 48.dp)
+                        .desktopHandCursor(),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = primaryBlue,
                         contentColor = MaterialTheme.colorScheme.onPrimary
@@ -231,7 +233,9 @@ fun WelcomeScreen(
                 Button(
                     onClick = { showTermsDialog = false },
                     shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.desktopHandCursor(),
+                    modifier = Modifier
+                        .defaultMinSize(minHeight = 48.dp)
+                        .desktopHandCursor(),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = primaryBlue,
                         contentColor = MaterialTheme.colorScheme.onPrimary
@@ -440,32 +444,42 @@ fun WelcomeScreen(
                     }
 
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(2.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "Disclaimer",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = primaryBlue,
+                        Box(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
+                                .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                                .clip(RoundedCornerShape(8.dp))
                                 .desktopHandCursor()
                                 .clickable { showDisclaimerDialog = true }
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
+                                .padding(horizontal = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Disclaimer",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = primaryBlue
+                            )
+                        }
                         Text("•", color = textMuted, fontSize = 10.sp)
-                        Text(
-                            text = "Terms",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = primaryBlue,
+                        Box(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
+                                .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                                .clip(RoundedCornerShape(8.dp))
                                 .desktopHandCursor()
                                 .clickable { showTermsDialog = true }
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
+                                .padding(horizontal = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Terms",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = primaryBlue
+                            )
+                        }
                     }
                 }
 

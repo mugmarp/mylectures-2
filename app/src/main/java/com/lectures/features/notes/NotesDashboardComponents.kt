@@ -475,7 +475,9 @@ internal fun NotesEmptyStateView(
                 OutlinedButton(
                     onClick = onClearFilters,
                     shape = RoundedCornerShape(20.dp),
-                    modifier = Modifier.desktopHandCursor()
+                    modifier = Modifier
+                        .defaultMinSize(minHeight = 48.dp)
+                        .desktopHandCursor()
                 ) {
                     Text("Clear Search & Filters", fontSize = 13.sp)
                 }
@@ -485,7 +487,9 @@ internal fun NotesEmptyStateView(
                     onClick = onCreateNote,
                     shape = RoundedCornerShape(20.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                    modifier = Modifier.desktopHandCursor()
+                    modifier = Modifier
+                        .defaultMinSize(minHeight = 48.dp)
+                        .desktopHandCursor()
                 ) {
                     Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
@@ -604,7 +608,9 @@ internal fun NotesDesktopPreviewPane(
                         OutlinedButton(
                             onClick = onRestoreSelection,
                             shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.desktopHandCursor()
+                            modifier = Modifier
+                                .defaultMinSize(minHeight = 48.dp)
+                                .desktopHandCursor()
                         ) {
                             Text("Show Top Note", fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
                         }

@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
@@ -45,6 +47,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
@@ -94,13 +98,20 @@ internal fun DiscardNoteConfirmDialog(
             TextButton(
                 onClick = onDiscard,
                 colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                modifier = Modifier.desktopHandCursor()
+                modifier = Modifier
+                    .defaultMinSize(minHeight = 48.dp)
+                    .desktopHandCursor()
             ) {
                 Text("Discard", fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss, modifier = Modifier.desktopHandCursor()) {
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .defaultMinSize(minHeight = 48.dp)
+                    .desktopHandCursor()
+            ) {
                 Text("Keep Editing")
             }
         }
@@ -145,7 +156,9 @@ internal fun UnsavedWikiLinkNavigationDialog(
             Button(
                 onClick = onSaveAndOpen,
                 shape = RoundedCornerShape(10.dp),
-                modifier = Modifier.desktopHandCursor()
+                modifier = Modifier
+                    .defaultMinSize(minHeight = 48.dp)
+                    .desktopHandCursor()
             ) {
                 Text("Save & Open", fontWeight = FontWeight.Bold)
             }
@@ -155,11 +168,18 @@ internal fun UnsavedWikiLinkNavigationDialog(
                 TextButton(
                     onClick = onDiscardAndOpen,
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                    modifier = Modifier.desktopHandCursor()
+                    modifier = Modifier
+                        .defaultMinSize(minHeight = 48.dp)
+                        .desktopHandCursor()
                 ) {
                     Text("Discard & Open")
                 }
-                TextButton(onClick = onDismiss, modifier = Modifier.desktopHandCursor()) {
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier
+                        .defaultMinSize(minHeight = 48.dp)
+                        .desktopHandCursor()
+                ) {
                     Text("Cancel")
                 }
             }
@@ -254,6 +274,15 @@ internal fun NoteCoursePickerDialog(
                         onValueChange = { customCourseCode = it.uppercase(Locale.ROOT) },
                         placeholder = { Text("e.g. CSC3100") },
                         singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(
+                            onDone = {
+                                if (customCourseCode.isNotBlank()) {
+                                    onSelectCourse(customCourseCode.trim())
+                                    onDismiss()
+                                }
+                            }
+                        ),
                         modifier = Modifier.weight(1f)
                     )
                     Button(
@@ -264,7 +293,9 @@ internal fun NoteCoursePickerDialog(
                             }
                         },
                         enabled = customCourseCode.isNotBlank(),
-                        modifier = Modifier.desktopHandCursor(customCourseCode.isNotBlank())
+                        modifier = Modifier
+                            .defaultMinSize(minHeight = 48.dp)
+                            .desktopHandCursor(customCourseCode.isNotBlank())
                     ) {
                         Text("Set")
                     }
@@ -272,7 +303,12 @@ internal fun NoteCoursePickerDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss, modifier = Modifier.desktopHandCursor()) {
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .defaultMinSize(minHeight = 48.dp)
+                    .desktopHandCursor()
+            ) {
                 Text("Cancel")
             }
         }
@@ -358,6 +394,15 @@ internal fun NoteTagPickerDialog(
                         onValueChange = { customTagInput = it },
                         placeholder = { Text("e.g. Fieldwork") },
                         singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(
+                            onDone = {
+                                if (customTagInput.isNotBlank()) {
+                                    onSelectTag(customTagInput.trim())
+                                    onDismiss()
+                                }
+                            }
+                        ),
                         modifier = Modifier.weight(1f)
                     )
                     Button(
@@ -368,7 +413,9 @@ internal fun NoteTagPickerDialog(
                             }
                         },
                         enabled = customTagInput.isNotBlank(),
-                        modifier = Modifier.desktopHandCursor(customTagInput.isNotBlank())
+                        modifier = Modifier
+                            .defaultMinSize(minHeight = 48.dp)
+                            .desktopHandCursor(customTagInput.isNotBlank())
                     ) {
                         Text("Set")
                     }
@@ -376,7 +423,12 @@ internal fun NoteTagPickerDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss, modifier = Modifier.desktopHandCursor()) {
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .defaultMinSize(minHeight = 48.dp)
+                    .desktopHandCursor()
+            ) {
                 Text("Cancel")
             }
         }
@@ -474,7 +526,12 @@ internal fun NoteClassPickerDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss, modifier = Modifier.desktopHandCursor()) {
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .defaultMinSize(minHeight = 48.dp)
+                    .desktopHandCursor()
+            ) {
                 Text("Close")
             }
         }
@@ -513,13 +570,20 @@ internal fun NoteTemplateConfirmDialog(
             Button(
                 onClick = onConfirmReplace,
                 shape = RoundedCornerShape(10.dp),
-                modifier = Modifier.desktopHandCursor()
+                modifier = Modifier
+                    .defaultMinSize(minHeight = 48.dp)
+                    .desktopHandCursor()
             ) {
                 Text("Replace Content")
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss, modifier = Modifier.desktopHandCursor()) {
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .defaultMinSize(minHeight = 48.dp)
+                    .desktopHandCursor()
+            ) {
                 Text("Keep Current")
             }
         }
@@ -550,6 +614,17 @@ internal fun CustomPreClassAlertDialog(
                     onValueChange = { customReminderText = it.filter { ch -> ch.isDigit() }.take(4) },
                     label = { Text("Minutes") },
                     singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onDone = {
+                            val parsed = customReminderText.toIntOrNull()?.coerceIn(1, 1440)
+                            if (parsed != null) onApply(parsed)
+                            onDismiss()
+                        }
+                    ),
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -561,13 +636,20 @@ internal fun CustomPreClassAlertDialog(
                     if (parsed != null) onApply(parsed)
                     onDismiss()
                 },
-                modifier = Modifier.desktopHandCursor()
+                modifier = Modifier
+                    .defaultMinSize(minHeight = 48.dp)
+                    .desktopHandCursor()
             ) {
                 Text("Apply", fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss, modifier = Modifier.desktopHandCursor()) {
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .defaultMinSize(minHeight = 48.dp)
+                    .desktopHandCursor()
+            ) {
                 Text("Cancel")
             }
         }

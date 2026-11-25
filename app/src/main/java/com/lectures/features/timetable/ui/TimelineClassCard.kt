@@ -267,6 +267,7 @@ fun TimelineClassCard(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .defaultMinSize(minHeight = 48.dp)
                         .clip(RoundedCornerShape(10.dp))
                         .background(noteBg, RoundedCornerShape(10.dp))
                         .desktopHandCursor()
