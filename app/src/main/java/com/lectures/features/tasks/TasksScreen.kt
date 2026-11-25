@@ -5,9 +5,12 @@ import android.app.Activity
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,6 +20,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -85,6 +89,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.app.ActivityCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -96,17 +101,17 @@ import com.lectures.core.notification.NotificationHelper
 import com.lectures.core.util.NotificationPermissionHelper
 import com.lectures.features.timetable.domain.Assignment
 import com.lectures.features.timetable.domain.TaskCategory
-import com.lectures.features.timetable.ui.DarkSurfaceBase
-import com.lectures.features.timetable.ui.SurfaceBaseLight
-import com.lectures.features.timetable.ui.TextMutedLight
-import com.lectures.features.timetable.ui.TextPrimaryLight
 import com.lectures.ui.Chrome
 import com.lectures.ui.LocalAppTheme
+import com.lectures.ui.LocalExtendedColors
+import com.lectures.ui.MotionSpec
 import com.lectures.ui.components.AcademicProfileSheet
 import com.lectures.ui.components.FloatingIslandTopBar
 import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.components.onEscapeKey
 import com.lectures.ui.contrastOnColor
 import com.lectures.ui.rememberLecturesWindow
+import com.lectures.ui.rememberPrefersReducedMotion
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flowOf
 
@@ -136,11 +141,13 @@ fun TasksScreen(
     }
 
     val isDark = LocalAppTheme.current.isDark
-    val bg = if (isDark) DarkSurfaceBase else SurfaceBaseLight
-    val cardBg = if (isDark) com.lectures.features.timetable.ui.DarkSurfaceCard else Color.White
-    val textPrimary = if (isDark) Color.White else TextPrimaryLight
-    val textSecondary = if (isDark) Color(0xFF94A3B8) else TextMutedLight
-    val borderColor = if (isDark) com.lectures.features.timetable.ui.DarkBorderSubtle else Color(0xFFE2E8F0)
+    val ext = LocalExtendedColors.current
+    val reducedMotion = rememberPrefersReducedMotion()
+    val bg = ext.surfaceBase
+    val cardBg = ext.surfaceCard
+    val textPrimary = ext.textPrimary
+    val textSecondary = ext.textSecondary
+    val borderColor = ext.borderSubtle
     val primaryColor = MaterialTheme.colorScheme.primary
 
     val savedProgramme by repository.programmePref.collectAsState(initial = repository.getInitialProgramme())
@@ -340,7 +347,12 @@ fun TasksScreen(
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (onBack != null) {
-                            IconButton(onClick = onBack, modifier = Modifier.desktopHandCursor()) {
+                            IconButton(
+                                onClick = onBack,
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .desktopHandCursor()
+                            ) {
                                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = textPrimary)
                             }
                             Spacer(modifier = Modifier.width(4.dp))
@@ -368,6 +380,7 @@ fun TasksScreen(
                     IconButton(
                         onClick = { showProfileSheet = true },
                         modifier = Modifier
+                            .size(48.dp)
                             .desktopHandCursor()
                             .testTag("topbar_academic_info_btn")
                     ) {
@@ -388,7 +401,11 @@ fun TasksScreen(
                 .background(bg)
                 .padding(top = innerPadding.calculateTopPadding())
         ) {
-            if ((!areNotificationsAllowed || isTaskChannelBlocked) && !isNotificationBannerDismissed) {
+            AnimatedVisibility(
+                visible = (!areNotificationsAllowed || isTaskChannelBlocked) && !isNotificationBannerDismissed,
+                enter = if (reducedMotion) fadeIn() else expandVertically() + fadeIn(),
+                exit = if (reducedMotion) fadeOut() else shrinkVertically() + fadeOut()
+            ) {
                 Box(
                     modifier = Modifier.fillMaxWidth(),
                     contentAlignment = Alignment.Center
@@ -447,13 +464,18 @@ fun TasksScreen(
                             )
                         ) {
                             Row(
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                modifier = Modifier.padding(start = 14.dp, top = 4.dp, end = 4.dp, bottom = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Text(msg, color = Color.White, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                                IconButton(onClick = { viewModel.clearMessage() }, modifier = Modifier.desktopHandCursor()) {
-                                    Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = Color.White, modifier = Modifier.size(14.dp))
+                                IconButton(
+                                    onClick = { viewModel.clearMessage() },
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .desktopHandCursor()
+                                ) {
+                                    Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = Color.White, modifier = Modifier.size(16.dp))
                                 }
                             }
                         }
@@ -461,20 +483,26 @@ fun TasksScreen(
                 }
             }
 
-            if (uiState.isLoading && assignments.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(32.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        CircularProgressIndicator(color = primaryColor, modifier = Modifier.size(36.dp), strokeWidth = 3.dp)
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text("Loading tasks...", color = textSecondary, fontSize = 14.sp)
+            AnimatedContent(
+                targetState = uiState.isLoading && assignments.isEmpty(),
+                transitionSpec = { MotionSpec.fadeTransform(reducedMotion = reducedMotion) },
+                modifier = Modifier.fillMaxSize(),
+                label = "tasks_loading_state"
+            ) { isInitialLoading ->
+                if (isInitialLoading) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator(color = primaryColor, modifier = Modifier.size(36.dp), strokeWidth = 3.dp)
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text("Loading tasks...", color = textSecondary, fontSize = 14.sp)
+                        }
                     }
-                }
-            } else if (windowInfo.isDualPane) {
+                } else if (windowInfo.isDualPane) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.TopCenter
@@ -705,6 +733,7 @@ fun TasksScreen(
                         }
                     }
                 }
+                }
             }
         }
     }
@@ -757,6 +786,17 @@ fun TasksScreen(
         val task = taskToDelete
         AlertDialog(
             onDismissRequest = { deleteTaskId = null },
+            properties = DialogProperties(usePlatformDefaultWidth = !windowInfo.preferDesktopDialogs),
+            modifier = Modifier
+                .then(
+                    if (windowInfo.preferDesktopDialogs) {
+                        Modifier.widthIn(min = 360.dp, max = 480.dp)
+                    } else {
+                        Modifier
+                    }
+                )
+                .onEscapeKey { deleteTaskId = null },
+            containerColor = ext.surfaceCard,
             icon = {
                 Icon(
                     Icons.Default.DeleteOutline,
@@ -782,13 +822,20 @@ fun TasksScreen(
                         containerColor = MaterialTheme.colorScheme.error,
                         contentColor = MaterialTheme.colorScheme.onError
                     ),
-                    modifier = Modifier.desktopHandCursor()
+                    modifier = Modifier
+                        .defaultMinSize(minHeight = 48.dp)
+                        .desktopHandCursor()
                 ) {
                     Text("Delete", color = MaterialTheme.colorScheme.onError)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { deleteTaskId = null }, modifier = Modifier.desktopHandCursor()) {
+                TextButton(
+                    onClick = { deleteTaskId = null },
+                    modifier = Modifier
+                        .defaultMinSize(minHeight = 48.dp)
+                        .desktopHandCursor()
+                ) {
                     Text("Cancel", color = textSecondary)
                 }
             }

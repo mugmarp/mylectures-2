@@ -1,5 +1,6 @@
 package com.lectures.features.notes
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -25,8 +26,10 @@ import com.lectures.features.timetable.domain.LectureNote
 import com.lectures.features.timetable.ui.DarkBorderSubtle
 import com.lectures.features.timetable.ui.DarkSurfaceCard
 import com.lectures.ui.LocalExtendedColors
+import com.lectures.ui.MotionSpec
 import com.lectures.ui.components.desktopHandCursor
 import com.lectures.ui.components.desktopHoverable
+import com.lectures.ui.rememberPrefersReducedMotion
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -47,6 +50,7 @@ fun NoteCardItem(
 ) {
     var showMenu by remember { mutableStateOf(false) }
     val ext = LocalExtendedColors.current
+    val reducedMotion = rememberPrefersReducedMotion()
     val accent = MaterialTheme.colorScheme.primary
 
     val categoryTag = note.tag ?: "Lecture"
@@ -63,6 +67,20 @@ fun NoteCardItem(
         }
     }
 
+    val containerBg by animateColorAsState(
+        targetValue = when {
+            isSelected -> if (isDark) accent.copy(alpha = 0.14f) else accent.copy(alpha = 0.06f)
+            else -> ext.surfaceCard
+        },
+        animationSpec = MotionSpec.stateTween(MotionSpec.STATE_COLOR_MS, reducedMotion),
+        label = "note_card_bg"
+    )
+    val borderColor by animateColorAsState(
+        targetValue = if (isSelected) accent else ext.borderSubtle,
+        animationSpec = MotionSpec.stateTween(MotionSpec.STATE_COLOR_MS, reducedMotion),
+        label = "note_card_border"
+    )
+
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -74,23 +92,17 @@ fun NoteCardItem(
             )
             .testTag("note_card_${note.naturalKey}"),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = when {
-                isSelected -> if (isDark) accent.copy(alpha = 0.14f) else accent.copy(alpha = 0.06f)
-                isDark -> DarkSurfaceCard
-                else -> Color.White
-            }
-        ),
+        colors = CardDefaults.cardColors(containerColor = containerBg),
         border = BorderStroke(
             width = if (isSelected) 2.dp else 1.dp,
-            color = if (isSelected) accent else if (isDark) DarkBorderSubtle else ext.borderSubtle
+            color = borderColor
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = if (isSelected) 3.dp else 1.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .desktopHoverable()
+                .desktopHoverable(enabled = !isSelected)
                 .padding(16.dp)
         ) {
             // Tag Row with Pins and Menu

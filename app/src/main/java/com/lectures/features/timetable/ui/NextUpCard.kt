@@ -1,6 +1,6 @@
 package com.lectures.features.timetable.ui
 
-import androidx.compose.animation.core.*
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -23,7 +23,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -33,7 +32,11 @@ import com.lectures.features.timetable.domain.TimetableEntry
 import com.lectures.ui.AccentColors
 import com.lectures.ui.AccentDarkColors
 import com.lectures.ui.LocalAppTheme
+import com.lectures.ui.MotionSpec
+import com.lectures.ui.components.LivePulseBadge
 import com.lectures.ui.components.RoomFloorBadge
+import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.rememberPrefersReducedMotion
 import androidx.compose.foundation.border
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -95,6 +98,7 @@ fun NextUpCard(entry: TimetableEntry, minutesUntil: Int, onClick: () -> Unit) {
                     Modifier
                 }
             )
+            .desktopHandCursor()
             .clickable(onClick = onClick)
             .background(cardBrush)
             .padding(20.dp)
@@ -106,7 +110,17 @@ fun NextUpCard(entry: TimetableEntry, minutesUntil: Int, onClick: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (isLive) {
-                    NextUpLiveBadge()
+                    LivePulseBadge(
+                        text = "HAPPENING NOW",
+                        dotColor = Color(0xFF4ADE80),
+                        containerColor = Color(0xFF22C55E).copy(alpha = 0.25f),
+                        contentColor = Color.White,
+                        shape = RoundedCornerShape(12.dp),
+                        dotSize = 7.dp,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                    )
                 } else {
                     Box(
                         modifier = Modifier
@@ -209,8 +223,14 @@ fun NextUpCard(entry: TimetableEntry, minutesUntil: Int, onClick: () -> Unit) {
 
                     Spacer(modifier = Modifier.height(6.dp))
 
+                    val reducedMotion = rememberPrefersReducedMotion()
+                    val animatedProgress by animateFloatAsState(
+                        targetValue = if (progress.progress > 0f) progress.progress else 0.05f,
+                        animationSpec = MotionSpec.stateTween(450, reducedMotion),
+                        label = "nextup_progress"
+                    )
                     LinearProgressIndicator(
-                        progress = { if (progress.progress > 0f) progress.progress else 0.05f },
+                        progress = { animatedProgress },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(6.dp)
@@ -272,36 +292,6 @@ fun NextUpCard(entry: TimetableEntry, minutesUntil: Int, onClick: () -> Unit) {
                     )
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun NextUpLiveBadge() {
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse_nextup")
-    val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.4f,
-        targetValue = 1.0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(700, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "nextup_alpha"
-    )
-    Box(
-        modifier = Modifier
-            .background(Color(0xFF22C55E).copy(alpha = 0.25f), RoundedCornerShape(12.dp))
-            .padding(horizontal = 10.dp, vertical = 4.dp)
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(7.dp)
-                    .graphicsLayer { this.alpha = pulseAlpha }
-                    .background(Color(0xFF4ADE80), CircleShape)
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text("HAPPENING NOW", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
         }
     }
 }

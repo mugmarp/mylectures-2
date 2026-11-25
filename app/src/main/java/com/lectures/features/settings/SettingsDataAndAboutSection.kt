@@ -46,13 +46,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material.icons.outlined.Palette
 import com.lectures.BuildConfig
 import com.lectures.ui.AccentColorNames
 import com.lectures.ui.AppThemeState
+import com.lectures.ui.LocalExtendedColors
 import com.lectures.ui.ThemeMode
 import com.lectures.ui.accentDisplayColors
+import com.lectures.ui.components.desktopHandCursor
 import com.lectures.ui.components.desktopHoverable
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -161,14 +164,15 @@ internal fun SettingsDataAndSyncSection(
     onShowVersionDetails: () -> Unit,
     onCheckOrOpenUpdate: () -> Unit
 ) {
+    val ext = LocalExtendedColors.current
     SectionHeader("DATA & SYNCHRONIZATION")
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        colors = CardDefaults.cardColors(containerColor = ext.surfaceCard),
+        border = BorderStroke(1.dp, ext.borderSubtle),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(18.dp)) {
@@ -202,7 +206,10 @@ internal fun SettingsDataAndSyncSection(
                         containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                         contentColor = MaterialTheme.colorScheme.primary
                     ),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                    modifier = Modifier
+                        .defaultMinSize(minHeight = 48.dp)
+                        .desktopHandCursor(enabled = !uiState.isSyncing)
                 ) {
                     Text(
                         if (uiState.isSyncing) "Syncing..." else "Sync Now",
@@ -259,14 +266,14 @@ internal fun SettingsDataAndSyncSection(
                             Box(
                                 modifier = Modifier
                                     .size(6.dp)
-                                    .background(Color(0xFF22C55E), CircleShape)
+                                    .background(ext.successIcon, CircleShape)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 uiState.userDataBackupStatus,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Medium,
-                                color = if (isDark) Color(0xFF6EE7B7) else Color(0xFF15803D)
+                                color = ext.successText
                             )
                         }
                     }
@@ -275,7 +282,10 @@ internal fun SettingsDataAndSyncSection(
                             onClick = onSyncUserData,
                             enabled = !uiState.isBackingUpUserData,
                             shape = RoundedCornerShape(10.dp),
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                            modifier = Modifier
+                                .defaultMinSize(minHeight = 48.dp)
+                                .desktopHandCursor(enabled = !uiState.isBackingUpUserData)
                         ) {
                             if (uiState.isBackingUpUserData) {
                                 CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
@@ -290,7 +300,10 @@ internal fun SettingsDataAndSyncSection(
                                 containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                                 contentColor = MaterialTheme.colorScheme.primary
                             ),
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                            modifier = Modifier
+                                .defaultMinSize(minHeight = 48.dp)
+                                .desktopHandCursor()
                         ) {
                             Text("Manage", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
@@ -342,7 +355,10 @@ internal fun SettingsDataAndSyncSection(
                             contentColor = MaterialTheme.colorScheme.onPrimary
                         ),
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                        modifier = Modifier.testTag("settings_google_signin_btn")
+                        modifier = Modifier
+                            .defaultMinSize(minHeight = 48.dp)
+                            .desktopHandCursor()
+                            .testTag("settings_google_signin_btn")
                     ) {
                         Icon(Icons.Default.AccountCircle, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
@@ -356,7 +372,9 @@ internal fun SettingsDataAndSyncSection(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .defaultMinSize(minHeight = 48.dp)
                     .clip(RoundedCornerShape(10.dp))
+                    .desktopHandCursor()
                     .clickable(onClick = onOpenAccount)
                     .background(
                         MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
@@ -374,14 +392,14 @@ internal fun SettingsDataAndSyncSection(
                 )
                 Box(
                     modifier = Modifier
-                        .background(Color(0xFF22C55E).copy(alpha = 0.15f), RoundedCornerShape(6.dp))
+                        .background(ext.successBg, RoundedCornerShape(6.dp))
                         .padding(horizontal = 6.dp, vertical = 2.dp)
                 ) {
                     Text(
                         text = if (uiState.isCloudSyncActive) "SYNCED" else "OFFLINE-SAFE",
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (isDark) Color(0xFF6EE7B7) else Color(0xFF15803D)
+                        color = ext.successText
                     )
                 }
             }
@@ -432,18 +450,8 @@ internal fun SettingsDataAndSyncSection(
 
             val isFinalRelease = uiState.isFinal || uiState.timetableVersion.contains("Final", ignoreCase = true)
             val badgeText = uiState.metadata?.displayBadge ?: if (isFinalRelease) "FINAL" else uiState.timetableStatus.uppercase(Locale.ROOT)
-            val badgeBg = when {
-                isFinalRelease && isDark -> Color(0xFF064E3B)
-                isFinalRelease -> Color(0xFFDCFCE7)
-                isDark -> Color(0xFF78350F)
-                else -> Color(0xFFFEF3C7)
-            }
-            val badgeColor = when {
-                isFinalRelease && isDark -> Color(0xFF6EE7B7)
-                isFinalRelease -> Color(0xFF15803D)
-                isDark -> Color(0xFFFCD34D)
-                else -> Color(0xFFB45309)
-            }
+            val badgeBg = if (isFinalRelease) ext.successBg else ext.warningBg
+            val badgeColor = if (isFinalRelease) ext.successText else ext.warningText
 
             Row(
                 modifier = Modifier

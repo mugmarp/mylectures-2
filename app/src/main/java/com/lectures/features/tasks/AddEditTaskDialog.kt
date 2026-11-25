@@ -1,5 +1,6 @@
 package com.lectures.features.tasks
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
@@ -62,17 +64,15 @@ import androidx.compose.ui.window.DialogProperties
 import com.lectures.core.alarm.TaskDateTimeParser
 import com.lectures.features.timetable.domain.Assignment
 import com.lectures.features.timetable.domain.TaskCategory
-import com.lectures.features.timetable.ui.DarkBorderSubtle
-import com.lectures.features.timetable.ui.DarkSurfaceBase
-import com.lectures.features.timetable.ui.DarkSurfaceCard
-import com.lectures.features.timetable.ui.TextMutedLight
-import com.lectures.features.timetable.ui.TextPrimaryLight
+import com.lectures.ui.LocalExtendedColors
+import com.lectures.ui.MotionSpec
 import com.lectures.ui.components.DedicatedCalendarDatePickerDialog
 import com.lectures.ui.components.DedicatedTimePickerDialog
 import com.lectures.ui.components.desktopHandCursor
 import com.lectures.ui.components.onEscapeKey
 import com.lectures.ui.contrastOnColor
 import com.lectures.ui.rememberLecturesWindow
+import com.lectures.ui.rememberPrefersReducedMotion
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -125,9 +125,11 @@ fun AddTaskDialog(
     var titleTouched by rememberSaveable(taskSaveKey) { mutableStateOf(false) }
     var courseTouched by rememberSaveable(taskSaveKey) { mutableStateOf(false) }
 
+    val ext = LocalExtendedColors.current
+    val reducedMotion = rememberPrefersReducedMotion()
     val primaryColor = MaterialTheme.colorScheme.primary
-    val textPrimary = if (isDark) Color.White else TextPrimaryLight
-    val textSecondary = if (isDark) Color(0xFF94A3B8) else TextMutedLight
+    val textPrimary = ext.textPrimary
+    val textSecondary = ext.textSecondary
 
     val schedulePreview = remember(fullDueDateTime, reminderMinutes) {
         TaskDateTimeParser.formatSchedulePreview(fullDueDateTime, reminderMinutes)
@@ -141,6 +143,7 @@ fun AddTaskDialog(
 
     AlertDialog(
         onDismissRequest = handleDismiss,
+        containerColor = ext.surfaceCard,
         properties = DialogProperties(usePlatformDefaultWidth = !windowInfo.preferDesktopDialogs),
         modifier = Modifier
             .then(
@@ -198,11 +201,21 @@ fun AddTaskDialog(
 
                 val categoryChipContent: @Composable (TaskCategory) -> Unit = { cat ->
                     val isSelected = category == cat
+                    val chipBg by animateColorAsState(
+                        targetValue = if (isSelected) cat.color else (if (isDark) ext.surfaceBase else cat.lightContainerColor.copy(alpha = 0.5f)),
+                        animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+                        label = "task_cat_bg"
+                    )
+                    val chipBorder by animateColorAsState(
+                        targetValue = if (isSelected) cat.color else cat.color.copy(alpha = 0.35f),
+                        animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+                        label = "task_cat_border"
+                    )
                     Surface(
                         onClick = { category = cat },
                         shape = RoundedCornerShape(10.dp),
-                        color = if (isSelected) cat.color else (if (isDark) DarkSurfaceBase else cat.lightContainerColor.copy(alpha = 0.5f)),
-                        border = BorderStroke(1.dp, if (isSelected) cat.color else cat.color.copy(alpha = 0.35f)),
+                        color = chipBg,
+                        border = BorderStroke(1.dp, chipBorder),
                         modifier = Modifier.desktopHandCursor()
                     ) {
                         val selectedInk = contrastOnColor(cat.color)
@@ -221,7 +234,7 @@ fun AddTaskDialog(
                                 cat.displayName,
                                 fontSize = 11.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                color = if (isSelected) selectedInk else (if (isDark) Color(0xFFF1F5F9) else Color(0xFF1E293B))
+                                color = if (isSelected) selectedInk else ext.textPrimary
                             )
                         }
                     }
@@ -359,10 +372,11 @@ fun AddTaskDialog(
                 ) {
                     Surface(
                         shape = RoundedCornerShape(12.dp),
-                        color = if (isDark) DarkSurfaceCard else Color(0xFFF8FAFC),
-                        border = BorderStroke(1.dp, if (isDark) DarkBorderSubtle else Color(0xFFE2E8F0)),
+                        color = ext.surfaceBase,
+                        border = BorderStroke(1.dp, ext.borderSubtle),
                         modifier = Modifier
                             .weight(1.3f)
+                            .defaultMinSize(minHeight = 48.dp)
                             .desktopHandCursor()
                             .clickable { showDueCalendarPicker = true }
                     ) {
@@ -382,7 +396,7 @@ fun AddTaskDialog(
                                     text = dueDateOnly.ifBlank { "Select Date" },
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = if (isDark) Color.White else Color(0xFF0F172A),
+                                    color = ext.textPrimary,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -397,10 +411,11 @@ fun AddTaskDialog(
 
                     Surface(
                         shape = RoundedCornerShape(12.dp),
-                        color = if (isDark) DarkSurfaceCard else Color(0xFFF8FAFC),
-                        border = BorderStroke(1.dp, if (isDark) DarkBorderSubtle else Color(0xFFE2E8F0)),
+                        color = ext.surfaceBase,
+                        border = BorderStroke(1.dp, ext.borderSubtle),
                         modifier = Modifier
                             .weight(1f)
+                            .defaultMinSize(minHeight = 48.dp)
                             .desktopHandCursor()
                             .clickable { showDueTimePicker = true }
                     ) {
@@ -420,7 +435,7 @@ fun AddTaskDialog(
                                     text = dueTime.ifBlank { "17:00" },
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = if (isDark) Color.White else Color(0xFF0F172A),
+                                    color = ext.textPrimary,
                                     maxLines = 1
                                 )
                                 Text(
@@ -442,19 +457,27 @@ fun AddTaskDialog(
                     val selectedInk = contrastOnColor(primaryColor)
                     listOf("High", "Medium", "Low").forEach { p ->
                         val isSelected = priority == p
+                        val chipBg by animateColorAsState(
+                            targetValue = if (isSelected) primaryColor else ext.surfaceBase,
+                            animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+                            label = "task_prio_bg"
+                        )
+                        val chipFg by animateColorAsState(
+                            targetValue = if (isSelected) selectedInk else textSecondary,
+                            animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+                            label = "task_prio_fg"
+                        )
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(
-                                    if (isSelected) primaryColor else (if (isDark) DarkSurfaceBase else Color(0xFFF1F5F9))
-                                )
+                                .background(chipBg)
                                 .desktopHandCursor()
                                 .clickable { priority = p }
                                 .padding(horizontal = 10.dp, vertical = 4.dp)
                         ) {
                             Text(
                                 p,
-                                color = if (isSelected) selectedInk else textSecondary,
+                                color = chipFg,
                                 fontSize = 11.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                             )
@@ -480,19 +503,27 @@ fun AddTaskDialog(
                     val selectedInk = contrastOnColor(primaryColor)
                     val alertChipContent: @Composable (Pair<Int?, String>) -> Unit = { (mins, label) ->
                         val isSelected = reminderMinutes == mins
+                        val alertBg by animateColorAsState(
+                            targetValue = if (isSelected) primaryColor else ext.surfaceBase,
+                            animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+                            label = "task_alert_bg"
+                        )
+                        val alertFg by animateColorAsState(
+                            targetValue = if (isSelected) selectedInk else textSecondary,
+                            animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+                            label = "task_alert_fg"
+                        )
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(
-                                    if (isSelected) primaryColor else (if (isDark) DarkSurfaceBase else Color(0xFFF1F5F9))
-                                )
+                                .background(alertBg)
                                 .desktopHandCursor()
                                 .clickable { reminderMinutes = mins }
                                 .padding(horizontal = 8.dp, vertical = 4.dp)
                         ) {
                             Text(
                                 label,
-                                color = if (isSelected) selectedInk else textSecondary,
+                                color = alertFg,
                                 fontSize = 11.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                             )
@@ -576,13 +607,20 @@ fun AddTaskDialog(
                     containerColor = primaryColor,
                     contentColor = contrastOnColor(primaryColor)
                 ),
-                modifier = Modifier.desktopHandCursor(enabled = title.isNotBlank() && course.isNotBlank())
+                modifier = Modifier
+                    .defaultMinSize(minHeight = 48.dp)
+                    .desktopHandCursor(enabled = title.isNotBlank() && course.isNotBlank())
             ) {
                 Text(if (initialTask != null) "Save & Reschedule" else "Schedule & Save")
             }
         },
         dismissButton = {
-            TextButton(onClick = handleDismiss, modifier = Modifier.desktopHandCursor()) {
+            TextButton(
+                onClick = handleDismiss,
+                modifier = Modifier
+                    .defaultMinSize(minHeight = 48.dp)
+                    .desktopHandCursor()
+            ) {
                 Text("Cancel")
             }
         }

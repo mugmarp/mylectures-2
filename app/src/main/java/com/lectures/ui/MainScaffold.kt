@@ -167,70 +167,93 @@ fun MainScaffold(
         }
     }
 
-    when (val state = navState) {
-        is AppNavState.Welcome -> {
-            WelcomeScreen(
-                onGetStarted = { navState = AppNavState.FacultySelection }
+    val windowInfo = rememberLecturesWindow()
+    val reducedMotion = rememberPrefersReducedMotion()
+
+    fun AppNavState.depth(): Int = when (this) {
+        is AppNavState.Welcome -> 0
+        is AppNavState.FacultySelection -> 1
+        is AppNavState.ProgrammeSelection -> 2
+        is AppNavState.ClassGroupSelection -> 3
+        is AppNavState.MainApp -> 4
+    }
+
+    AnimatedContent(
+        targetState = navState,
+        contentKey = { it::class },
+        transitionSpec = {
+            MotionSpec.directionalSlideTransform(
+                forward = targetState.depth() >= initialState.depth(),
+                reducedMotion = reducedMotion,
+                useFadeOnly = windowInfo.useNavigationRail
             )
-        }
-        is AppNavState.FacultySelection -> {
-            BackHandler {
-                navState = if (onboardingCompleted) AppNavState.MainApp else AppNavState.Welcome
+        },
+        label = "OnboardingAndMainNav"
+    ) { state ->
+        when (state) {
+            is AppNavState.Welcome -> {
+                WelcomeScreen(
+                    onGetStarted = { navState = AppNavState.FacultySelection }
+                )
             }
-            FacultySelectionScreen(
-                onSelectFaculty = { faculty -> navState = AppNavState.ProgrammeSelection(faculty) },
-                onBack = {
+            is AppNavState.FacultySelection -> {
+                BackHandler {
                     navState = if (onboardingCompleted) AppNavState.MainApp else AppNavState.Welcome
                 }
-            )
-        }
-        is AppNavState.ProgrammeSelection -> {
-            BackHandler {
-                navState = AppNavState.FacultySelection
-            }
-            ProgrammeSelectionScreen(
-                faculty = state.faculty,
-                onSelectProgramme = { prog -> navState = AppNavState.ClassGroupSelection(state.faculty, prog) },
-                onBack = { navState = AppNavState.FacultySelection }
-            )
-        }
-        is AppNavState.ClassGroupSelection -> {
-            BackHandler {
-                navState = AppNavState.ProgrammeSelection(state.faculty)
-            }
-            val allEntries by repository.getAllEntries().collectAsState(initial = emptyList())
-            val liveCohortCounts by repository.getCohortCounts(state.programme.code).collectAsState(initial = emptyMap())
-            val calculatedCounts = remember(state.programme, allEntries, liveCohortCounts) {
-                state.programme.allGroups.associateWith { g ->
-                    com.lectures.features.timetable.domain.TimetableMatcher.getGroupCount(
-                        group = g,
-                        entries = allEntries,
-                        cohortCounts = liveCohortCounts
-                    )
-                }
-            }
-            ClassGroupSelectionScreen(
-                programme = state.programme,
-                faculty = state.faculty,
-                entryCounts = calculatedCounts,
-                onConfirm = { chosenGroup ->
-                    scope.launch {
-                        repository.setProgrammePref(chosenGroup)
-                        repository.setOnboardingCompleted(true)
-                        com.lectures.core.alarm.AlarmSyncCoordinator.resyncAll(
-                            context = context,
-                            repository = repository,
-                            force = true,
-                            reason = "onboarding_group_selected"
-                        )
-                        navState = AppNavState.MainApp
+                FacultySelectionScreen(
+                    onSelectFaculty = { faculty -> navState = AppNavState.ProgrammeSelection(faculty) },
+                    onBack = {
+                        navState = if (onboardingCompleted) AppNavState.MainApp else AppNavState.Welcome
                     }
-                },
-                onBack = { navState = AppNavState.ProgrammeSelection(state.faculty) }
-            )
-        }
-        is AppNavState.MainApp -> {
-            var currentDestination by rememberSaveable { mutableStateOf(MainScreenDestination.TABS) }
+                )
+            }
+            is AppNavState.ProgrammeSelection -> {
+                BackHandler {
+                    navState = AppNavState.FacultySelection
+                }
+                ProgrammeSelectionScreen(
+                    faculty = state.faculty,
+                    onSelectProgramme = { prog -> navState = AppNavState.ClassGroupSelection(state.faculty, prog) },
+                    onBack = { navState = AppNavState.FacultySelection }
+                )
+            }
+            is AppNavState.ClassGroupSelection -> {
+                BackHandler {
+                    navState = AppNavState.ProgrammeSelection(state.faculty)
+                }
+                val allEntries by repository.getAllEntries().collectAsState(initial = emptyList())
+                val liveCohortCounts by repository.getCohortCounts(state.programme.code).collectAsState(initial = emptyMap())
+                val calculatedCounts = remember(state.programme, allEntries, liveCohortCounts) {
+                    state.programme.allGroups.associateWith { g ->
+                        com.lectures.features.timetable.domain.TimetableMatcher.getGroupCount(
+                            group = g,
+                            entries = allEntries,
+                            cohortCounts = liveCohortCounts
+                        )
+                    }
+                }
+                ClassGroupSelectionScreen(
+                    programme = state.programme,
+                    faculty = state.faculty,
+                    entryCounts = calculatedCounts,
+                    onConfirm = { chosenGroup ->
+                        scope.launch {
+                            repository.setProgrammePref(chosenGroup)
+                            repository.setOnboardingCompleted(true)
+                            com.lectures.core.alarm.AlarmSyncCoordinator.resyncAll(
+                                context = context,
+                                repository = repository,
+                                force = true,
+                                reason = "onboarding_group_selected"
+                            )
+                            navState = AppNavState.MainApp
+                        }
+                    },
+                    onBack = { navState = AppNavState.ProgrammeSelection(state.faculty) }
+                )
+            }
+            is AppNavState.MainApp -> {
+                var currentDestination by rememberSaveable { mutableStateOf(MainScreenDestination.TABS) }
 
             // Handle notification deep-link intents even when user is inside Settings, Account, or Vacant Rooms.
             LaunchedEffect(notificationIntentFlow) {
@@ -470,23 +493,19 @@ fun MainScaffold(
                     AnimatedContent(
                         targetState = currentDestination,
                         transitionSpec = {
-                            if (windowInfo.useNavigationRail) {
-                                fadeIn(animationSpec = tween(160))
-                                    .togetherWith(fadeOut(animationSpec = tween(110)))
-                            } else if (targetState != MainScreenDestination.TABS) {
-                                (slideInHorizontally(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) { it } +
-                                        fadeIn(animationSpec = tween(220)))
-                                    .togetherWith(
-                                        slideOutHorizontally(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) { -it / 3 } +
-                                                fadeOut(animationSpec = tween(150))
-                                    )
+                            if (reducedMotion || windowInfo.useNavigationRail) {
+                                MotionSpec.fadeTransform(
+                                    enterMs = MotionSpec.TAB_FADE_IN_MS,
+                                    exitMs = MotionSpec.TAB_FADE_OUT_MS,
+                                    reducedMotion = reducedMotion
+                                )
                             } else {
-                                (slideInHorizontally(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) { -it / 3 } +
-                                        fadeIn(animationSpec = tween(220)))
-                                    .togetherWith(
-                                        slideOutHorizontally(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) { it } +
-                                                fadeOut(animationSpec = tween(150))
-                                    )
+                                val isForward = targetState != MainScreenDestination.TABS
+                                MotionSpec.directionalSlideTransform(
+                                    forward = isForward,
+                                    reducedMotion = false,
+                                    useFadeOnly = false
+                                )
                             }
                         },
                         label = "SubScreenNavigation"
@@ -534,13 +553,21 @@ fun MainScaffold(
                                     AnimatedContent(
                                         targetState = selectedTab,
                                         transitionSpec = {
-                                            val direction = if (targetState > initialState) 1 else -1
-                                            (slideInHorizontally(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) { width -> (direction * width * 0.14f).toInt() } +
-                                                    fadeIn(animationSpec = tween(180)))
-                                                .togetherWith(
-                                                    slideOutHorizontally(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) { width -> (-direction * width * 0.14f).toInt() } +
-                                                            fadeOut(animationSpec = tween(120))
+                                            if (reducedMotion || windowInfo.useNavigationRail) {
+                                                MotionSpec.fadeTransform(
+                                                    enterMs = MotionSpec.TAB_FADE_IN_MS,
+                                                    exitMs = MotionSpec.TAB_FADE_OUT_MS,
+                                                    reducedMotion = reducedMotion
                                                 )
+                                            } else {
+                                                val direction = if (targetState > initialState) 1 else -1
+                                                (slideInHorizontally(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) { width -> (direction * width * 0.14f).toInt() } +
+                                                        fadeIn(animationSpec = tween(180)))
+                                                    .togetherWith(
+                                                        slideOutHorizontally(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) { width -> (-direction * width * 0.14f).toInt() } +
+                                                                fadeOut(animationSpec = tween(120))
+                                                    )
+                                            }
                                         },
                                         label = "MainTabsTransition"
                                     ) { tabIndex ->
@@ -612,13 +639,28 @@ fun MainScaffold(
                                     }
 
                                     // Mobile Floating Pill Dock: Rendered exclusively on phones when rail is inactive
-                                    if (!windowInfo.useNavigationRail && !isNotesEditing && !windowInfo.isImeVisible) {
+                                    AnimatedVisibility(
+                                        visible = !windowInfo.useNavigationRail && !isNotesEditing && !windowInfo.isImeVisible,
+                                        enter = if (reducedMotion) EnterTransition.None else {
+                                            slideInVertically(
+                                                initialOffsetY = { it },
+                                                animationSpec = MotionSpec.standardSpring()
+                                            ) + fadeIn(animationSpec = tween(180))
+                                        },
+                                        exit = if (reducedMotion) ExitTransition.None else {
+                                            slideOutVertically(
+                                                targetOffsetY = { it },
+                                                animationSpec = tween(140)
+                                            ) + fadeOut(animationSpec = tween(120))
+                                        },
+                                        modifier = Modifier
+                                            .align(Alignment.BottomCenter)
+                                            .fillMaxWidth()
+                                            .navigationBarsPadding()
+                                            .padding(start = Chrome.DockSideInset, end = Chrome.DockSideInset, bottom = Chrome.DockBottomGap)
+                                    ) {
                                         Box(
-                                            modifier = Modifier
-                                                .align(Alignment.BottomCenter)
-                                                .fillMaxWidth()
-                                                .navigationBarsPadding()
-                                                .padding(start = Chrome.DockSideInset, end = Chrome.DockSideInset, bottom = Chrome.DockBottomGap),
+                                            modifier = Modifier.fillMaxWidth(),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Surface(
@@ -645,11 +687,11 @@ fun MainScaffold(
 
                                                         val pillColor by animateColorAsState(
                                                             targetValue = if (isSelected) primaryBlue.copy(alpha = 0.14f) else Color.Transparent,
-                                                            animationSpec = tween(180),
+                                                            animationSpec = MotionSpec.stateTween(180, reducedMotion),
                                                             label = "pill_color"
                                                         )
                                                         val iconScale by animateFloatAsState(
-                                                            targetValue = if (isSelected) 1.08f else 1.0f,
+                                                            targetValue = if (isSelected && !reducedMotion) 1.08f else 1.0f,
                                                             animationSpec = spring(dampingRatio = 0.65f, stiffness = Spring.StiffnessMedium),
                                                             label = "icon_scale"
                                                         )
@@ -661,7 +703,7 @@ fun MainScaffold(
                                                                 .clip(RoundedCornerShape(20.dp))
                                                                 .clickable {
                                                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                                                    selectedTab = index
+                                                                    navigateToTabSafely(index)
                                                                 }
                                                                 .testTag("nav_${tab.lowercase(java.util.Locale.ROOT)}"),
                                                             contentAlignment = Alignment.Center
@@ -809,6 +851,7 @@ fun MainScaffold(
                         .background(MaterialTheme.colorScheme.background)
                 )
             }
+        }
         }
     }
 }

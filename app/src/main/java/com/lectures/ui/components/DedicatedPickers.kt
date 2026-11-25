@@ -1,5 +1,10 @@
 package com.lectures.ui.components
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -28,14 +33,73 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import com.lectures.ui.LocalExtendedColors
+import com.lectures.ui.MotionSpec
+import com.lectures.ui.rememberLecturesWindow
+import com.lectures.ui.rememberPrefersReducedMotion
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
+
+@Composable
+private fun PickerDesktopDialogWrapper(
+    onDismiss: () -> Unit,
+    desktopMinWidth: Dp = 360.dp,
+    desktopMaxWidth: Dp = 480.dp,
+    content: @Composable (Modifier) -> Unit
+) {
+    val windowInfo = rememberLecturesWindow()
+    val reducedMotion = rememberPrefersReducedMotion()
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = !windowInfo.preferDesktopDialogs,
+            dismissOnBackPress = true,
+            dismissOnClickOutside = true
+        )
+    ) {
+        var entered by remember { mutableStateOf(reducedMotion || !windowInfo.preferDesktopDialogs) }
+        LaunchedEffect(Unit) { entered = true }
+        val dialogScale by animateFloatAsState(
+            targetValue = if (entered) 1f else 0.95f,
+            animationSpec = if (reducedMotion || !windowInfo.preferDesktopDialogs) snap() else MotionSpec.standardSpring(),
+            label = "picker_dialog_scale"
+        )
+        val dialogAlpha by animateFloatAsState(
+            targetValue = if (entered) 1f else 0f,
+            animationSpec = if (reducedMotion || !windowInfo.preferDesktopDialogs) snap() else tween(MotionSpec.DIALOG_ENTER_MS),
+            label = "picker_dialog_alpha"
+        )
+        val dialogModifier = Modifier
+            .graphicsLayer {
+                scaleX = dialogScale
+                scaleY = dialogScale
+                alpha = dialogAlpha
+            }
+            .then(
+                if (windowInfo.preferDesktopDialogs) {
+                    Modifier
+                        .padding(horizontal = 24.dp, vertical = 20.dp)
+                        .widthIn(min = desktopMinWidth, max = desktopMaxWidth)
+                        .heightIn(max = (windowInfo.heightDp - 48).coerceAtLeast(360).dp)
+                } else {
+                    Modifier.padding(horizontal = 4.dp)
+                }
+            )
+            .onEscapeKey(onDismiss)
+
+        content(dialogModifier)
+    }
+}
 
 /**
  * Dedicated Time Picker Dialog featuring the Material 3 circular dial TimePicker,
@@ -59,12 +123,19 @@ fun DedicatedTimePickerDialog(
         is24Hour = false
     )
 
-    Dialog(onDismissRequest = onDismiss) {
+    val ext = LocalExtendedColors.current
+
+    PickerDesktopDialogWrapper(
+        onDismiss = onDismiss,
+        desktopMinWidth = 360.dp,
+        desktopMaxWidth = 440.dp
+    ) { dialogModifier ->
         Card(
             shape = RoundedCornerShape(28.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            colors = CardDefaults.cardColors(containerColor = ext.surfaceCard),
+            border = BorderStroke(1.dp, ext.borderSubtle),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-            modifier = Modifier.padding(horizontal = 4.dp)
+            modifier = dialogModifier
         ) {
             Column(
                 modifier = Modifier
@@ -84,7 +155,12 @@ fun DedicatedTimePickerDialog(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    IconButton(onClick = onDismiss) {
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .desktopHandCursor()
+                    ) {
                         Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(20.dp))
                     }
                 }
@@ -104,7 +180,12 @@ fun DedicatedTimePickerDialog(
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    TextButton(onClick = onDismiss) {
+                    TextButton(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .defaultMinSize(minHeight = 48.dp)
+                            .desktopHandCursor()
+                    ) {
                         Text("Cancel", fontSize = 14.sp)
                     }
                     Spacer(modifier = Modifier.width(8.dp))
@@ -114,7 +195,10 @@ fun DedicatedTimePickerDialog(
                             onTimeSelected(formatted)
                             onDismiss()
                         },
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .defaultMinSize(minHeight = 48.dp)
+                            .desktopHandCursor()
                     ) {
                         Text("OK", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     }
@@ -240,14 +324,21 @@ fun DedicatedCalendarDatePickerDialog(
         (dow + 5) % 7
     }
 
-    Dialog(onDismissRequest = onDismiss) {
+    val ext = LocalExtendedColors.current
+    val reducedMotion = rememberPrefersReducedMotion()
+    val monthKey = viewYear * 12 + viewMonth
+
+    PickerDesktopDialogWrapper(
+        onDismiss = onDismiss,
+        desktopMinWidth = 380.dp,
+        desktopMaxWidth = 460.dp
+    ) { dialogModifier ->
         Card(
             shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            colors = CardDefaults.cardColors(containerColor = ext.surfaceCard),
+            border = BorderStroke(1.dp, ext.borderSubtle),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp)
+            modifier = dialogModifier.fillMaxWidth()
         ) {
             Column(
                 modifier = Modifier
@@ -277,7 +368,12 @@ fun DedicatedCalendarDatePickerDialog(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                     }
-                    IconButton(onClick = onDismiss) {
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .desktopHandCursor()
+                    ) {
                         Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(20.dp))
                     }
                 }
@@ -298,17 +394,26 @@ fun DedicatedCalendarDatePickerDialog(
                             } else {
                                 viewMonth -= 1
                             }
-                        }
+                        },
+                        modifier = Modifier
+                            .size(48.dp)
+                            .desktopHandCursor()
                     ) {
                         Icon(Icons.Default.ChevronLeft, contentDescription = "Previous Month")
                     }
 
-                    Text(
-                        text = monthTitle,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    AnimatedContent(
+                        targetState = monthTitle,
+                        transitionSpec = { MotionSpec.fadeTransform(reducedMotion = reducedMotion) },
+                        label = "picker_month_title"
+                    ) { animatedTitle ->
+                        Text(
+                            text = animatedTitle,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
 
                     IconButton(
                         onClick = {
@@ -318,7 +423,10 @@ fun DedicatedCalendarDatePickerDialog(
                             } else {
                                 viewMonth += 1
                             }
-                        }
+                        },
+                        modifier = Modifier
+                            .size(48.dp)
+                            .desktopHandCursor()
                     ) {
                         Icon(Icons.Default.ChevronRight, contentDescription = "Next Month")
                     }
@@ -358,70 +466,108 @@ fun DedicatedCalendarDatePickerDialog(
                     }
                 }
 
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    var dayCounter = 1
-                    for (row in 0..5) {
-                        if (dayCounter > daysInMonth) break
-                        Row(
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            for (col in 0..6) {
-                                val cellIndex = row * 7 + col
-                                Box(
-                                    modifier = Modifier.weight(1f),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    if (cellIndex >= firstDayOffset && dayCounter <= daysInMonth) {
-                                        val currentDay = dayCounter
-                                        val isCellSelected = (viewYear == selectedYear && viewMonth == selectedMonth && currentDay == selectedDayOfMonth)
-                                        val isCellToday = (viewYear == todayCal.get(Calendar.YEAR) && viewMonth == todayCal.get(Calendar.MONTH) && currentDay == todayCal.get(Calendar.DAY_OF_MONTH))
+                AnimatedContent(
+                    targetState = monthKey,
+                    transitionSpec = {
+                        MotionSpec.directionalSlideTransform(
+                            forward = targetState > initialState,
+                            reducedMotion = reducedMotion,
+                            useFadeOnly = false
+                        )
+                    },
+                    label = "picker_calendar_grid"
+                ) { targetKey ->
+                    val gridYear = targetKey / 12
+                    val gridMonth = targetKey % 12
+                    val gridMonthCal = remember(targetKey) {
+                        Calendar.getInstance().apply {
+                            set(Calendar.YEAR, gridYear)
+                            set(Calendar.MONTH, gridMonth)
+                            set(Calendar.DAY_OF_MONTH, 1)
+                        }
+                    }
+                    val gridDaysInMonth = remember(gridMonthCal) {
+                        gridMonthCal.getActualMaximum(Calendar.DAY_OF_MONTH)
+                    }
+                    val gridFirstDayOffset = remember(gridMonthCal) {
+                        (gridMonthCal.get(Calendar.DAY_OF_WEEK) + 5) % 7
+                    }
 
-                                        val cellCal = Calendar.getInstance().apply {
-                                            set(viewYear, viewMonth, currentDay, 23, 59, 59)
-                                        }
-                                        val isPast = cellCal.before(todayStartCal)
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        var dayCounter = 1
+                        for (row in 0..5) {
+                            if (dayCounter > gridDaysInMonth) break
+                            Row(
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                for (col in 0..6) {
+                                    val cellIndex = row * 7 + col
+                                    Box(
+                                        modifier = Modifier.weight(1f),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (cellIndex >= gridFirstDayOffset && dayCounter <= gridDaysInMonth) {
+                                            val currentDay = dayCounter
+                                            val isCellSelected = (gridYear == selectedYear && gridMonth == selectedMonth && currentDay == selectedDayOfMonth)
+                                            val isCellToday = (gridYear == todayCal.get(Calendar.YEAR) && gridMonth == todayCal.get(Calendar.MONTH) && currentDay == todayCal.get(Calendar.DAY_OF_MONTH))
 
-                                        Box(
-                                            modifier = Modifier
-                                                .size(36.dp)
-                                                .clip(RoundedCornerShape(10.dp))
-                                                .background(
-                                                    when {
-                                                        isCellSelected -> primaryColor
-                                                        isCellToday -> primaryColor.copy(alpha = 0.14f)
-                                                        else -> Color.Transparent
-                                                    }
-                                                )
-                                                .then(
-                                                    if (isCellToday && !isCellSelected) {
-                                                        Modifier.border(1.5.dp, primaryColor, RoundedCornerShape(10.dp))
-                                                    } else Modifier
-                                                )
-                                                .clickable {
-                                                    selectedYear = viewYear
-                                                    selectedMonth = viewMonth
-                                                    selectedDayOfMonth = currentDay
+                                            val cellCal = Calendar.getInstance().apply {
+                                                set(gridYear, gridMonth, currentDay, 23, 59, 59)
+                                            }
+                                            val isPast = cellCal.before(todayStartCal)
+
+                                            val cellBg by animateColorAsState(
+                                                targetValue = when {
+                                                    isCellSelected -> primaryColor
+                                                    isCellToday -> primaryColor.copy(alpha = 0.14f)
+                                                    else -> Color.Transparent
                                                 },
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Text(
-                                                text = "$currentDay",
-                                                fontSize = 13.sp,
-                                                fontWeight = if (isCellSelected || isCellToday) FontWeight.Bold else FontWeight.Medium,
-                                                color = when {
-                                                    isCellSelected -> Color.White
+                                                animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+                                                label = "picker_day_bg"
+                                            )
+                                            val cellTextColor by animateColorAsState(
+                                                targetValue = when {
+                                                    isCellSelected -> MaterialTheme.colorScheme.onPrimary
                                                     isCellToday -> primaryColor
                                                     isPast -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                                                     else -> MaterialTheme.colorScheme.onSurface
-                                                }
+                                                },
+                                                animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+                                                label = "picker_day_text"
                                             )
+
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(38.dp)
+                                                    .clip(RoundedCornerShape(10.dp))
+                                                    .background(cellBg)
+                                                    .then(
+                                                        if (isCellToday && !isCellSelected) {
+                                                            Modifier.border(1.5.dp, primaryColor, RoundedCornerShape(10.dp))
+                                                        } else Modifier
+                                                    )
+                                                    .desktopHandCursor()
+                                                    .clickable {
+                                                        selectedYear = gridYear
+                                                        selectedMonth = gridMonth
+                                                        selectedDayOfMonth = currentDay
+                                                    },
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = "$currentDay",
+                                                    fontSize = 13.sp,
+                                                    fontWeight = if (isCellSelected || isCellToday) FontWeight.Bold else FontWeight.Medium,
+                                                    color = cellTextColor
+                                                )
+                                            }
+                                            dayCounter++
+                                        } else {
+                                            Spacer(modifier = Modifier.size(38.dp))
                                         }
-                                        dayCounter++
-                                    } else {
-                                        Spacer(modifier = Modifier.size(36.dp))
                                     }
                                 }
                             }
@@ -467,7 +613,10 @@ fun DedicatedCalendarDatePickerDialog(
                 ) {
                     OutlinedButton(
                         onClick = onDismiss,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .defaultMinSize(minHeight = 48.dp)
+                            .desktopHandCursor(),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Text("Cancel")
@@ -477,7 +626,10 @@ fun DedicatedCalendarDatePickerDialog(
                             onDateSelected(currentDisplayString)
                             onDismiss()
                         },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .defaultMinSize(minHeight = 48.dp)
+                            .desktopHandCursor(),
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = primaryColor)
                     ) {
@@ -513,12 +665,19 @@ fun DedicatedSchedulePickerDialog(
     val quickDays = listOf("Today", "Tomorrow", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
     val quickTimes = listOf("08:00", "10:00", "12:00", "14:00", "17:00", "20:00", "23:59")
 
-    Dialog(onDismissRequest = onDismiss) {
+    val ext = LocalExtendedColors.current
+
+    PickerDesktopDialogWrapper(
+        onDismiss = onDismiss,
+        desktopMinWidth = 380.dp,
+        desktopMaxWidth = 480.dp
+    ) { dialogModifier ->
         Card(
             shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            colors = CardDefaults.cardColors(containerColor = ext.surfaceCard),
+            border = BorderStroke(1.dp, ext.borderSubtle),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
+            modifier = dialogModifier.fillMaxWidth()
         ) {
             Column(
                 modifier = Modifier
@@ -548,7 +707,12 @@ fun DedicatedSchedulePickerDialog(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                     }
-                    IconButton(onClick = onDismiss) {
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .desktopHandCursor()
+                    ) {
                         Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(20.dp))
                     }
                 }
@@ -561,7 +725,9 @@ fun DedicatedSchedulePickerDialog(
                     shape = RoundedCornerShape(16.dp),
                     color = primaryColor.copy(alpha = 0.08f),
                     border = BorderStroke(1.dp, primaryColor.copy(alpha = 0.3f)),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .desktopHandCursor()
                 ) {
                     Row(
                         modifier = Modifier
@@ -590,7 +756,10 @@ fun DedicatedSchedulePickerDialog(
                             onClick = { showTimeDialog = true },
                             colors = ButtonDefaults.buttonColors(containerColor = primaryColor),
                             shape = RoundedCornerShape(12.dp),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                            modifier = Modifier
+                                .defaultMinSize(minHeight = 48.dp)
+                                .desktopHandCursor()
                         ) {
                             Icon(Icons.Default.AccessTime, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
@@ -626,7 +795,8 @@ fun DedicatedSchedulePickerDialog(
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                                 )
                             },
-                            shape = RoundedCornerShape(10.dp)
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.desktopHandCursor()
                         )
                     }
                 }
@@ -658,7 +828,8 @@ fun DedicatedSchedulePickerDialog(
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                                 )
                             },
-                            shape = RoundedCornerShape(10.dp)
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.desktopHandCursor()
                         )
                     }
                 }
@@ -672,7 +843,10 @@ fun DedicatedSchedulePickerDialog(
                 ) {
                     OutlinedButton(
                         onClick = onDismiss,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .defaultMinSize(minHeight = 48.dp)
+                            .desktopHandCursor(),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Text("Cancel")
@@ -682,7 +856,10 @@ fun DedicatedSchedulePickerDialog(
                             onScheduleSelected("$selectedDay • $selectedTime")
                             onDismiss()
                         },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .defaultMinSize(minHeight = 48.dp)
+                            .desktopHandCursor(),
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = primaryColor)
                     ) {
@@ -718,12 +895,19 @@ fun DedicatedDayPickerDialog(
     val daysOfWeek = listOf("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
 
     val accentColor = MaterialTheme.colorScheme.primary
+    val ext = LocalExtendedColors.current
+    val reducedMotion = rememberPrefersReducedMotion()
 
-    Dialog(onDismissRequest = onDismiss) {
+    PickerDesktopDialogWrapper(
+        onDismiss = onDismiss,
+        desktopMinWidth = 360.dp,
+        desktopMaxWidth = 440.dp
+    ) { dialogModifier ->
         Card(
             shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
+            colors = CardDefaults.cardColors(containerColor = ext.surfaceCard),
+            border = BorderStroke(1.dp, ext.borderSubtle),
+            modifier = dialogModifier.fillMaxWidth()
         ) {
             Column(
                 modifier = Modifier
@@ -745,7 +929,12 @@ fun DedicatedDayPickerDialog(
                             fontWeight = FontWeight.Bold
                         )
                     }
-                    IconButton(onClick = onDismiss) {
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .desktopHandCursor()
+                    ) {
                         Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(20.dp))
                     }
                 }
@@ -754,15 +943,28 @@ fun DedicatedDayPickerDialog(
 
                 daysOfWeek.forEach { day ->
                     val isSelected = day.equals(selectedDay, ignoreCase = true)
+                    val rowBg by animateColorAsState(
+                        targetValue = if (isSelected) accentColor.copy(alpha = 0.18f) else ext.surfaceBase,
+                        animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+                        label = "day_picker_bg"
+                    )
+                    val rowBorder by animateColorAsState(
+                        targetValue = if (isSelected) accentColor else ext.borderSubtle,
+                        animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+                        label = "day_picker_border"
+                    )
                     Surface(
                         shape = RoundedCornerShape(12.dp),
-                        color = if (isSelected) accentColor.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                        color = rowBg,
                         border = BorderStroke(
                             width = if (isSelected) 1.5.dp else 1.dp,
-                            color = if (isSelected) accentColor else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)
+                            color = rowBorder
                         ),
                         modifier = Modifier
                             .fillMaxWidth()
+                            .defaultMinSize(minHeight = 48.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .desktopHoverable(enabled = !isSelected)
                             .clickable {
                                 onDaySelected(day)
                                 onDismiss()
@@ -782,7 +984,7 @@ fun DedicatedDayPickerDialog(
                             )
                         }
                     }
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
                 }
             }
         }
@@ -813,15 +1015,21 @@ fun DedicatedCoursePickerDialog(
     }
 
     val accentColor = MaterialTheme.colorScheme.primary
+    val ext = LocalExtendedColors.current
+    val reducedMotion = rememberPrefersReducedMotion()
 
-    Dialog(onDismissRequest = onDismiss) {
+    PickerDesktopDialogWrapper(
+        onDismiss = onDismiss,
+        desktopMinWidth = 380.dp,
+        desktopMaxWidth = 520.dp
+    ) { dialogModifier ->
         Card(
             shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            modifier = Modifier
+            colors = CardDefaults.cardColors(containerColor = ext.surfaceCard),
+            border = BorderStroke(1.dp, ext.borderSubtle),
+            modifier = dialogModifier
                 .fillMaxWidth()
                 .heightIn(max = 520.dp)
-                .padding(horizontal = 4.dp)
         ) {
             Column(
                 modifier = Modifier
@@ -843,7 +1051,12 @@ fun DedicatedCoursePickerDialog(
                             fontWeight = FontWeight.Bold
                         )
                     }
-                    IconButton(onClick = onDismiss) {
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .desktopHandCursor()
+                    ) {
                         Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(20.dp))
                     }
                 }
@@ -896,15 +1109,28 @@ fun DedicatedCoursePickerDialog(
                     } else {
                         items(filteredList) { (code, title) ->
                             val isSelected = code.equals(selectedCourse, ignoreCase = true)
+                            val rowBg by animateColorAsState(
+                                targetValue = if (isSelected) accentColor.copy(alpha = 0.18f) else ext.surfaceBase,
+                                animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+                                label = "course_picker_bg"
+                            )
+                            val rowBorder by animateColorAsState(
+                                targetValue = if (isSelected) accentColor else ext.borderSubtle,
+                                animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+                                label = "course_picker_border"
+                            )
                             Surface(
                                 shape = RoundedCornerShape(12.dp),
-                                color = if (isSelected) accentColor.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                                color = rowBg,
                                 border = BorderStroke(
                                     width = if (isSelected) 1.5.dp else 1.dp,
-                                    color = if (isSelected) accentColor else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)
+                                    color = rowBorder
                                 ),
                                 modifier = Modifier
                                     .fillMaxWidth()
+                                    .defaultMinSize(minHeight = 48.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .desktopHoverable(enabled = !isSelected)
                                     .clickable {
                                         onCourseSelected(code, title)
                                         onDismiss()
@@ -927,7 +1153,7 @@ fun DedicatedCoursePickerDialog(
                                             text = code.take(3),
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = if (isSelected) Color.White else accentColor
+                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else accentColor
                                         )
                                     }
 
@@ -945,7 +1171,7 @@ fun DedicatedCoursePickerDialog(
                                                 text = title,
                                                 fontSize = 12.sp,
                                                 fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
-                                                color = if (isSelected) accentColor.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                color = if (isSelected) accentColor.copy(alpha = 0.85f) else ext.textMuted,
                                                 maxLines = 1
                                             )
                                         }

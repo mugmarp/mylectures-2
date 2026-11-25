@@ -1,6 +1,13 @@
 package com.lectures.features.settings
 
 import android.content.Context
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -45,6 +52,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -56,9 +64,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lectures.core.util.NotificationPermissionHelper
+import com.lectures.ui.LocalExtendedColors
+import com.lectures.ui.MotionSpec
 import com.lectures.ui.components.desktopHandCursor
 import com.lectures.ui.components.desktopHoverable
 import com.lectures.ui.contrastOnColor
+import com.lectures.ui.rememberPrefersReducedMotion
 
 private fun formatTaskLeadShort(hours: Int): String = if (hours >= 24) {
     val days = hours / 24
@@ -77,185 +88,194 @@ private fun NotificationHealthWarningBanner(
     isPermissionBannerDismissed: Boolean,
     onDismissPermissionBanner: () -> Unit
 ) {
-    if (!areNotificationsAllowed && !isPermissionBannerDismissed) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 6.dp),
-            shape = RoundedCornerShape(14.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = if (isDark) Color(0xFF78350F).copy(alpha = 0.35f) else Color(0xFFFEF3C7)
-            ),
-            border = BorderStroke(1.dp, if (isDark) Color(0xFFB45309).copy(alpha = 0.5f) else Color(0xFFFDE68A))
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
+    val ext = LocalExtendedColors.current
+    val reducedMotion = rememberPrefersReducedMotion()
+    val hasBanner = (!areNotificationsAllowed && !isPermissionBannerDismissed) ||
+        (areNotificationsAllowed && blockedChannels.isNotEmpty()) ||
+        !canScheduleExactAlarms
+
+    AnimatedVisibility(
+        visible = hasBanner,
+        enter = if (reducedMotion) fadeIn() else expandVertically() + fadeIn(),
+        exit = if (reducedMotion) fadeOut() else shrinkVertically() + fadeOut()
+    ) {
+        Column {
+            if (!areNotificationsAllowed && !isPermissionBannerDismissed) {
+                Card(
                     modifier = Modifier
-                        .size(36.dp)
-                        .background(
-                            if (isDark) Color(0xFFB45309).copy(alpha = 0.3f) else Color(0xFFFDE68A),
-                            CircleShape
-                        ),
-                    contentAlignment = Alignment.Center
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 6.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = ext.warningBg),
+                    border = BorderStroke(1.dp, ext.warningBorder.copy(alpha = 0.55f))
                 ) {
-                    Icon(
-                        imageVector = Icons.Outlined.NotificationsActive,
-                        contentDescription = null,
-                        tint = if (isDark) Color(0xFFFBBF24) else Color(0xFFD97706),
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Notifications Disabled",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp,
-                        color = if (isDark) Color(0xFFFDE68A) else Color(0xFF92400E)
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "Allow notifications in Android Settings so class alarms and deadline alerts can ring.",
-                        fontSize = 12.sp,
-                        lineHeight = 16.sp,
-                        color = if (isDark) Color(0xFFFDE68A).copy(alpha = 0.9f) else Color(0xFF78350F)
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    val allowContainer = if (isDark) Color(0xFFD97706) else Color(0xFFB45309)
-                    Button(
-                        onClick = { NotificationPermissionHelper.openAppNotificationSettings(context) },
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = allowContainer,
-                            contentColor = contrastOnColor(allowContainer)
-                        ),
+                    Row(
                         modifier = Modifier
-                            .defaultMinSize(minHeight = 48.dp)
-                            .desktopHandCursor()
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Allow Notifications", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .background(ext.warningBorder.copy(alpha = 0.35f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.NotificationsActive,
+                                contentDescription = null,
+                                tint = ext.warningIcon,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Notifications Disabled",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = ext.warningText
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Allow notifications in Android Settings so class alarms and deadline alerts can ring.",
+                                fontSize = 12.sp,
+                                lineHeight = 16.sp,
+                                color = ext.warningText.copy(alpha = 0.9f)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            val allowContainer = if (isDark) Color(0xFFD97706) else Color(0xFFB45309)
+                            Button(
+                                onClick = { NotificationPermissionHelper.openAppNotificationSettings(context) },
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = allowContainer,
+                                    contentColor = contrastOnColor(allowContainer)
+                                ),
+                                modifier = Modifier
+                                    .defaultMinSize(minHeight = 48.dp)
+                                    .desktopHandCursor()
+                            ) {
+                                Text("Allow Notifications", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(4.dp))
+                        IconButton(
+                            onClick = onDismissPermissionBanner,
+                            modifier = Modifier
+                                .size(48.dp)
+                                .desktopHandCursor()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Dismiss notification warning",
+                                tint = ext.warningText,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     }
                 }
-                Spacer(modifier = Modifier.width(4.dp))
-                IconButton(
-                    onClick = onDismissPermissionBanner,
+                Spacer(modifier = Modifier.height(8.dp))
+            } else if (areNotificationsAllowed && blockedChannels.isNotEmpty()) {
+                Card(
                     modifier = Modifier
-                        .size(48.dp)
-                        .desktopHandCursor()
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 6.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = ext.warningBg),
+                    border = BorderStroke(1.dp, ext.warningBorder.copy(alpha = 0.55f))
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Dismiss notification warning",
-                        tint = if (isDark) Color(0xFFFDE68A) else Color(0xFF92400E),
-                        modifier = Modifier.size(18.dp)
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.NotificationsOff,
+                            contentDescription = null,
+                            tint = ext.warningIcon,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Alert Category Muted",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = ext.warningText
+                            )
+                            Text(
+                                text = "${blockedChannels.size} reminder category is turned off in Android Settings.",
+                                fontSize = 12.sp,
+                                color = ext.warningText.copy(alpha = 0.9f)
+                            )
+                        }
+                        TextButton(
+                            onClick = { NotificationPermissionHelper.openChannelSettings(context, blockedChannels.first()) },
+                            modifier = Modifier
+                                .defaultMinSize(minHeight = 48.dp)
+                                .desktopHandCursor()
+                        ) {
+                            Text(
+                                "Unmute",
+                                fontWeight = FontWeight.Bold,
+                                color = ext.warningIcon
+                            )
+                        }
+                    }
                 }
-            }
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-    } else if (areNotificationsAllowed && blockedChannels.isNotEmpty()) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 6.dp),
-            shape = RoundedCornerShape(14.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = if (isDark) Color(0xFF78350F).copy(alpha = 0.35f) else Color(0xFFFEF3C7)
-            ),
-            border = BorderStroke(1.dp, if (isDark) Color(0xFFB45309).copy(alpha = 0.5f) else Color(0xFFFDE68A))
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.NotificationsOff,
-                    contentDescription = null,
-                    tint = if (isDark) Color(0xFFFBBF24) else Color(0xFFD97706),
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Alert Category Muted",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp,
-                        color = if (isDark) Color(0xFFFDE68A) else Color(0xFF92400E)
-                    )
-                    Text(
-                        text = "${blockedChannels.size} reminder category is turned off in Android Settings.",
-                        fontSize = 12.sp,
-                        color = if (isDark) Color(0xFFFDE68A).copy(alpha = 0.9f) else Color(0xFF78350F)
-                    )
-                }
-                TextButton(
-                    onClick = { NotificationPermissionHelper.openChannelSettings(context, blockedChannels.first()) }
+                Spacer(modifier = Modifier.height(8.dp))
+            } else if (!canScheduleExactAlarms) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 6.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .desktopHoverable()
+                        .clickable { NotificationPermissionHelper.openExactAlarmSettings(context) },
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = ext.warningBg),
+                    border = BorderStroke(1.dp, ext.warningBorder.copy(alpha = 0.55f))
                 ) {
-                    Text(
-                        "Unmute",
-                        fontWeight = FontWeight.Bold,
-                        color = if (isDark) Color(0xFFFBBF24) else Color(0xFFB45309)
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.ErrorOutline,
+                            contentDescription = null,
+                            tint = ext.warningIcon,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Exact Alarm Timing Restricted",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = ext.warningText
+                            )
+                            Text(
+                                text = "Allow 'Alarms & reminders' so lecture alerts ring at the exact minute.",
+                                fontSize = 12.sp,
+                                color = ext.warningText.copy(alpha = 0.9f)
+                            )
+                        }
+                        Text(
+                            text = "Fix",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = ext.warningText
+                        )
+                    }
                 }
+                Spacer(modifier = Modifier.height(8.dp))
             }
         }
-        Spacer(modifier = Modifier.height(8.dp))
-    } else if (!canScheduleExactAlarms) {
-        val ext = com.lectures.ui.LocalExtendedColors.current
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 6.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .desktopHoverable()
-                .clickable { NotificationPermissionHelper.openExactAlarmSettings(context) },
-            shape = RoundedCornerShape(14.dp),
-            colors = CardDefaults.cardColors(containerColor = ext.warningBg),
-            border = BorderStroke(1.dp, ext.warningBorder.copy(alpha = 0.55f))
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.ErrorOutline,
-                    contentDescription = null,
-                    tint = ext.warningIcon,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Exact Alarm Timing Restricted",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp,
-                        color = ext.warningText
-                    )
-                    Text(
-                        text = "Allow 'Alarms & reminders' so lecture alerts ring at the exact minute.",
-                        fontSize = 12.sp,
-                        color = ext.warningText.copy(alpha = 0.9f)
-                    )
-                }
-                Text(
-                    text = "Fix",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = ext.warningText
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(8.dp))
     }
 }
 
@@ -497,11 +517,18 @@ internal fun NotificationSettingsView(
         Spacer(modifier = Modifier.height(22.dp))
         SectionHeader("REMINDER TIMING")
 
+        val reducedMotion = rememberPrefersReducedMotion()
+        val timingAlpha by animateFloatAsState(
+            targetValue = if (uiState.notificationsEnabled) 1f else 0.6f,
+            animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+            label = "notif_timing_alpha"
+        )
+
         Card(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
-                .alpha(if (uiState.notificationsEnabled) 1f else 0.6f),
+                .alpha(timingAlpha),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
@@ -550,16 +577,16 @@ internal fun NotificationSettingsView(
                 ) {
                     classLeadOptions.forEach { (mins, label) ->
                         val isSelected = uiState.classAlarmLeadMinutes == mins
-                        val chipBg = if (isSelected) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
-                        }
-                        val chipText = if (isSelected) {
-                            MaterialTheme.colorScheme.onPrimary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        }
+                        val chipBg by animateColorAsState(
+                            targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                            animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+                            label = "class_lead_bg"
+                        )
+                        val chipText by animateColorAsState(
+                            targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+                            label = "class_lead_text"
+                        )
 
                         Box(
                             modifier = Modifier
@@ -581,16 +608,16 @@ internal fun NotificationSettingsView(
                         }
                     }
 
-                    val customChipBg = if (isCustomActive) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
-                    }
-                    val customChipText = if (isCustomActive) {
-                        MaterialTheme.colorScheme.onPrimary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    }
+                    val customChipBg by animateColorAsState(
+                        targetValue = if (isCustomActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                        animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+                        label = "class_custom_lead_bg"
+                    )
+                    val customChipText by animateColorAsState(
+                        targetValue = if (isCustomActive) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+                        label = "class_custom_lead_text"
+                    )
                     Box(
                         modifier = Modifier
                             .weight(1.3f)
@@ -656,16 +683,23 @@ internal fun NotificationSettingsView(
                 ) {
                     taskLeadOptions.forEach { (hours, label) ->
                         val isSelected = uiState.taskReminderLeadHours == hours
+                        val taskChipBg by animateColorAsState(
+                            targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                            animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+                            label = "task_lead_bg"
+                        )
+                        val taskChipText by animateColorAsState(
+                            targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+                            label = "task_lead_text"
+                        )
                         Box(
                             modifier = Modifier
                                 .weight(1f)
                                 .defaultMinSize(minHeight = 48.dp)
                                 .clip(RoundedCornerShape(10.dp))
                                 .desktopHandCursor()
-                                .background(
-                                    if (isSelected) MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
-                                )
+                                .background(taskChipBg)
                                 .clickable { onSelectTaskLeadHours(hours) }
                                 .padding(vertical = 8.dp),
                             contentAlignment = Alignment.Center
@@ -674,7 +708,7 @@ internal fun NotificationSettingsView(
                                 text = label,
                                 fontSize = 12.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                color = taskChipText
                             )
                         }
                     }

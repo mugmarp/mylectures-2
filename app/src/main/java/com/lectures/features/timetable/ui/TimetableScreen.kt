@@ -6,10 +6,11 @@ import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -20,6 +21,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.isCtrlPressed
@@ -46,10 +48,13 @@ import com.lectures.features.timetable.domain.TimetableConflictDetector
 import com.lectures.features.timetable.domain.TimetableEntry
 import com.lectures.ui.Chrome
 import com.lectures.ui.LocalAppTheme
+import com.lectures.ui.LocalExtendedColors
+import com.lectures.ui.MotionSpec
 import com.lectures.ui.components.AcademicProfileSheet
 import com.lectures.ui.components.desktopHandCursor
 import com.lectures.ui.contrastOnColor
 import com.lectures.ui.rememberLecturesWindow
+import com.lectures.ui.rememberPrefersReducedMotion
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -236,10 +241,32 @@ fun TimetableScreen(
     }
 
     var dragTotal by remember { mutableFloatStateOf(0f) }
+    var isDraggingDay by remember { mutableStateOf(false) }
     val windowInfo = rememberLecturesWindow()
+    val ext = LocalExtendedColors.current
+    val reducedMotion = rememberPrefersReducedMotion()
     val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val listBottomPadding = Chrome.listBottomPadding(navBarBottom, windowInfo.useNavigationRail)
     val listState = rememberLazyListState()
+
+    val currentDayIdx = remember(selectedDay, daysList) {
+        daysList.indexOfFirst { it.equals(selectedDay, ignoreCase = true) }.coerceAtLeast(0)
+    }
+    var prevDayIdx by remember { mutableIntStateOf(currentDayIdx) }
+    val isDayForward = remember(currentDayIdx, prevDayIdx, daysList.size) {
+        when {
+            prevDayIdx == daysList.lastIndex && currentDayIdx == 0 -> true
+            prevDayIdx == 0 && currentDayIdx == daysList.lastIndex -> false
+            else -> currentDayIdx >= prevDayIdx
+        }
+    }
+    SideEffect { prevDayIdx = currentDayIdx }
+
+    val swipePullX by animateFloatAsState(
+        targetValue = if (isDraggingDay && !reducedMotion) (dragTotal * 0.25f).coerceIn(-56f, 56f) else 0f,
+        animationSpec = MotionSpec.standardSpring(),
+        label = "timetable_swipe_pull"
+    )
 
     if (isPeeking) {
         BackHandler(enabled = true) { onResetToEnrolled() }
@@ -247,7 +274,7 @@ fun TimetableScreen(
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        containerColor = if (isDark) DarkSurfaceBase else SurfaceBaseLight,
+        containerColor = ext.surfaceBase,
         modifier = Modifier.onKeyEvent { event ->
             if (event.type == KeyEventType.KeyDown) {
                 when {
@@ -386,7 +413,10 @@ fun TimetableScreen(
                 .fillMaxSize()
                 .pointerInput(selectedDay, daysList) {
                     detectHorizontalDragGestures(
-                        onDragStart = { dragTotal = 0f },
+                        onDragStart = {
+                            dragTotal = 0f
+                            isDraggingDay = true
+                        },
                         onDragEnd = {
                             val threshold = 70f
                             val currentIndex = daysList.indexOfFirst { it.equals(selectedDay, ignoreCase = true) }
@@ -399,8 +429,12 @@ fun TimetableScreen(
                                 }
                             }
                             dragTotal = 0f
+                            isDraggingDay = false
                         },
-                        onDragCancel = { dragTotal = 0f },
+                        onDragCancel = {
+                            dragTotal = 0f
+                            isDraggingDay = false
+                        },
                         onHorizontalDrag = { change, dragAmount ->
                             change.consume()
                             dragTotal += dragAmount
@@ -544,68 +578,90 @@ fun TimetableScreen(
                     )
                 }
 
-                if (isLoading) {
-                    item(key = "loading_state") {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(200.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                        }
-                    }
-                } else if (dayEntries.isEmpty() && dayCustomEvents.isEmpty()) {
-                    item(key = "empty_state") {
-                        EmptyDayScheduleCard(
-                            selectedDay = selectedDay,
-                            isDark = isDark,
-                            onAddCustomActivityClick = { showQuickAddSheet = true }
-                        )
-                    }
-                } else {
-                    items(dayEntries, key = { it.naturalKey.ifBlank { "${it.courseCode}_${it.startTime}_${it.dayOfWeek}" } }) { entry ->
-                        val entryNote = notes[entry.naturalKey]
-                        val hasConflict = TimetableConflictDetector.hasConflict(entry, dayEntries)
-                        val startsIn = if (isViewingToday) {
-                            val now = Calendar.getInstance()
-                            val curMin = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
-                            val startMin = TimeUtil.toMinutes(entry.startTime)
-                            val endMin = TimeUtil.toMinutes(entry.endTime)
-                            val diff = startMin - curMin
-                            when {
-                                endMin > startMin && curMin in startMin until endMin -> "Live now"
-                                diff in 1..120 -> "in ${diff}m"
-                                else -> null
+                item(key = "day_schedule_body") {
+                    AnimatedContent(
+                        targetState = selectedDay to selectedFilter,
+                        transitionSpec = {
+                            if (initialState.first != targetState.first) {
+                                MotionSpec.directionalSlideTransform(
+                                    forward = isDayForward,
+                                    reducedMotion = reducedMotion
+                                )
+                            } else {
+                                MotionSpec.fadeTransform(reducedMotion = reducedMotion)
                             }
-                        } else null
+                        },
+                        contentKey = { "${it.first}_${it.second}" },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .graphicsLayer { translationX = swipePullX },
+                        label = "mobile_day_schedule_transition"
+                    ) { (animatedDay, _) ->
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            if (isLoading) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(200.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                                }
+                            } else if (dayEntries.isEmpty() && dayCustomEvents.isEmpty()) {
+                                EmptyDayScheduleCard(
+                                    selectedDay = animatedDay,
+                                    isDark = isDark,
+                                    onAddCustomActivityClick = { showQuickAddSheet = true }
+                                )
+                            } else {
+                                dayEntries.forEach { entry ->
+                                    val entryKey = entry.naturalKey.ifBlank { "${entry.courseCode}_${entry.startTime}_${entry.dayOfWeek}" }
+                                    key(entryKey) {
+                                        val entryNote = notes[entry.naturalKey]
+                                        val hasConflict = TimetableConflictDetector.hasConflict(entry, dayEntries)
+                                        val startsIn = if (isViewingToday) {
+                                            val now = Calendar.getInstance()
+                                            val curMin = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
+                                            val startMin = TimeUtil.toMinutes(entry.startTime)
+                                            val endMin = TimeUtil.toMinutes(entry.endTime)
+                                            val diff = startMin - curMin
+                                            when {
+                                                endMin > startMin && curMin in startMin until endMin -> "Live now"
+                                                diff in 1..120 -> "in ${diff}m"
+                                                else -> null
+                                            }
+                                        } else null
 
-                        val specSession = entry.toSpecClassSession(
-                            currentProgramme = programme,
-                            hasConflict = hasConflict,
-                            note = entryNote,
-                            progress = if (isViewingToday) TimeUtil.calculateProgress(entry.startTime, entry.endTime, entry.dayOfWeek) else null,
-                            startsInText = startsIn
-                        )
-                        TimelineClassCard(
-                            session = specSession,
-                            onToggleAlarm = { alarmLectureKey = entry.naturalKey },
-                            onAttachedNoteClick = { detailLectureKey = entry.naturalKey },
-                            onClick = { detailLectureKey = entry.naturalKey },
-                            modifier = Modifier
-                                .padding(vertical = 5.dp)
-                                .animateItem()
-                        )
-                    }
+                                        val specSession = entry.toSpecClassSession(
+                                            currentProgramme = programme,
+                                            hasConflict = hasConflict,
+                                            note = entryNote,
+                                            progress = if (isViewingToday) TimeUtil.calculateProgress(entry.startTime, entry.endTime, entry.dayOfWeek) else null,
+                                            startsInText = startsIn
+                                        )
+                                        TimelineClassCard(
+                                            session = specSession,
+                                            onToggleAlarm = { alarmLectureKey = entry.naturalKey },
+                                            onAttachedNoteClick = { detailLectureKey = entry.naturalKey },
+                                            onClick = { detailLectureKey = entry.naturalKey },
+                                            modifier = Modifier.padding(vertical = 5.dp)
+                                        )
+                                    }
+                                }
 
-                    items(dayCustomEvents, key = { "custom_event_${it.id}" }) { event ->
-                        PaddingBox(top = 4.dp, bottom = 6.dp, modifier = Modifier.animateItem()) {
-                            ActivityCard(
-                                event = event,
-                                onClick = { detailActivityId = event.id },
-                                onEdit = { editingActivityId = event.id },
-                                onDelete = { onDeleteActivity(event.id) }
-                            )
+                                dayCustomEvents.forEach { event ->
+                                    key("custom_event_${event.id}") {
+                                        PaddingBox(top = 4.dp, bottom = 6.dp) {
+                                            ActivityCard(
+                                                event = event,
+                                                onClick = { detailActivityId = event.id },
+                                                onEdit = { editingActivityId = event.id },
+                                                onDelete = { onDeleteActivity(event.id) }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }

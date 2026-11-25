@@ -1,6 +1,6 @@
 package com.lectures.features.timetable.ui
 
-import androidx.compose.animation.core.*
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -15,7 +15,6 @@ import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -24,7 +23,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -33,7 +31,12 @@ import com.lectures.core.util.rememberLiveClockPulse
 import com.lectures.features.timetable.domain.TimetableEntry
 import com.lectures.features.timetable.domain.TimetableMatcher
 import com.lectures.ui.LocalAppTheme
+import com.lectures.ui.MotionSpec
+import com.lectures.ui.components.LivePulseBadge
 import com.lectures.ui.components.RoomFloorBadge
+import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.components.desktopHoverable
+import com.lectures.ui.rememberPrefersReducedMotion
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -58,6 +61,7 @@ fun LectureCard(
                 shape = RoundedCornerShape(16.dp)
             )
             .background(MaterialTheme.colorScheme.surface)
+            .desktopHandCursor()
             .clickable(onClick = onClick)
     ) {
         // Left accent bar with matchParentSize (no intrinsic measurement pass)
@@ -73,6 +77,7 @@ fun LectureCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .desktopHoverable()
                 .padding(start = if (progress.isOngoing) 20.dp else 18.dp, top = 16.dp, end = 16.dp, bottom = 16.dp)
         ) {
                 Row(
@@ -93,7 +98,14 @@ fun LectureCard(
                     }
 
                     if (progress.isOngoing) {
-                        LiveNowBadge()
+                        LivePulseBadge(
+                            text = "LIVE NOW",
+                            dotColor = Color(0xFF22C55E),
+                            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                            contentColor = MaterialTheme.colorScheme.primary,
+                            dotSize = 6.dp,
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 3.dp)
+                        )
                     }
                 }
                 
@@ -164,8 +176,14 @@ fun LectureCard(
 
                         Spacer(modifier = Modifier.height(6.dp))
 
+                        val reducedMotion = rememberPrefersReducedMotion()
+                        val animatedProgress by animateFloatAsState(
+                            targetValue = progress.progress.coerceIn(0f, 1f),
+                            animationSpec = MotionSpec.stateTween(450, reducedMotion),
+                            label = "lecture_progress"
+                        )
                         LinearProgressIndicator(
-                            progress = { progress.progress },
+                            progress = { animatedProgress },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(5.dp)
@@ -259,42 +277,4 @@ fun LectureCard(
                 }
             }
         }
-}
-
-@Composable
-private fun LiveNowBadge() {
-    val infiniteTransition = rememberInfiniteTransition(label = "lecture_live_pulse")
-    val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.3f,
-        targetValue = 1.0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(800, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "alpha"
-    )
-    Surface(
-        shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-        contentColor = MaterialTheme.colorScheme.primary
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(6.dp)
-                    .graphicsLayer { this.alpha = pulseAlpha }
-                    .background(Color(0xFF22C55E), CircleShape)
-            )
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(
-                text = "LIVE NOW",
-                fontSize = 10.sp,
-                fontWeight = FontWeight.ExtraBold,
-                letterSpacing = 0.5.sp
-            )
-        }
-    }
 }

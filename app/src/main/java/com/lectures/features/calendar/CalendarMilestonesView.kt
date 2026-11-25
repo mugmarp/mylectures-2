@@ -1,5 +1,6 @@
 package com.lectures.features.calendar
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -8,14 +9,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lectures.ui.MotionSpec
 import com.lectures.ui.components.desktopHoverable
+import com.lectures.ui.rememberPrefersReducedMotion
 import java.util.Locale
 
 @Composable
@@ -27,6 +30,16 @@ internal fun AcademicMilestoneCard(
     outerPadding: PaddingValues = PaddingValues(horizontal = 20.dp, vertical = 6.dp),
     onClick: () -> Unit
 ) {
+    val reducedMotion = rememberPrefersReducedMotion()
+    val containerColor by animateColorAsState(
+        targetValue = when {
+            isLiveNow -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+            isSelectedDate -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+            else -> MaterialTheme.colorScheme.surface
+        },
+        animationSpec = MotionSpec.stateTween(MotionSpec.STATE_COLOR_MS, reducedMotion),
+        label = "milestone_bg"
+    )
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -34,13 +47,7 @@ internal fun AcademicMilestoneCard(
             .desktopHoverable()
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = when {
-                isLiveNow -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
-                isSelectedDate -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-                else -> MaterialTheme.colorScheme.surface
-            }
-        ),
+        colors = CardDefaults.cardColors(containerColor = containerColor),
         border = when {
             isLiveNow -> BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary)
             isSelectedDate -> BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)

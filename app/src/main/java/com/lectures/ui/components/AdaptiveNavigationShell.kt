@@ -1,7 +1,9 @@
 package com.lectures.ui.components
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -42,6 +44,7 @@ import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.MeetingRoom
+import androidx.compose.material.icons.outlined.School
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.TaskAlt
 import androidx.compose.material3.HorizontalDivider
@@ -68,6 +71,8 @@ import com.lectures.core.util.TimeUtil
 import com.lectures.ui.Chrome
 import com.lectures.ui.LocalExtendedColors
 import com.lectures.ui.MainScreenDestination
+import com.lectures.ui.MotionSpec
+import com.lectures.ui.rememberPrefersReducedMotion
 
 /**
  * Persistent leading NavigationRail (Medium/Expanded 600–1199dp or collapsed desktop)
@@ -90,8 +95,8 @@ fun AdaptiveNavigationRailOrSidebar(
 ) {
     val ext = LocalExtendedColors.current
     val haptic = LocalHapticFeedback.current
+    val reducedMotion = rememberPrefersReducedMotion()
     val primaryBlue = MaterialTheme.colorScheme.primary
-    val textMuted = ext.textMuted
     val navBg = ext.surfaceCard
     val navBorder = ext.borderSubtle
 
@@ -110,15 +115,19 @@ fun AdaptiveNavigationRailOrSidebar(
     )
 
     val isExpandedMode = expandedSidebar && !sidebarCollapsed
-    val railWidth = if (isExpandedMode) Chrome.ExpandedSidebarWidth else Chrome.NavigationRailWidth
+    val targetRailWidth = if (isExpandedMode) Chrome.ExpandedSidebarWidth else Chrome.NavigationRailWidth
+    val animatedRailWidth by animateDpAsState(
+        targetValue = targetRailWidth,
+        animationSpec = if (reducedMotion) snap() else tween(durationMillis = MotionSpec.RAIL_WIDTH_MS),
+        label = "rail_width"
+    )
 
     Surface(
         color = navBg.copy(alpha = 0.98f),
         border = BorderStroke(1.dp, navBorder),
         modifier = Modifier
-            .width(railWidth)
+            .width(animatedRailWidth)
             .fillMaxHeight()
-            .animateContentSize(animationSpec = tween(durationMillis = 180))
     ) {
         BoxWithConstraints(
             modifier = Modifier
@@ -126,264 +135,294 @@ fun AdaptiveNavigationRailOrSidebar(
                 .statusBarsPadding()
                 .navigationBarsPadding()
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = maxHeight)
-                    .verticalScroll(rememberScrollState())
-                    .padding(vertical = 10.dp, horizontal = if (isExpandedMode) 12.dp else 6.dp),
-                horizontalAlignment = if (isExpandedMode) Alignment.Start else Alignment.CenterHorizontally
-            ) {
-                // Header Brand Emblem + Sidebar Toggle (Desktop >= 1200dp)
-                if (isExpandedMode) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 4.dp, vertical = 2.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
+            AnimatedContent(
+                targetState = isExpandedMode,
+                transitionSpec = {
+                    MotionSpec.fadeTransform(
+                        enterMs = 170,
+                        exitMs = 90,
+                        reducedMotion = reducedMotion
+                    )
+                },
+                label = "rail_sidebar_mode"
+            ) { expanded ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = maxHeight)
+                        .verticalScroll(rememberScrollState())
+                        .padding(vertical = 10.dp, horizontal = if (expanded) 12.dp else 6.dp),
+                    horizontalAlignment = if (expanded) Alignment.Start else Alignment.CenterHorizontally
+                ) {
+                    // Header Brand Emblem + Sidebar Toggle
+                    if (expanded) {
                         Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 4.dp, vertical = 2.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.weight(1f)
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(primaryBlue),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.School,
+                                        contentDescription = "Lectures",
+                                        tint = MaterialTheme.colorScheme.onPrimary,
+                                        modifier = Modifier.size(19.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text(
+                                        text = "Lectures",
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = ext.textPrimary,
+                                        maxLines = 1,
+                                        softWrap = false
+                                    )
+                                    Text(
+                                        text = TimeUtil.currentAcademicWeek(),
+                                        fontSize = 11.sp,
+                                        color = ext.textMuted,
+                                        maxLines = 1,
+                                        softWrap = false
+                                    )
+                                }
+                            }
+                            if (canToggleSidebar) {
+                                IconButton(
+                                    onClick = onToggleSidebar,
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .desktopHandCursor()
+                                        .testTag("desktop_sidebar_toggle")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Outlined.MenuOpen,
+                                        contentDescription = "Collapse sidebar",
+                                        tint = ext.textMuted,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Active Programme & Peek Context Card
+                        val progLabel = savedProgramme?.takeIf { it.isNotBlank() } ?: "Set Programme"
+                        val progContainerColor by animateColorAsState(
+                            targetValue = if (isPeeking) ext.warningBg else primaryBlue.copy(alpha = 0.08f),
+                            animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+                            label = "sidebar_prog_bg"
+                        )
+                        val progBorderColor by animateColorAsState(
+                            targetValue = if (isPeeking) ext.warningBorder else primaryBlue.copy(alpha = 0.22f),
+                            animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+                            label = "sidebar_prog_border"
+                        )
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = progContainerColor,
+                            border = BorderStroke(1.dp, progBorderColor),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .desktopHoverable()
+                                .clickable(onClick = onOpenAcademicProfile)
+                                .testTag("sidebar_programme_badge")
+                        ) {
+                            Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = if (isPeeking) "PEEKING" else "PROGRAMME",
+                                        fontSize = 9.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 0.6.sp,
+                                        color = if (isPeeking) ext.warningText else primaryBlue
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = progLabel,
+                                    fontSize = 12.5.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = ext.textPrimary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+                        Text(
+                            text = "WORKSPACE",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.6.sp,
+                            color = ext.textMuted,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .let { mod ->
+                                    if (canToggleSidebar) {
+                                        mod.desktopHandCursor()
+                                            .clickable(onClick = onToggleSidebar)
+                                            .testTag("desktop_sidebar_toggle")
+                                    } else mod
+                                },
+                            contentAlignment = Alignment.Center
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(RoundedCornerShape(10.dp))
+                                    .size(40.dp)
+                                    .clip(RoundedCornerShape(12.dp))
                                     .background(primaryBlue),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.School,
-                                    contentDescription = "Lectures",
+                                    imageVector = if (canToggleSidebar && sidebarCollapsed) Icons.Default.Menu else Icons.Default.School,
+                                    contentDescription = if (canToggleSidebar) "Expand sidebar" else "Lectures",
                                     tint = MaterialTheme.colorScheme.onPrimary,
-                                    modifier = Modifier.size(19.dp)
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column {
-                                Text(
-                                    text = "Lectures",
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = ext.textPrimary,
-                                    maxLines = 1
-                                )
-                                Text(
-                                    text = TimeUtil.currentAcademicWeek(),
-                                    fontSize = 11.sp,
-                                    color = ext.textMuted,
-                                    maxLines = 1
-                                )
-                            }
-                        }
-                        if (canToggleSidebar) {
-                            IconButton(
-                                onClick = onToggleSidebar,
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .desktopHandCursor()
-                                    .testTag("desktop_sidebar_toggle")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Outlined.MenuOpen,
-                                    contentDescription = "Collapse sidebar",
-                                    tint = ext.textMuted,
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
                         }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        CompactUtilityRailButton(
+                            label = if (isPeeking) "Peeking" else "Profile",
+                            icon = Icons.Outlined.School,
+                            isSelected = isPeeking,
+                            accentOverride = if (isPeeking) ext.warningText else null,
+                            testTag = "sidebar_programme_badge_compact",
+                            onClick = onOpenAcademicProfile
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
                     }
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    // Primary Tabs
+                    tabs.forEachIndexed { index, tab ->
+                        val isSelected = currentDestination == MainScreenDestination.TABS && selectedTab == index
+                        val icon = if (isSelected) filledIcons[index] else outlinedIcons[index]
+                        val tag = "nav_${tab.lowercase(java.util.Locale.ROOT)}"
 
-                    // Active Programme & Peek Context Card
-                    val progLabel = savedProgramme?.takeIf { it.isNotBlank() } ?: "Set Programme"
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = if (isPeeking) ext.warningBg else primaryBlue.copy(alpha = 0.08f),
-                        border = BorderStroke(
-                            1.dp,
-                            if (isPeeking) ext.warningBorder else primaryBlue.copy(alpha = 0.22f)
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .desktopHoverable()
-                            .clickable(onClick = onOpenAcademicProfile)
-                            .testTag("sidebar_programme_badge")
-                    ) {
-                        Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = if (isPeeking) "PEEKING" else "PROGRAMME",
-                                    fontSize = 9.5.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 0.6.sp,
-                                    color = if (isPeeking) ext.warningText else primaryBlue
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = progLabel,
-                                fontSize = 12.5.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = ext.textPrimary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                        if (expanded) {
+                            DesktopSidebarItem(
+                                label = tab,
+                                shortcut = "^${index + 1}",
+                                icon = icon,
+                                isSelected = isSelected,
+                                testTag = tag,
+                                onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    onSelectTab(index)
+                                }
+                            )
+                        } else {
+                            CompactRailItem(
+                                label = tab,
+                                icon = icon,
+                                isSelected = isSelected,
+                                testTag = tag,
+                                onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    onSelectTab(index)
+                                }
                             )
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(14.dp))
-                    Text(
-                        text = "WORKSPACE",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.6.sp,
-                        color = ext.textMuted,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .let { mod ->
-                                if (canToggleSidebar) {
-                                    mod.desktopHandCursor()
-                                        .clickable(onClick = onToggleSidebar)
-                                        .testTag("desktop_sidebar_toggle")
-                                } else mod
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(primaryBlue),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = if (canToggleSidebar && sidebarCollapsed) Icons.Default.Menu else Icons.Default.School,
-                                contentDescription = if (canToggleSidebar) "Expand sidebar" else "Lectures",
-                                tint = MaterialTheme.colorScheme.onPrimary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(14.dp))
-                }
-
-                // Primary Tabs
-                tabs.forEachIndexed { index, tab ->
-                    val isSelected = currentDestination == MainScreenDestination.TABS && selectedTab == index
-                    val icon = if (isSelected) filledIcons[index] else outlinedIcons[index]
-                    val tag = "nav_${tab.lowercase(java.util.Locale.ROOT)}"
-
-                    if (isExpandedMode) {
-                        DesktopSidebarItem(
-                            label = tab,
-                            shortcut = "^${index + 1}",
-                            icon = icon,
-                            isSelected = isSelected,
-                            testTag = tag,
-                            onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                onSelectTab(index)
-                            }
+                    if (expanded) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        HorizontalDivider(color = ext.borderSubtle, thickness = 1.dp)
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(
+                            text = "CAMPUS & SYNC",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.6.sp,
+                            color = ext.textMuted,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         )
                     } else {
-                        CompactRailItem(
-                            label = tab,
-                            icon = icon,
-                            isSelected = isSelected,
-                            testTag = tag,
-                            onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                onSelectTab(index)
-                            }
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+
+                    // Secondary / Utility Persistent Destinations
+                    val isRoomsSelected = currentDestination == MainScreenDestination.VACANT_ROOMS
+                    val isAccountSelected = currentDestination == MainScreenDestination.ACCOUNT
+                    val isSettingsSelected = currentDestination == MainScreenDestination.SETTINGS
+
+                    if (expanded) {
+                        DesktopSidebarItem(
+                            label = "Vacant Rooms",
+                            shortcut = "^5",
+                            icon = if (isRoomsSelected) Icons.Filled.MeetingRoom else Icons.Outlined.MeetingRoom,
+                            isSelected = isRoomsSelected,
+                            testTag = "nav_rail_vacant_rooms",
+                            onClick = { onSelectDestination(MainScreenDestination.VACANT_ROOMS) }
+                        )
+                        DesktopSidebarItem(
+                            label = "Account & Sync",
+                            shortcut = "^6",
+                            icon = if (isAccountSelected) Icons.Filled.AccountCircle else Icons.Outlined.AccountCircle,
+                            isSelected = isAccountSelected,
+                            testTag = "nav_rail_account",
+                            onClick = { onSelectDestination(MainScreenDestination.ACCOUNT) }
+                        )
+                        DesktopSidebarItem(
+                            label = "Settings",
+                            shortcut = "^,",
+                            icon = if (isSettingsSelected) Icons.Filled.Settings else Icons.Outlined.Settings,
+                            isSelected = isSettingsSelected,
+                            testTag = "nav_rail_settings",
+                            onClick = { onSelectDestination(MainScreenDestination.SETTINGS) }
+                        )
+                        Spacer(modifier = Modifier.weight(1f))
+                    } else {
+                        CompactUtilityRailButton(
+                            label = "Rooms",
+                            icon = if (isRoomsSelected) Icons.Filled.MeetingRoom else Icons.Outlined.MeetingRoom,
+                            isSelected = isRoomsSelected,
+                            testTag = "nav_rail_vacant_rooms",
+                            onClick = { onSelectDestination(MainScreenDestination.VACANT_ROOMS) }
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        CompactUtilityRailButton(
+                            label = "Account",
+                            icon = if (isAccountSelected) Icons.Filled.AccountCircle else Icons.Outlined.AccountCircle,
+                            isSelected = isAccountSelected,
+                            testTag = "nav_rail_account",
+                            onClick = { onSelectDestination(MainScreenDestination.ACCOUNT) }
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        CompactUtilityRailButton(
+                            label = "Settings",
+                            icon = if (isSettingsSelected) Icons.Filled.Settings else Icons.Outlined.Settings,
+                            isSelected = isSettingsSelected,
+                            testTag = "nav_rail_settings",
+                            onClick = { onSelectDestination(MainScreenDestination.SETTINGS) }
                         )
                     }
-                }
-
-                if (isExpandedMode) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    HorizontalDivider(color = ext.borderSubtle, thickness = 1.dp)
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text(
-                        text = "CAMPUS & SYNC",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.6.sp,
-                        color = ext.textMuted,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
-                } else {
-                    Spacer(modifier = Modifier.weight(1f))
-                }
-
-                // Secondary / Utility Persistent Destinations
-                val isRoomsSelected = currentDestination == MainScreenDestination.VACANT_ROOMS
-                val isAccountSelected = currentDestination == MainScreenDestination.ACCOUNT
-                val isSettingsSelected = currentDestination == MainScreenDestination.SETTINGS
-
-                if (isExpandedMode) {
-                    DesktopSidebarItem(
-                        label = "Vacant Rooms",
-                        shortcut = "^5",
-                        icon = if (isRoomsSelected) Icons.Filled.MeetingRoom else Icons.Outlined.MeetingRoom,
-                        isSelected = isRoomsSelected,
-                        testTag = "nav_rail_vacant_rooms",
-                        onClick = { onSelectDestination(MainScreenDestination.VACANT_ROOMS) }
-                    )
-                    DesktopSidebarItem(
-                        label = "Account & Sync",
-                        shortcut = "^6",
-                        icon = if (isAccountSelected) Icons.Filled.AccountCircle else Icons.Outlined.AccountCircle,
-                        isSelected = isAccountSelected,
-                        testTag = "nav_rail_account",
-                        onClick = { onSelectDestination(MainScreenDestination.ACCOUNT) }
-                    )
-                    DesktopSidebarItem(
-                        label = "Settings",
-                        shortcut = "^,",
-                        icon = if (isSettingsSelected) Icons.Filled.Settings else Icons.Outlined.Settings,
-                        isSelected = isSettingsSelected,
-                        testTag = "nav_rail_settings",
-                        onClick = { onSelectDestination(MainScreenDestination.SETTINGS) }
-                    )
-                    Spacer(modifier = Modifier.weight(1f))
-                } else {
-                    CompactUtilityRailButton(
-                        label = "Rooms",
-                        icon = if (isRoomsSelected) Icons.Filled.MeetingRoom else Icons.Outlined.MeetingRoom,
-                        isSelected = isRoomsSelected,
-                        testTag = "nav_rail_vacant_rooms",
-                        onClick = { onSelectDestination(MainScreenDestination.VACANT_ROOMS) }
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    CompactUtilityRailButton(
-                        label = "Account",
-                        icon = if (isAccountSelected) Icons.Filled.AccountCircle else Icons.Outlined.AccountCircle,
-                        isSelected = isAccountSelected,
-                        testTag = "nav_rail_account",
-                        onClick = { onSelectDestination(MainScreenDestination.ACCOUNT) }
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    CompactUtilityRailButton(
-                        label = "Settings",
-                        icon = if (isSettingsSelected) Icons.Filled.Settings else Icons.Outlined.Settings,
-                        isSelected = isSettingsSelected,
-                        testTag = "nav_rail_settings",
-                        onClick = { onSelectDestination(MainScreenDestination.SETTINGS) }
-                    )
                 }
             }
         }
@@ -399,11 +438,17 @@ private fun CompactRailItem(
     onClick: () -> Unit
 ) {
     val ext = LocalExtendedColors.current
+    val reducedMotion = rememberPrefersReducedMotion()
     val primary = MaterialTheme.colorScheme.primary
     val pillBg by animateColorAsState(
         targetValue = if (isSelected) primary.copy(alpha = 0.16f) else Color.Transparent,
-        animationSpec = tween(150),
+        animationSpec = MotionSpec.stateTween(150, reducedMotion),
         label = "rail_pill"
+    )
+    val contentTint by animateColorAsState(
+        targetValue = if (isSelected) primary else ext.textMuted,
+        animationSpec = MotionSpec.stateTween(150, reducedMotion),
+        label = "rail_tint"
     )
 
     Box(
@@ -431,7 +476,7 @@ private fun CompactRailItem(
                 Icon(
                     imageVector = icon,
                     contentDescription = label,
-                    tint = if (isSelected) primary else ext.textMuted,
+                    tint = contentTint,
                     modifier = Modifier.size(21.dp)
                 )
             }
@@ -440,7 +485,7 @@ private fun CompactRailItem(
                 text = label,
                 fontSize = 11.sp,
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                color = if (isSelected) primary else ext.textMuted,
+                color = contentTint,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -454,16 +499,29 @@ private fun CompactUtilityRailButton(
     icon: ImageVector,
     isSelected: Boolean,
     testTag: String,
+    accentOverride: Color? = null,
     onClick: () -> Unit
 ) {
     val ext = LocalExtendedColors.current
-    val primary = MaterialTheme.colorScheme.primary
+    val reducedMotion = rememberPrefersReducedMotion()
+    val primary = accentOverride ?: MaterialTheme.colorScheme.primary
+    val containerBg by animateColorAsState(
+        targetValue = if (isSelected) primary.copy(alpha = 0.14f) else Color.Transparent,
+        animationSpec = MotionSpec.stateTween(150, reducedMotion),
+        label = "utility_rail_bg"
+    )
+    val contentTint by animateColorAsState(
+        targetValue = if (isSelected) primary else ext.textMuted,
+        animationSpec = MotionSpec.stateTween(150, reducedMotion),
+        label = "utility_rail_tint"
+    )
+
     Box(
         modifier = Modifier
             .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .background(if (isSelected) primary.copy(alpha = 0.14f) else Color.Transparent)
+            .background(containerBg)
             .desktopHoverable()
             .clickable(onClick = onClick)
             .testTag(testTag),
@@ -476,7 +534,7 @@ private fun CompactUtilityRailButton(
             Icon(
                 imageVector = icon,
                 contentDescription = label,
-                tint = if (isSelected) primary else ext.textMuted,
+                tint = contentTint,
                 modifier = Modifier.size(21.dp)
             )
             Spacer(modifier = Modifier.height(2.dp))
@@ -484,7 +542,7 @@ private fun CompactUtilityRailButton(
                 text = label,
                 fontSize = 10.sp,
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                color = if (isSelected) primary else ext.textMuted,
+                color = contentTint,
                 maxLines = 1
             )
         }

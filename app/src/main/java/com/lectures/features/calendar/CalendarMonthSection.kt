@@ -1,5 +1,7 @@
 package com.lectures.features.calendar
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -15,7 +17,11 @@ import androidx.compose.material.icons.outlined.School
 import androidx.compose.material.icons.outlined.TaskAlt
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,9 +34,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lectures.ui.MotionSpec
 import com.lectures.ui.components.desktopHandCursor
 import com.lectures.ui.components.desktopHoverable
 import com.lectures.ui.rememberLecturesWindow
+import com.lectures.ui.rememberPrefersReducedMotion
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -53,20 +61,26 @@ internal fun CalendarMonthGridCard(
     modifier: Modifier = Modifier
 ) {
     val windowInfo = rememberLecturesWindow()
+    val reducedMotion = rememberPrefersReducedMotion()
     val useCompactDesktopCells = windowInfo.isTablet
+
+    val monthEpoch = uiState.currentYear * 12 + uiState.currentMonth
+    var prevMonthEpoch by remember { mutableIntStateOf(monthEpoch) }
+    val isMonthForward = monthEpoch >= prevMonthEpoch
+    SideEffect { prevMonthEpoch = monthEpoch }
 
     Column(modifier = modifier.fillMaxWidth()) {
         // Month Navigation Header
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 6.dp),
+                .padding(horizontal = 16.dp, vertical = 6.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(
                 onClick = { viewModel.previousMonth() },
-                modifier = Modifier.desktopHandCursor().testTag("calendar_prev_month_btn")
+                modifier = Modifier.size(48.dp).desktopHandCursor().testTag("calendar_prev_month_btn")
             ) {
                 Icon(
                     Icons.Default.ChevronLeft,
@@ -75,24 +89,30 @@ internal fun CalendarMonthGridCard(
                 )
             }
 
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = uiState.yearMonthText,
-                    fontSize = 19.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = uiState.academicContext.phase.displayName,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            AnimatedContent(
+                targetState = uiState.yearMonthText to uiState.academicContext.phase.displayName,
+                transitionSpec = { MotionSpec.fadeTransform(reducedMotion = reducedMotion) },
+                label = "calendar_month_title"
+            ) { (monthText, phaseName) ->
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = monthText,
+                        fontSize = 19.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = phaseName,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
 
             IconButton(
                 onClick = { viewModel.nextMonth() },
-                modifier = Modifier.desktopHandCursor().testTag("calendar_next_month_btn")
+                modifier = Modifier.size(48.dp).desktopHandCursor().testTag("calendar_next_month_btn")
             ) {
                 Icon(
                     Icons.Default.ChevronRight,
@@ -150,114 +170,135 @@ internal fun CalendarMonthGridCard(
             else -> 0.dp
         }
 
-        // Calendar Grid
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            var currentDay = 1
-            for (row in 0..5) {
-                if (currentDay > uiState.daysInMonth) break
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    for (col in 0..6) {
-                        val cellIndex = row * 7 + col
-                        if (cellIndex < uiState.firstDayOfWeekOffset || currentDay > uiState.daysInMonth) {
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .let { if (useCompactDesktopCells) it.height(cellHeightDp) else it.aspectRatio(1f) }
-                            )
-                        } else {
-                            val dayNum = currentDay
-                            val isSelected = dayNum == uiState.selectedDay
-                            val isToday = viewModel.isToday(dayNum)
-                            val cellDayName = viewModel.getDayOfWeekNameForDay(dayNum)
-                            val cellDayLower = cellDayName.lowercase(Locale.ROOT)
+        // Calendar Grid with directional month transition
+        AnimatedContent(
+            targetState = monthEpoch,
+            transitionSpec = {
+                MotionSpec.directionalSlideTransform(
+                    forward = isMonthForward,
+                    reducedMotion = reducedMotion,
+                    useFadeOnly = windowInfo.useNavigationRail
+                )
+            },
+            label = "calendar_month_grid_slide"
+        ) { _ ->
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                var currentDay = 1
+                for (row in 0..5) {
+                    if (currentDay > uiState.daysInMonth) break
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        for (col in 0..6) {
+                            val cellIndex = row * 7 + col
+                            if (cellIndex < uiState.firstDayOfWeekOffset || currentDay > uiState.daysInMonth) {
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .let { if (useCompactDesktopCells) it.height(cellHeightDp) else it.aspectRatio(1f) }
+                                )
+                            } else {
+                                val dayNum = currentDay
+                                val isSelected = dayNum == uiState.selectedDay
+                                val isToday = viewModel.isToday(dayNum)
+                                val cellDayName = viewModel.getDayOfWeekNameForDay(dayNum)
+                                val cellDayLower = cellDayName.lowercase(Locale.ROOT)
 
-                            val cellAcademic = uiState.monthAcademicContexts[dayNum]
-                                ?: AcademicCalendarEngine.getAcademicContextForDate(
-                                    uiState.currentYear,
-                                    uiState.currentMonth,
-                                    dayNum
+                                val cellAcademic = uiState.monthAcademicContexts[dayNum]
+                                    ?: AcademicCalendarEngine.getAcademicContextForDate(
+                                        uiState.currentYear,
+                                        uiState.currentMonth,
+                                        dayNum
+                                    )
+
+                                val hasClassesThisDay = cellAcademic.isInstructionalDay && (cellDayLower in classDaysWithSchedule)
+                                val hasActivitiesThisDay = cellDayLower in activityDaysWithSchedule
+                                val hasDeadlinesThisDay = dayNum in taskDaysWithDue
+                                val hasMilestoneThisDay = cellAcademic.primaryMilestone != null
+
+                                val cellBg by animateColorAsState(
+                                    targetValue = when {
+                                        isSelected -> MaterialTheme.colorScheme.primary
+                                        isToday -> MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+                                        else -> MaterialTheme.colorScheme.surfaceVariant
+                                    },
+                                    animationSpec = MotionSpec.stateTween(MotionSpec.STATE_COLOR_MS, reducedMotion),
+                                    label = "cal_day_bg_$dayNum"
+                                )
+                                val cellTextColor by animateColorAsState(
+                                    targetValue = when {
+                                        isSelected -> MaterialTheme.colorScheme.onPrimary
+                                        isToday -> MaterialTheme.colorScheme.primary
+                                        else -> MaterialTheme.colorScheme.onSurface
+                                    },
+                                    animationSpec = MotionSpec.stateTween(MotionSpec.STATE_COLOR_MS, reducedMotion),
+                                    label = "cal_day_text_$dayNum"
                                 )
 
-                            val hasClassesThisDay = cellAcademic.isInstructionalDay && (cellDayLower in classDaysWithSchedule)
-                            val hasActivitiesThisDay = cellDayLower in activityDaysWithSchedule
-                            val hasDeadlinesThisDay = dayNum in taskDaysWithDue
-                            val hasMilestoneThisDay = cellAcademic.primaryMilestone != null
-
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .let { if (useCompactDesktopCells) it.height(cellHeightDp) else it.aspectRatio(1f) }
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(
-                                        when {
-                                            isSelected -> MaterialTheme.colorScheme.primary
-                                            isToday -> MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
-                                            else -> MaterialTheme.colorScheme.surfaceVariant
-                                        }
-                                    )
-                                    .then(
-                                        if (isToday && !isSelected) {
-                                            Modifier.border(
-                                                1.5.dp,
-                                                MaterialTheme.colorScheme.primary,
-                                                RoundedCornerShape(10.dp)
-                                            )
-                                        } else Modifier
-                                    )
-                                    .desktopHoverable(
-                                        enabled = !isSelected,
-                                        hoverContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
-                                    )
-                                    .clickable { viewModel.selectDay(dayNum) },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .let { if (useCompactDesktopCells) it.height(cellHeightDp) else it.aspectRatio(1f) }
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(cellBg)
+                                        .then(
+                                            if (isToday && !isSelected) {
+                                                Modifier.border(
+                                                    1.5.dp,
+                                                    MaterialTheme.colorScheme.primary,
+                                                    RoundedCornerShape(10.dp)
+                                                )
+                                            } else Modifier
+                                        )
+                                        .desktopHoverable(
+                                            enabled = !isSelected,
+                                            hoverContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+                                        )
+                                        .clickable { viewModel.selectDay(dayNum) },
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    Text(
-                                        text = "$dayNum",
-                                        fontSize = 13.sp,
-                                        fontWeight = if (isSelected || isToday) FontWeight.Bold else FontWeight.Medium,
-                                        color = when {
-                                            isSelected -> MaterialTheme.colorScheme.onPrimary
-                                            isToday -> MaterialTheme.colorScheme.primary
-                                            else -> MaterialTheme.colorScheme.onSurface
-                                        }
-                                    )
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Center
+                                    ) {
+                                        Text(
+                                            text = "$dayNum",
+                                            fontSize = 13.sp,
+                                            fontWeight = if (isSelected || isToday) FontWeight.Bold else FontWeight.Medium,
+                                            color = cellTextColor
+                                        )
 
-                                    if (hasClassesThisDay || hasActivitiesThisDay || hasDeadlinesThisDay || hasMilestoneThisDay) {
-                                        Spacer(modifier = Modifier.height(2.dp))
-                                        Row(
-                                            horizontalArrangement = Arrangement.spacedBy(2.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            val selectedDotColor = MaterialTheme.colorScheme.onPrimary
-                                            if (hasDeadlinesThisDay) {
-                                                CalendarDot(color = if (isSelected) selectedDotColor else Color(0xFFEF4444))
-                                            }
-                                            if (hasClassesThisDay) {
-                                                CalendarDot(color = if (isSelected) selectedDotColor else MaterialTheme.colorScheme.primary)
-                                            }
-                                            if (hasActivitiesThisDay) {
-                                                CalendarDot(color = if (isSelected) selectedDotColor else Color(0xFF10B981))
-                                            }
-                                            if (hasMilestoneThisDay && !hasClassesThisDay && !hasDeadlinesThisDay) {
-                                                CalendarDot(color = if (isSelected) selectedDotColor else Color(0xFF8B5CF6))
+                                        if (hasClassesThisDay || hasActivitiesThisDay || hasDeadlinesThisDay || hasMilestoneThisDay) {
+                                            Spacer(modifier = Modifier.height(2.dp))
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                val selectedDotColor = MaterialTheme.colorScheme.onPrimary
+                                                if (hasDeadlinesThisDay) {
+                                                    CalendarDot(color = if (isSelected) selectedDotColor else Color(0xFFEF4444))
+                                                }
+                                                if (hasClassesThisDay) {
+                                                    CalendarDot(color = if (isSelected) selectedDotColor else MaterialTheme.colorScheme.primary)
+                                                }
+                                                if (hasActivitiesThisDay) {
+                                                    CalendarDot(color = if (isSelected) selectedDotColor else Color(0xFF10B981))
+                                                }
+                                                if (hasMilestoneThisDay && !hasClassesThisDay && !hasDeadlinesThisDay) {
+                                                    CalendarDot(color = if (isSelected) selectedDotColor else Color(0xFF8B5CF6))
+                                                }
                                             }
                                         }
                                     }
                                 }
+                                currentDay++
                             }
-                            currentDay++
                         }
                     }
                 }
@@ -310,14 +351,20 @@ internal fun SelectedDayHorizonCard(
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { viewModel.previousDay() }) {
+                    IconButton(
+                        onClick = { viewModel.previousDay() },
+                        modifier = Modifier.size(48.dp).desktopHandCursor()
+                    ) {
                         Icon(
                             Icons.Default.ChevronLeft,
                             contentDescription = "Previous Day",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    IconButton(onClick = { viewModel.nextDay() }) {
+                    IconButton(
+                        onClick = { viewModel.nextDay() },
+                        modifier = Modifier.size(48.dp).desktopHandCursor()
+                    ) {
                         Icon(
                             Icons.Default.ChevronRight,
                             contentDescription = "Next Day",

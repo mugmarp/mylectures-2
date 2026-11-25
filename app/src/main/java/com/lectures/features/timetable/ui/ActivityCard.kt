@@ -1,11 +1,10 @@
 package com.lectures.features.timetable.ui
 
-import androidx.compose.animation.core.*
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
@@ -17,7 +16,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -26,9 +24,12 @@ import com.lectures.core.util.TimeUtil
 import com.lectures.core.util.rememberLiveClockPulse
 import com.lectures.features.timetable.domain.ActivityCategory
 import com.lectures.features.timetable.domain.CustomEvent
+import com.lectures.ui.MotionSpec
+import com.lectures.ui.components.LivePulseBadge
 import com.lectures.ui.components.RoomFloorBadge
 import com.lectures.ui.components.desktopHandCursor
 import com.lectures.ui.components.desktopHoverable
+import com.lectures.ui.rememberPrefersReducedMotion
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -118,7 +119,13 @@ fun ActivityCard(
 
                         // Ongoing Live Indicator
                         if (progress.isOngoing) {
-                            ActivityLiveBadge(catColor = catColor)
+                            LivePulseBadge(
+                                text = "LIVE NOW",
+                                dotColor = catColor,
+                                containerColor = catColor.copy(alpha = 0.15f),
+                                contentColor = catColor,
+                                dotSize = 7.dp
+                            )
                         }
                     }
 
@@ -252,8 +259,14 @@ fun ActivityCard(
 
                         Spacer(modifier = Modifier.height(6.dp))
 
+                        val reducedMotion = rememberPrefersReducedMotion()
+                        val animatedProgress by animateFloatAsState(
+                            targetValue = progress.progress.coerceIn(0f, 1f),
+                            animationSpec = MotionSpec.stateTween(450, reducedMotion),
+                            label = "activity_progress"
+                        )
                         LinearProgressIndicator(
-                            progress = { progress.progress },
+                            progress = { animatedProgress },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(6.dp)
@@ -294,43 +307,5 @@ private fun getCategoryIcon(category: ActivityCategory): ImageVector {
         ActivityCategory.CLUB -> Icons.Outlined.Groups
         ActivityCategory.PERSONAL -> Icons.Outlined.Favorite
         ActivityCategory.EXAM -> Icons.Outlined.AssignmentTurnedIn
-    }
-}
-
-@Composable
-private fun ActivityLiveBadge(catColor: Color) {
-    val infiniteTransition = rememberInfiniteTransition(label = "live_pulse")
-    val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.3f,
-        targetValue = 1.0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(800, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "alpha"
-    )
-    Surface(
-        shape = RoundedCornerShape(8.dp),
-        color = catColor.copy(alpha = 0.15f),
-        contentColor = catColor
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(7.dp)
-                    .graphicsLayer { this.alpha = pulseAlpha }
-                    .background(catColor, CircleShape)
-            )
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(
-                text = "LIVE NOW",
-                fontSize = 10.sp,
-                fontWeight = FontWeight.ExtraBold,
-                letterSpacing = 0.5.sp
-            )
-        }
     }
 }

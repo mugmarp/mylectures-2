@@ -1,5 +1,14 @@
 package com.lectures.features.settings
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -13,7 +22,6 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -38,10 +46,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
@@ -56,11 +66,13 @@ import com.lectures.features.timetable.ui.DarkSurfaceCard
 import com.lectures.ui.AccentColorNames
 import com.lectures.ui.AppThemeState
 import com.lectures.ui.LocalExtendedColors
+import com.lectures.ui.MotionSpec
 import com.lectures.ui.ThemeMode
 import com.lectures.ui.accentDisplayColors
 import com.lectures.ui.components.desktopHandCursor
 import com.lectures.ui.components.desktopHoverable
 import com.lectures.ui.contrastOnColor
+import com.lectures.ui.rememberPrefersReducedMotion
 
 @Composable
 internal fun SectionHeader(title: String, color: Color = MaterialTheme.colorScheme.primary) {
@@ -86,25 +98,48 @@ internal fun ThemeSelectionCard(
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    val borderColor = if (isSelected) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
-    }
-    val containerColor = if (isSelected) {
-        MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
-    } else {
-        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
-    }
+    val reducedMotion = rememberPrefersReducedMotion()
+    val borderColor by animateColorAsState(
+        targetValue = if (isSelected) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+        },
+        animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+        label = "theme_card_border"
+    )
+    val containerColor by animateColorAsState(
+        targetValue = if (isSelected) {
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+        },
+        animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+        label = "theme_card_bg"
+    )
+    val borderWidth by animateDpAsState(
+        targetValue = if (isSelected) 2.dp else 1.dp,
+        animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+        label = "theme_card_border_w"
+    )
+    val cardScale by animateFloatAsState(
+        targetValue = if (isSelected) 1f else 0.985f,
+        animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+        label = "theme_card_scale"
+    )
 
     Card(
         modifier = modifier
             .minimumInteractiveComponentSize()
+            .graphicsLayer {
+                scaleX = cardScale
+                scaleY = cardScale
+            }
             .clip(RoundedCornerShape(14.dp))
             .desktopHoverable()
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(14.dp),
-        border = BorderStroke(if (isSelected) 2.dp else 1.dp, borderColor),
+        border = BorderStroke(borderWidth, borderColor),
         colors = CardDefaults.cardColors(containerColor = containerColor),
         elevation = CardDefaults.cardElevation(defaultElevation = if (isSelected) 2.dp else 0.dp)
     ) {
@@ -275,6 +310,7 @@ internal fun AppearanceSettingsView(
     onSelectAccent: (Int) -> Unit
 ) {
     val ext = LocalExtendedColors.current
+    val reducedMotion = rememberPrefersReducedMotion()
     val swatches = accentDisplayColors(appTheme.isDark)
     val selectedAccent = appTheme.accentIndex.coerceIn(0, AccentColorNames.lastIndex)
 
@@ -291,8 +327,8 @@ internal fun AppearanceSettingsView(
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp),
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            colors = CardDefaults.cardColors(containerColor = ext.surfaceCard),
+            border = BorderStroke(1.dp, ext.borderSubtle),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             Row(
@@ -356,8 +392,8 @@ internal fun AppearanceSettingsView(
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp),
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            colors = CardDefaults.cardColors(containerColor = ext.surfaceCard),
+            border = BorderStroke(1.dp, ext.borderSubtle),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
@@ -367,6 +403,73 @@ internal fun AppearanceSettingsView(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(14.dp))
+                val swatchItem: @Composable (Int, Color, Modifier) -> Unit = { idx, color, colMod ->
+                    val name = AccentColorNames.getOrElse(idx) { "Color $idx" }
+                    val selected = selectedAccent == idx
+                    val swatchScale by animateFloatAsState(
+                        targetValue = if (selected) 1.08f else 1f,
+                        animationSpec = if (reducedMotion) snap() else MotionSpec.bouncyCheckSpring(),
+                        label = "accent_swatch_scale_$idx"
+                    )
+                    val ringWidth by animateDpAsState(
+                        targetValue = if (selected) 3.dp else 0.dp,
+                        animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+                        label = "accent_ring_w_$idx"
+                    )
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = colMod
+                            .minimumInteractiveComponentSize()
+                            .clip(RoundedCornerShape(12.dp))
+                            .desktopHandCursor()
+                            .clickable { onSelectAccent(idx) }
+                            .padding(horizontal = 4.dp, vertical = 6.dp)
+                            .semantics { contentDescription = "Select $name accent color" }
+                            .testTag("accent_swatch_$idx")
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .graphicsLayer {
+                                    scaleX = swatchScale
+                                    scaleY = swatchScale
+                                }
+                                .clip(CircleShape)
+                                .background(color)
+                                .then(
+                                    if (ringWidth > 0.dp) {
+                                        Modifier.border(ringWidth, MaterialTheme.colorScheme.onSurface, CircleShape)
+                                    } else {
+                                        Modifier
+                                    }
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            androidx.compose.animation.AnimatedVisibility(
+                                visible = selected,
+                                enter = if (reducedMotion) fadeIn() else scaleIn(animationSpec = MotionSpec.bouncyCheckSpring()) + fadeIn(),
+                                exit = if (reducedMotion) fadeOut() else scaleOut() + fadeOut()
+                            ) {
+                                Icon(
+                                    Icons.Default.Check,
+                                    contentDescription = "Selected",
+                                    tint = contrastOnColor(color),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = name,
+                            fontSize = 10.sp,
+                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
                 BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                     val useFlow = maxWidth < 250.dp
                     if (useFlow) {
@@ -376,53 +479,7 @@ internal fun AppearanceSettingsView(
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             swatches.forEachIndexed { idx, color ->
-                                val name = AccentColorNames.getOrElse(idx) { "Color $idx" }
-                                val selected = selectedAccent == idx
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    modifier = Modifier
-                                        .minimumInteractiveComponentSize()
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .desktopHandCursor()
-                                        .clickable { onSelectAccent(idx) }
-                                        .padding(horizontal = 8.dp, vertical = 6.dp)
-                                        .semantics { contentDescription = "Select $name accent color" }
-                                        .testTag("accent_swatch_$idx")
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(44.dp)
-                                            .clip(CircleShape)
-                                            .background(color)
-                                            .then(
-                                                if (selected) {
-                                                    Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
-                                                } else {
-                                                    Modifier
-                                                }
-                                            ),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        if (selected) {
-                                            Icon(
-                                                Icons.Default.Check,
-                                                contentDescription = "Selected",
-                                                tint = contrastOnColor(color),
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                        }
-                                    }
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    Text(
-                                        text = name,
-                                        fontSize = 10.sp,
-                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                                        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                        textAlign = TextAlign.Center,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
+                                swatchItem(idx, color, Modifier)
                             }
                         }
                     } else {
@@ -431,54 +488,7 @@ internal fun AppearanceSettingsView(
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             swatches.forEachIndexed { idx, color ->
-                                val name = AccentColorNames.getOrElse(idx) { "Color $idx" }
-                                val selected = selectedAccent == idx
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .minimumInteractiveComponentSize()
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .desktopHandCursor()
-                                        .clickable { onSelectAccent(idx) }
-                                        .padding(horizontal = 2.dp, vertical = 6.dp)
-                                        .semantics { contentDescription = "Select $name accent color" }
-                                        .testTag("accent_swatch_$idx")
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(44.dp)
-                                            .clip(CircleShape)
-                                            .background(color)
-                                            .then(
-                                                if (selected) {
-                                                    Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
-                                                } else {
-                                                    Modifier
-                                                }
-                                            ),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        if (selected) {
-                                            Icon(
-                                                Icons.Default.Check,
-                                                contentDescription = "Selected",
-                                                tint = contrastOnColor(color),
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                        }
-                                    }
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    Text(
-                                        text = name,
-                                        fontSize = 10.sp,
-                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                                        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                        textAlign = TextAlign.Center,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
+                                swatchItem(idx, color, Modifier.weight(1f))
                             }
                         }
                     }

@@ -1,5 +1,13 @@
 package com.lectures.features.tasks
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -11,6 +19,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -45,6 +54,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,6 +62,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -63,16 +74,13 @@ import androidx.compose.ui.unit.sp
 import com.lectures.core.alarm.TaskDateTimeParser
 import com.lectures.features.timetable.domain.Assignment
 import com.lectures.features.timetable.domain.TaskCategory
-import com.lectures.features.timetable.ui.DarkBorderSubtle
-import com.lectures.features.timetable.ui.DarkSurfaceBase
-import com.lectures.features.timetable.ui.DarkSurfaceCard
-import com.lectures.features.timetable.ui.TextMutedLight
-import com.lectures.features.timetable.ui.TextPrimaryLight
 import com.lectures.ui.LocalExtendedColors
+import com.lectures.ui.MotionSpec
 import com.lectures.ui.components.desktopHandCursor
 import com.lectures.ui.components.desktopHoverable
 import com.lectures.ui.contrastOnColor
 import com.lectures.ui.rememberLecturesWindow
+import com.lectures.ui.rememberPrefersReducedMotion
 import java.util.Calendar
 import java.util.Locale
 
@@ -169,7 +177,9 @@ internal fun TasksNotificationPromptBanner(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TextButton(
                     onClick = onActionClick,
-                    modifier = Modifier.desktopHandCursor()
+                    modifier = Modifier
+                        .defaultMinSize(minHeight = 48.dp)
+                        .desktopHandCursor()
                 ) {
                     Text(
                         if (!areNotificationsAllowed) "Allow" else "Settings",
@@ -179,7 +189,9 @@ internal fun TasksNotificationPromptBanner(
                 }
                 IconButton(
                     onClick = onDismiss,
-                    modifier = Modifier.desktopHandCursor()
+                    modifier = Modifier
+                        .size(48.dp)
+                        .desktopHandCursor()
                 ) {
                     Icon(
                         Icons.Default.Close,
@@ -240,6 +252,7 @@ internal fun TasksFilterChipsRow(
     onFilterSelected: (String) -> Unit
 ) {
     val windowInfo = rememberLecturesWindow()
+    val reducedMotion = rememberPrefersReducedMotion()
     val filters = listOf("All", "Pending", "Overdue", "Completed", "High Priority")
 
     val chipContent: @Composable (String) -> Unit = { filter ->
@@ -253,27 +266,44 @@ internal fun TasksFilterChipsRow(
         }
         val ext = LocalExtendedColors.current
         val isOverdueFilter = filter == "Overdue"
-        val chipBg = when {
+        val targetChipBg = when {
             isSelected && isOverdueFilter -> ext.dangerIcon
             isSelected -> primaryColor
             isOverdueFilter && count > 0 -> ext.dangerBg
             else -> cardBg
         }
-        val chipBorder = when {
+        val targetChipBorder = when {
             isSelected && isOverdueFilter -> ext.dangerIcon
             isSelected -> primaryColor
             isOverdueFilter && count > 0 -> ext.dangerBorder
             else -> borderColor
         }
-        val chipTextColor = when {
+        val targetChipTextColor = when {
             isSelected && isOverdueFilter -> contrastOnColor(ext.dangerIcon)
             isSelected -> contrastOnColor(primaryColor)
             isOverdueFilter && count > 0 -> ext.dangerText
             else -> textSecondary
         }
 
+        val chipBg by animateColorAsState(
+            targetValue = targetChipBg,
+            animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+            label = "task_filter_bg"
+        )
+        val chipBorder by animateColorAsState(
+            targetValue = targetChipBorder,
+            animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+            label = "task_filter_border"
+        )
+        val chipTextColor by animateColorAsState(
+            targetValue = targetChipTextColor,
+            animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+            label = "task_filter_text"
+        )
+
         Box(
             modifier = Modifier
+                .defaultMinSize(minHeight = 40.dp)
                 .clip(RoundedCornerShape(16.dp))
                 .background(chipBg)
                 .border(1.dp, chipBorder, RoundedCornerShape(16.dp))
@@ -392,31 +422,64 @@ fun TaskCard(
     onDelete: () -> Unit
 ) {
     val ext = LocalExtendedColors.current
-    val cardBg = if (isDark) DarkSurfaceCard else Color.White
-    val textPrimary = if (isDark) Color.White else TextPrimaryLight
-    val textSecondary = if (isDark) Color(0xFF94A3B8) else TextMutedLight
+    val reducedMotion = rememberPrefersReducedMotion()
+    val cardBg = ext.surfaceCard
+    val textPrimary = ext.textPrimary
+    val textSecondary = ext.textSecondary
     val primaryColor = MaterialTheme.colorScheme.primary
 
     val (category, cleanTitle) = remember(task.title) { resolveTaskCategoryAndTitle(task.title) }
     val dueStatus = remember(task.dueDate, task.completed) { getTaskDueStatus(task.dueDate, task.completed) }
 
+    val targetBorderColor = when {
+        isHighlighted -> primaryColor
+        !task.completed && dueStatus == TaskDueStatus.OVERDUE -> ext.dangerBorder
+        else -> ext.borderSubtle
+    }
+    val cardBorderColor by animateColorAsState(
+        targetValue = targetBorderColor,
+        animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+        label = "task_card_border"
+    )
+    val cardBorderWidth by animateDpAsState(
+        targetValue = if (isHighlighted) 2.dp else 1.dp,
+        animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+        label = "task_card_border_w"
+    )
+    val cardAlpha by animateFloatAsState(
+        targetValue = if (task.completed) 0.82f else 1f,
+        animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+        label = "task_card_alpha"
+    )
+    val checkBg by animateColorAsState(
+        targetValue = if (task.completed) primaryColor else Color.Transparent,
+        animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+        label = "task_check_bg"
+    )
+    val checkBorder by animateColorAsState(
+        targetValue = if (task.completed) primaryColor else ext.textMuted.copy(alpha = 0.55f),
+        animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+        label = "task_check_border"
+    )
+    val checkScale by animateFloatAsState(
+        targetValue = if (task.completed) 1.06f else 1f,
+        animationSpec = if (reducedMotion) androidx.compose.animation.core.snap() else MotionSpec.bouncyCheckSpring(),
+        label = "task_check_scale"
+    )
+    val titleColor by animateColorAsState(
+        targetValue = if (task.completed) textSecondary else textPrimary,
+        animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+        label = "task_title_color"
+    )
+
     Card(
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = cardBg),
         elevation = CardDefaults.cardElevation(defaultElevation = if (isHighlighted) 6.dp else 1.dp),
-        border = CardDefaults.outlinedCardBorder().copy(
-            width = if (isHighlighted) 2.dp else 1.dp,
-            brush = androidx.compose.ui.graphics.SolidColor(
-                when {
-                    isHighlighted -> primaryColor
-                    !task.completed && dueStatus == TaskDueStatus.OVERDUE -> ext.dangerBorder
-                    isDark -> DarkBorderSubtle
-                    else -> ext.borderSubtle
-                }
-            )
-        ),
+        border = BorderStroke(cardBorderWidth, cardBorderColor),
         modifier = modifier
             .fillMaxWidth()
+            .graphicsLayer { alpha = cardAlpha }
             .clip(RoundedCornerShape(18.dp))
             .desktopHandCursor()
             .clickable(onClick = onEdit)
@@ -451,16 +514,20 @@ fun TaskCard(
                         Box(
                             modifier = Modifier
                                 .size(24.dp)
+                                .graphicsLayer {
+                                    scaleX = checkScale
+                                    scaleY = checkScale
+                                }
                                 .clip(CircleShape)
-                                .border(
-                                    2.dp,
-                                    if (task.completed) primaryColor else (if (isDark) Color(0xFF475569) else Color(0xFFCBD5E1)),
-                                    CircleShape
-                                )
-                                .background(if (task.completed) primaryColor else Color.Transparent),
+                                .border(2.dp, checkBorder, CircleShape)
+                                .background(checkBg),
                             contentAlignment = Alignment.Center
                         ) {
-                            if (task.completed) {
+                            androidx.compose.animation.AnimatedVisibility(
+                                visible = task.completed,
+                                enter = if (reducedMotion) fadeIn() else scaleIn(animationSpec = MotionSpec.bouncyCheckSpring()) + fadeIn(),
+                                exit = if (reducedMotion) fadeOut() else scaleOut() + fadeOut()
+                            ) {
                                 Icon(
                                     Icons.Default.Check,
                                     contentDescription = null,
@@ -503,7 +570,7 @@ fun TaskCard(
                             text = cleanTitle,
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold,
-                            color = if (task.completed) textSecondary else textPrimary,
+                            color = titleColor,
                             textDecoration = if (task.completed) TextDecoration.LineThrough else null,
                             lineHeight = 20.sp
                         )
@@ -514,7 +581,12 @@ fun TaskCard(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.padding(top = 4.dp)
                 ) {
-                    IconButton(onClick = onEdit, modifier = Modifier.desktopHandCursor()) {
+                    IconButton(
+                        onClick = onEdit,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .desktopHandCursor()
+                    ) {
                         Icon(
                             imageVector = Icons.Outlined.Edit,
                             contentDescription = "Edit or Reschedule Task",
@@ -523,7 +595,12 @@ fun TaskCard(
                         )
                     }
 
-                    IconButton(onClick = onDelete, modifier = Modifier.desktopHandCursor()) {
+                    IconButton(
+                        onClick = onDelete,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .desktopHandCursor()
+                    ) {
                         Icon(
                             Icons.Default.DeleteOutline,
                             contentDescription = "Delete",

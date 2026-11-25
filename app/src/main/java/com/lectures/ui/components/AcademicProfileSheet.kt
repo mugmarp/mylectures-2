@@ -31,6 +31,7 @@ import com.lectures.R
 import com.lectures.TimetableApplication
 import com.lectures.features.timetable.ui.*
 import com.lectures.ui.LocalAppTheme
+import com.lectures.ui.LocalExtendedColors
 import kotlinx.coroutines.flow.flowOf
 import java.util.Locale
 
@@ -97,12 +98,13 @@ fun AcademicProfileSheet(
     }
     val appTheme = LocalAppTheme.current
     val isDark = appTheme.isDark
+    val ext = LocalExtendedColors.current
     val accentColor = MaterialTheme.colorScheme.primary
-    val surfaceColor = if (isDark) DarkSurfaceCard else Color.White
-    val textColor = if (isDark) Color(0xFFF1F5F9) else TextPrimaryLight
-    val textSub = if (isDark) Color(0xFF94A3B8) else TextMutedLight
-    val cardBg = if (isDark) DarkSurfaceBase else Color(0xFFF8FAFC)
-    val cardBorder = if (isDark) DarkBorderSubtle else BorderSubtleLight
+    val surfaceColor = ext.surfaceCard
+    val textColor = MaterialTheme.colorScheme.onSurface
+    val textSub = ext.textMuted
+    val cardBg = ext.surfaceBase
+    val cardBorder = ext.borderSubtle
 
     AdaptiveSheetOrDialog(
         onDismissRequest = onDismiss,
@@ -164,8 +166,8 @@ fun AcademicProfileSheet(
             if (isPeeking) {
                 Surface(
                     shape = RoundedCornerShape(16.dp),
-                    color = if (isDark) Color(0xFF291B00) else Color(0xFFFEF3C7),
-                    border = BorderStroke(1.dp, if (isDark) Color(0xFFB45309) else Color(0xFFF59E0B)),
+                    color = ext.warningBg,
+                    border = BorderStroke(1.dp, ext.warningBorder),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
@@ -178,7 +180,7 @@ fun AcademicProfileSheet(
                                 Icon(
                                     imageVector = Icons.Outlined.Visibility,
                                     contentDescription = null,
-                                    tint = if (isDark) Color(0xFFFBBF24) else Color(0xFFB45309),
+                                    tint = ext.warningIcon,
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
@@ -186,19 +188,19 @@ fun AcademicProfileSheet(
                                     text = "PREVIEW MODE",
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = if (isDark) Color(0xFFFDE68A) else Color(0xFF92400E),
+                                    color = ext.warningText,
                                     letterSpacing = 0.5.sp
                                 )
                             }
                             Surface(
                                 shape = RoundedCornerShape(8.dp),
-                                color = if (isDark) Color(0xFF78350F) else Color(0xFFFDE68A)
+                                color = ext.warningIcon.copy(alpha = 0.16f)
                             ) {
                                 Text(
                                     text = "Temporary",
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = if (isDark) Color(0xFFFDE68A) else Color(0xFF92400E),
+                                    color = ext.warningText,
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                                 )
                             }
@@ -208,12 +210,12 @@ fun AcademicProfileSheet(
                             text = "Previewing $effectiveProgramme",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
-                            color = if (isDark) Color.White else Color(0xFF78350F)
+                            color = ext.warningText
                         )
                         Text(
                             text = if (effectiveEnrolled.isNotBlank()) "Viewing temporarily. Your alarms remain set for $effectiveEnrolled." else "Viewing temporarily.",
                             fontSize = 12.sp,
-                            color = if (isDark) Color(0xFFFCD34D) else Color(0xFFB45309)
+                            color = ext.warningText.copy(alpha = 0.85f)
                         )
                         Spacer(modifier = Modifier.height(10.dp))
                         Button(
@@ -224,10 +226,13 @@ fun AcademicProfileSheet(
                             },
                             shape = RoundedCornerShape(10.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isDark) Color(0xFFB45309) else Color(0xFFD97706),
+                                containerColor = ext.warningIcon,
                                 contentColor = Color.White
                             ),
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .defaultMinSize(minHeight = 48.dp)
+                                .desktopHandCursor()
                         ) {
                             Text("Exit Preview", fontWeight = FontWeight.Bold)
                         }
@@ -290,11 +295,11 @@ fun AcademicProfileSheet(
                     HorizontalDivider(color = cardBorder, thickness = 0.8.dp)
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    ProfileItemRow(icon = Icons.Outlined.LocationOn, label = "Campus", value = campusName, isDark = isDark)
+                    ProfileItemRow(icon = Icons.Outlined.LocationOn, label = "Campus", value = campusName)
                     Spacer(modifier = Modifier.height(12.dp))
-                    ProfileItemRow(icon = Icons.Outlined.CalendarMonth, label = "Semester", value = "$effectiveSemester • $academicWeek", isDark = isDark)
+                    ProfileItemRow(icon = Icons.Outlined.CalendarMonth, label = "Semester", value = "$effectiveSemester • $academicWeek")
                     Spacer(modifier = Modifier.height(12.dp))
-                    ProfileItemRow(icon = Icons.Outlined.AccessTime, label = "Timetable Version", value = versionDisplay, isDark = isDark)
+                    ProfileItemRow(icon = Icons.Outlined.AccessTime, label = "Timetable Version", value = versionDisplay)
                 }
             }
 
@@ -457,9 +462,9 @@ fun AcademicProfileSheet(
 private fun ProfileItemRow(
     icon: ImageVector,
     label: String,
-    value: String,
-    isDark: Boolean
+    value: String
 ) {
+    val ext = LocalExtendedColors.current
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -471,7 +476,7 @@ private fun ProfileItemRow(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = if (isDark) Color(0xFF94A3B8) else TextMutedLight,
+                tint = ext.textMuted,
                 modifier = Modifier.size(16.dp)
             )
             Spacer(modifier = Modifier.width(8.dp))
@@ -479,7 +484,7 @@ private fun ProfileItemRow(
                 text = label,
                 fontSize = 13.sp,
                 maxLines = 1,
-                color = if (isDark) Color(0xFF94A3B8) else TextMutedLight
+                color = ext.textMuted
             )
         }
         Spacer(modifier = Modifier.width(12.dp))
@@ -487,7 +492,7 @@ private fun ProfileItemRow(
             text = value,
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
-            color = if (isDark) Color.White else TextPrimaryLight,
+            color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.End,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,

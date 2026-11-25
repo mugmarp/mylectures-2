@@ -1,5 +1,9 @@
 package com.lectures.features.rooms.ui
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -16,10 +20,15 @@ import androidx.compose.material.icons.outlined.LocalLibrary
 import androidx.compose.material.icons.outlined.MeetingRoom
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -39,12 +48,15 @@ import com.lectures.features.timetable.ui.DarkSurfaceCard
 import com.lectures.features.timetable.ui.StatusGreenLive
 import com.lectures.features.timetable.ui.TextMutedLight
 import com.lectures.features.timetable.ui.TextPrimaryLight
+import com.lectures.ui.LocalExtendedColors
+import com.lectures.ui.MotionSpec
 import com.lectures.ui.components.FloorIndicatorBadge
 import com.lectures.ui.components.desktopHandCursor
 import com.lectures.ui.components.desktopHoverable
 import com.lectures.ui.components.onEscapeKey
 import com.lectures.ui.contrastOnColor
 import com.lectures.ui.rememberLecturesWindow
+import com.lectures.ui.rememberPrefersReducedMotion
 
 fun formatRoomDisplayCode(room: RoomItem): String {
     val raw = room.code
@@ -71,10 +83,12 @@ fun RoomVacancyCard(
     onClick: () -> Unit
 ) {
     val room = status.room
-    val surfaceColor = if (isDark) DarkSurfaceCard else Color.White
-    val textPrimary = if (isDark) Color.White else TextPrimaryLight
-    val textMuted = if (isDark) Color(0xFF94A3B8) else TextMutedLight
-    val borderSubtle = if (isDark) DarkBorderSubtle else BorderSubtleLight
+    val ext = LocalExtendedColors.current
+    val reducedMotion = rememberPrefersReducedMotion()
+    val surfaceColor = ext.surfaceCard
+    val textPrimary = ext.textPrimary
+    val textMuted = ext.textMuted
+    val borderSubtle = ext.borderSubtle
     val primaryColor = MaterialTheme.colorScheme.primary
 
     val statusColor = when {
@@ -85,12 +99,23 @@ fun RoomVacancyCard(
         else -> Color(0xFFF59E0B)
     }
 
+    val cardBg by animateColorAsState(
+        targetValue = if (isSelected) primaryColor.copy(alpha = 0.08f) else surfaceColor,
+        animationSpec = MotionSpec.stateTween(MotionSpec.STATE_COLOR_MS, reducedMotion),
+        label = "room_card_bg"
+    )
+    val cardBorderColor by animateColorAsState(
+        targetValue = if (isSelected) primaryColor else borderSubtle,
+        animationSpec = MotionSpec.stateTween(MotionSpec.STATE_COLOR_MS, reducedMotion),
+        label = "room_card_border"
+    )
+
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = if (isSelected) primaryColor.copy(alpha = 0.08f) else surfaceColor,
+        color = cardBg,
         border = BorderStroke(
             width = if (isSelected) 1.5.dp else 1.dp,
-            color = if (isSelected) primaryColor else borderSubtle
+            color = cardBorderColor
         ),
         modifier = modifier
             .fillMaxWidth()
@@ -226,6 +251,8 @@ fun RoomScheduleDetailDialog(
     onDismiss: () -> Unit
 ) {
     val windowInfo = rememberLecturesWindow()
+    val ext = LocalExtendedColors.current
+    val reducedMotion = rememberPrefersReducedMotion()
     val useWide = windowInfo.preferDesktopDialogs
     val dialogMaxH = minOf(640.dp, (windowInfo.heightDp - 48).coerceAtLeast(360).dp)
 
@@ -233,10 +260,27 @@ fun RoomScheduleDetailDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = !useWide)
     ) {
+        var entered by remember { mutableStateOf(reducedMotion) }
+        LaunchedEffect(Unit) { entered = true }
+        val scale by animateFloatAsState(
+            targetValue = if (entered) 1f else 0.95f,
+            animationSpec = if (reducedMotion) snap() else MotionSpec.standardSpring(),
+            label = "room_dialog_scale"
+        )
+        val alpha by animateFloatAsState(
+            targetValue = if (entered) 1f else 0f,
+            animationSpec = if (reducedMotion) snap() else tween(MotionSpec.DIALOG_ENTER_MS),
+            label = "room_dialog_alpha"
+        )
         Card(
             shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = if (isDark) DarkSurfaceCard else Color.White),
+            colors = CardDefaults.cardColors(containerColor = ext.surfaceCard),
             modifier = Modifier
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                    this.alpha = alpha
+                }
                 .then(
                     if (useWide) Modifier.widthIn(min = 420.dp, max = 600.dp) else Modifier
                 )
@@ -264,10 +308,11 @@ internal fun EmptyRoomInspectorCard(
     isDark: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val textPrimary = if (isDark) Color.White else TextPrimaryLight
-    val textMuted = if (isDark) Color(0xFF94A3B8) else TextMutedLight
-    val borderSubtle = if (isDark) DarkBorderSubtle else BorderSubtleLight
-    val surfaceColor = if (isDark) DarkSurfaceCard else Color.White
+    val ext = LocalExtendedColors.current
+    val textPrimary = ext.textPrimary
+    val textMuted = ext.textMuted
+    val borderSubtle = ext.borderSubtle
+    val surfaceColor = ext.surfaceCard
 
     Surface(
         modifier = modifier.fillMaxSize(),
@@ -595,7 +640,7 @@ internal fun RoomScheduleInspectorContent(
                 onClick = onDismiss,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(46.dp)
+                    .height(48.dp)
                     .desktopHandCursor(),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(

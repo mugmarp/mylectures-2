@@ -10,6 +10,13 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -107,8 +114,10 @@ import com.lectures.features.timetable.domain.TimetableEntry
 import com.lectures.ui.Chrome
 import com.lectures.ui.LocalAppTheme
 import com.lectures.ui.LocalExtendedColors
+import com.lectures.ui.MotionSpec
 import com.lectures.ui.components.desktopHandCursor
 import com.lectures.ui.rememberLecturesWindow
+import com.lectures.ui.rememberPrefersReducedMotion
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -261,6 +270,7 @@ fun NoteEditorScreen(
 
     val context = LocalContext.current
     val isDark = LocalAppTheme.current.isDark
+    val reducedMotion = rememberPrefersReducedMotion()
     val primaryColor = MaterialTheme.colorScheme.primary
     val coroutineScope = rememberCoroutineScope()
     var isCopyingAttachment by remember { mutableStateOf(false) }
@@ -703,6 +713,17 @@ fun NoteEditorScreen(
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     if (useDesktopSplitWorkspace) {
+                                        val isSplitActive = effectiveTab == NoteEditorTab.SPLIT
+                                        val splitBg by animateColorAsState(
+                                            targetValue = if (isSplitActive) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                            animationSpec = MotionSpec.stateTween(MotionSpec.STATE_COLOR_MS, reducedMotion),
+                                            label = "ne_tab_split_bg"
+                                        )
+                                        val splitFg by animateColorAsState(
+                                            targetValue = if (isSplitActive) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                            animationSpec = MotionSpec.stateTween(MotionSpec.STATE_COLOR_MS, reducedMotion),
+                                            label = "ne_tab_split_fg"
+                                        )
                                         Box(
                                             modifier = Modifier
                                                 .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
@@ -717,7 +738,7 @@ fun NoteEditorScreen(
                                                 modifier = Modifier
                                                     .defaultMinSize(minHeight = 36.dp)
                                                     .clip(RoundedCornerShape(9.dp))
-                                                    .background(if (effectiveTab == NoteEditorTab.SPLIT) MaterialTheme.colorScheme.primary else Color.Transparent)
+                                                    .background(splitBg)
                                                     .padding(horizontal = 10.dp, vertical = 6.dp),
                                                 contentAlignment = Alignment.Center
                                             ) {
@@ -725,12 +746,23 @@ fun NoteEditorScreen(
                                                     "Split",
                                                     fontSize = 11.sp,
                                                     fontWeight = FontWeight.Bold,
-                                                    color = if (effectiveTab == NoteEditorTab.SPLIT) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                                    color = splitFg
                                                 )
                                             }
                                         }
                                     }
 
+                                    val isWriteActive = effectiveTab == NoteEditorTab.WRITE
+                                    val writeBg by animateColorAsState(
+                                        targetValue = if (isWriteActive) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                        animationSpec = MotionSpec.stateTween(MotionSpec.STATE_COLOR_MS, reducedMotion),
+                                        label = "ne_tab_write_bg"
+                                    )
+                                    val writeFg by animateColorAsState(
+                                        targetValue = if (isWriteActive) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        animationSpec = MotionSpec.stateTween(MotionSpec.STATE_COLOR_MS, reducedMotion),
+                                        label = "ne_tab_write_fg"
+                                    )
                                     Box(
                                         modifier = Modifier
                                             .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
@@ -751,7 +783,7 @@ fun NoteEditorScreen(
                                             modifier = Modifier
                                                 .defaultMinSize(minHeight = 36.dp)
                                                 .clip(RoundedCornerShape(9.dp))
-                                                .background(if (effectiveTab == NoteEditorTab.WRITE) MaterialTheme.colorScheme.primary else Color.Transparent)
+                                                .background(writeBg)
                                                 .padding(horizontal = if (isCompactToggle) 8.dp else 10.dp, vertical = 6.dp),
                                             contentAlignment = Alignment.Center
                                         ) {
@@ -759,7 +791,7 @@ fun NoteEditorScreen(
                                                 Icon(
                                                     Icons.Default.Edit,
                                                     contentDescription = "Write",
-                                                    tint = if (effectiveTab == NoteEditorTab.WRITE) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    tint = writeFg,
                                                     modifier = Modifier.size(13.dp)
                                                 )
                                                 if (!isCompactToggle) {
@@ -768,13 +800,24 @@ fun NoteEditorScreen(
                                                         "Write",
                                                         fontSize = 11.sp,
                                                         fontWeight = FontWeight.Bold,
-                                                        color = if (effectiveTab == NoteEditorTab.WRITE) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                                        color = writeFg
                                                     )
                                                 }
                                             }
                                         }
                                     }
 
+                                    val isPreviewActive = effectiveTab == NoteEditorTab.PREVIEW
+                                    val previewBg by animateColorAsState(
+                                        targetValue = if (isPreviewActive) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                        animationSpec = MotionSpec.stateTween(MotionSpec.STATE_COLOR_MS, reducedMotion),
+                                        label = "ne_tab_preview_bg"
+                                    )
+                                    val previewFg by animateColorAsState(
+                                        targetValue = if (isPreviewActive) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        animationSpec = MotionSpec.stateTween(MotionSpec.STATE_COLOR_MS, reducedMotion),
+                                        label = "ne_tab_preview_fg"
+                                    )
                                     Box(
                                         modifier = Modifier
                                             .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
@@ -793,7 +836,7 @@ fun NoteEditorScreen(
                                             modifier = Modifier
                                                 .defaultMinSize(minHeight = 36.dp)
                                                 .clip(RoundedCornerShape(9.dp))
-                                                .background(if (effectiveTab == NoteEditorTab.PREVIEW) MaterialTheme.colorScheme.primary else Color.Transparent)
+                                                .background(previewBg)
                                                 .padding(horizontal = if (isCompactToggle) 8.dp else 10.dp, vertical = 6.dp),
                                             contentAlignment = Alignment.Center
                                         ) {
@@ -801,7 +844,7 @@ fun NoteEditorScreen(
                                                 Icon(
                                                     Icons.Default.Visibility,
                                                     contentDescription = "Preview",
-                                                    tint = if (effectiveTab == NoteEditorTab.PREVIEW) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    tint = previewFg,
                                                     modifier = Modifier.size(13.dp)
                                                 )
                                                 if (!isCompactToggle) {
@@ -810,7 +853,7 @@ fun NoteEditorScreen(
                                                         "Preview",
                                                         fontSize = 11.sp,
                                                         fontWeight = FontWeight.Bold,
-                                                        color = if (effectiveTab == NoteEditorTab.PREVIEW) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                                        color = previewFg
                                                     )
                                                 }
                                             }
@@ -868,7 +911,10 @@ fun NoteEditorScreen(
                                 ),
                                 shape = RoundedCornerShape(14.dp),
                                 contentPadding = PaddingValues(horizontal = if (windowInfo.isNarrow) 10.dp else 14.dp, vertical = 6.dp),
-                                modifier = Modifier.desktopHandCursor().testTag("note_save_button")
+                                modifier = Modifier
+                                    .defaultMinSize(minHeight = 48.dp)
+                                    .desktopHandCursor()
+                                    .testTag("note_save_button")
                             ) {
                                 Text("Save ✓", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                             }
@@ -1174,7 +1220,11 @@ fun NoteEditorScreen(
                     }
 
                     // RIGHT DOCKED INSPECTOR PANE (Collapsible; Details / Inline Templates / Inline Formatting Guide)
-                    if (showDesktopInspector) {
+                    AnimatedVisibility(
+                        visible = showDesktopInspector,
+                        enter = if (reducedMotion) fadeIn() else expandHorizontally() + fadeIn(),
+                        exit = if (reducedMotion) fadeOut() else shrinkHorizontally() + fadeOut()
+                    ) {
                         val inspectorWidth = if (windowInfo.isExtraLargeWidth) 340.dp else 300.dp
                         Surface(
                             shape = RoundedCornerShape(18.dp),
@@ -1216,72 +1266,79 @@ fun NoteEditorScreen(
                                 }
                                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
-                                when (desktopDrawer) {
-                                    DesktopInspectorDrawer.DETAILS -> {
-                                        Column(
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .verticalScroll(rememberScrollState())
-                                                .padding(14.dp),
-                                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                                        ) {
-                                            if (attachedClassText.isNotBlank()) {
-                                                AttachedTimetableClassCard(
-                                                    attachedClassText = attachedClassText,
-                                                    attachedLocation = attachedLocation,
-                                                    lecturer = lecturer,
-                                                    onClick = { showClassPicker = true }
+                                AnimatedContent(
+                                    targetState = desktopDrawer,
+                                    transitionSpec = { MotionSpec.fadeTransform(reducedMotion = reducedMotion) },
+                                    modifier = Modifier.weight(1f),
+                                    label = "note_inspector_drawer_switch"
+                                ) { activeDrawer ->
+                                    when (activeDrawer) {
+                                        DesktopInspectorDrawer.DETAILS -> {
+                                            Column(
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .verticalScroll(rememberScrollState())
+                                                    .padding(14.dp),
+                                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                                            ) {
+                                                if (attachedClassText.isNotBlank()) {
+                                                    AttachedTimetableClassCard(
+                                                        attachedClassText = attachedClassText,
+                                                        attachedLocation = attachedLocation,
+                                                        lecturer = lecturer,
+                                                        onClick = { showClassPicker = true }
+                                                    )
+                                                }
+                                                PreClassAlertReminderCard(
+                                                    canScheduleClassAlert = canScheduleClassAlert,
+                                                    selectedAlarmMinutes = selectedAlarmMinutes,
+                                                    onOpenClassPicker = { showClassPicker = true },
+                                                    onSelectAlarmMinutes = { selectedAlarmMinutes = it },
+                                                    onOpenCustomDialog = { showCustomReminderDialog = true }
+                                                )
+                                                NoteAttachmentsSection(
+                                                    isCopyingAttachment = isCopyingAttachment,
+                                                    attachmentName = attachmentName,
+                                                    attachmentPath = attachmentPath,
+                                                    onPickDocument = {
+                                                        documentPickerLauncher.launch(
+                                                            arrayOf(
+                                                                "application/pdf",
+                                                                "application/msword",
+                                                                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                                                "application/vnd.ms-powerpoint",
+                                                                "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                                                                "text/*"
+                                                            )
+                                                        )
+                                                    },
+                                                    onPickPhoto = {
+                                                        photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                                    },
+                                                    onOpenAttachment = openAttachmentAction,
+                                                    onRemoveAttachment = {
+                                                        attachmentName = ""
+                                                        attachmentPath = null
+                                                    }
                                                 )
                                             }
-                                            PreClassAlertReminderCard(
-                                                canScheduleClassAlert = canScheduleClassAlert,
-                                                selectedAlarmMinutes = selectedAlarmMinutes,
-                                                onOpenClassPicker = { showClassPicker = true },
-                                                onSelectAlarmMinutes = { selectedAlarmMinutes = it },
-                                                onOpenCustomDialog = { showCustomReminderDialog = true }
-                                            )
-                                            NoteAttachmentsSection(
-                                                isCopyingAttachment = isCopyingAttachment,
-                                                attachmentName = attachmentName,
-                                                attachmentPath = attachmentPath,
-                                                onPickDocument = {
-                                                    documentPickerLauncher.launch(
-                                                        arrayOf(
-                                                            "application/pdf",
-                                                            "application/msword",
-                                                            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                                                            "application/vnd.ms-powerpoint",
-                                                            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-                                                            "text/*"
-                                                        )
-                                                    )
+                                        }
+                                        DesktopInspectorDrawer.TEMPLATES -> {
+                                            NoteTemplatesContent(
+                                                onDismiss = { desktopDrawer = DesktopInspectorDrawer.DETAILS },
+                                                onSelectTemplate = { tpl ->
+                                                    if (contentValue.text.isBlank()) applyTemplate(tpl) else pendingTemplate = tpl
                                                 },
-                                                onPickPhoto = {
-                                                    photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                                                },
-                                                onOpenAttachment = openAttachmentAction,
-                                                onRemoveAttachment = {
-                                                    attachmentName = ""
-                                                    attachmentPath = null
-                                                }
+                                                modifier = Modifier.fillMaxSize().padding(14.dp)
                                             )
                                         }
-                                    }
-                                    DesktopInspectorDrawer.TEMPLATES -> {
-                                        NoteTemplatesContent(
-                                            onDismiss = { desktopDrawer = DesktopInspectorDrawer.DETAILS },
-                                            onSelectTemplate = { tpl ->
-                                                if (contentValue.text.isBlank()) applyTemplate(tpl) else pendingTemplate = tpl
-                                            },
-                                            modifier = Modifier.weight(1f).padding(14.dp)
-                                        )
-                                    }
-                                    DesktopInspectorDrawer.GUIDE -> {
-                                        MarkdownHelpContent(
-                                            onDismiss = { desktopDrawer = DesktopInspectorDrawer.DETAILS },
-                                            onInsertSnippet = insertSnippet,
-                                            modifier = Modifier.weight(1f).padding(14.dp)
-                                        )
+                                        DesktopInspectorDrawer.GUIDE -> {
+                                            MarkdownHelpContent(
+                                                onDismiss = { desktopDrawer = DesktopInspectorDrawer.DETAILS },
+                                                onInsertSnippet = insertSnippet,
+                                                modifier = Modifier.fillMaxSize().padding(14.dp)
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -1430,91 +1487,99 @@ fun NoteEditorScreen(
                                 } else mod
                             }
                     ) {
-                        if (effectiveTab == NoteEditorTab.WRITE) {
-                            MarkdownFormattingToolbar(
-                                isDark = isDark,
-                                applyMarkdown = applyMarkdown,
-                                insertLinePrefix = insertLinePrefix,
-                                insertSnippet = insertSnippet,
-                                insertDateStamp = insertDateStamp
-                            )
+                        AnimatedContent(
+                            targetState = effectiveTab == NoteEditorTab.WRITE,
+                            transitionSpec = { MotionSpec.fadeTransform(reducedMotion = reducedMotion) },
+                            label = "mobile_note_write_preview_switch"
+                        ) { isWriteMode ->
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                if (isWriteMode) {
+                                    MarkdownFormattingToolbar(
+                                        isDark = isDark,
+                                        applyMarkdown = applyMarkdown,
+                                        insertLinePrefix = insertLinePrefix,
+                                        insertSnippet = insertSnippet,
+                                        insertDateStamp = insertDateStamp
+                                    )
 
-                            Spacer(modifier = Modifier.height(10.dp))
+                                    Spacer(modifier = Modifier.height(10.dp))
 
-                            val liveTransformation = remember(isDark, primaryColor) {
-                                MarkdownLiveVisualTransformation(isDark, primaryColor)
-                            }
-
-                            BasicTextField(
-                                value = contentValue,
-                                onValueChange = { contentValue = continueMarkdownListOnNewline(contentValue.text, it) },
-                                visualTransformation = liveTransformation,
-                                textStyle = TextStyle(fontSize = 15.sp, lineHeight = 24.sp, color = MaterialTheme.colorScheme.onSurface),
-                                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(min = 180.dp)
-                                    .focusRequester(editorFocusRequester)
-                                    .testTag("note_content_editor"),
-                                decorationBox = { innerTextField ->
-                                    if (contentValue.text.isEmpty()) {
-                                        Text(
-                                            "Start taking lecture notes, revision points, or checklists...\n• Live Markdown highlighting in editor\n• Use ==highlight==, > [!NOTE], and | Tables |\n• Tap 'Templates' for full academic note outlines\n• Switch to 'Preview' tab anytime for rich rendered notes",
-                                            fontSize = 14.sp,
-                                            lineHeight = 22.sp,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                                        )
+                                    val liveTransformation = remember(isDark, primaryColor) {
+                                        MarkdownLiveVisualTransformation(isDark, primaryColor)
                                     }
-                                    innerTextField()
-                                }
-                            )
-                        } else {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text("RICH PREVIEW", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, letterSpacing = 0.5.sp)
-                                if (checklistProgress != null) {
-                                    val (done, total) = checklistProgress
-                                    val ext = com.lectures.ui.LocalExtendedColors.current
-                                    Box(
+
+                                    BasicTextField(
+                                        value = contentValue,
+                                        onValueChange = { contentValue = continueMarkdownListOnNewline(contentValue.text, it) },
+                                        visualTransformation = liveTransformation,
+                                        textStyle = TextStyle(fontSize = 15.sp, lineHeight = 24.sp, color = MaterialTheme.colorScheme.onSurface),
+                                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                                         modifier = Modifier
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(if (done == total) ext.successBg else MaterialTheme.colorScheme.primaryContainer)
-                                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                                            .fillMaxWidth()
+                                            .heightIn(min = 180.dp)
+                                            .focusRequester(editorFocusRequester)
+                                            .testTag("note_content_editor"),
+                                        decorationBox = { innerTextField ->
+                                            if (contentValue.text.isEmpty()) {
+                                                Text(
+                                                    "Start taking lecture notes, revision points, or checklists...\n• Live Markdown highlighting in editor\n• Use ==highlight==, > [!NOTE], and | Tables |\n• Tap 'Templates' for full academic note outlines\n• Switch to 'Preview' tab anytime for rich rendered notes",
+                                                    fontSize = 14.sp,
+                                                    lineHeight = 22.sp,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                                )
+                                            }
+                                            innerTextField()
+                                        }
+                                    )
+                                } else {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Text(
-                                            "☑ $done / $total completed",
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = if (done == total) ext.successText else MaterialTheme.colorScheme.onPrimaryContainer
-                                        )
+                                        Text("RICH PREVIEW", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, letterSpacing = 0.5.sp)
+                                        if (checklistProgress != null) {
+                                            val (done, total) = checklistProgress
+                                            val ext = com.lectures.ui.LocalExtendedColors.current
+                                            Box(
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .background(if (done == total) ext.successBg else MaterialTheme.colorScheme.primaryContainer)
+                                                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                                            ) {
+                                                Text(
+                                                    "☑ $done / $total completed",
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = if (done == total) ext.successText else MaterialTheme.colorScheme.onPrimaryContainer
+                                                )
+                                            }
+                                        }
                                     }
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), thickness = 1.dp)
+                                    Spacer(modifier = Modifier.height(10.dp))
+
+                                    MarkdownViewer(
+                                        markdown = contentValue.text,
+                                        onToggleChecklist = toggleChecklistInPreview,
+                                        onWikiLinkClick = handleWikiLinkRequest,
+                                        onUrlClick = { rawUrl ->
+                                            val safeUrl = if (rawUrl.startsWith("http://", ignoreCase = true) || rawUrl.startsWith("https://", ignoreCase = true)) {
+                                                rawUrl
+                                            } else {
+                                                "https://$rawUrl"
+                                            }
+                                            try {
+                                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(safeUrl)))
+                                            } catch (_: Exception) {
+                                                onAttachmentError?.invoke("Unable to open link")
+                                            }
+                                        }
+                                    )
                                 }
                             }
-
-                            Spacer(modifier = Modifier.height(8.dp))
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), thickness = 1.dp)
-                            Spacer(modifier = Modifier.height(10.dp))
-
-                            MarkdownViewer(
-                                markdown = contentValue.text,
-                                onToggleChecklist = toggleChecklistInPreview,
-                                onWikiLinkClick = handleWikiLinkRequest,
-                                onUrlClick = { rawUrl ->
-                                    val safeUrl = if (rawUrl.startsWith("http://", ignoreCase = true) || rawUrl.startsWith("https://", ignoreCase = true)) {
-                                        rawUrl
-                                    } else {
-                                        "https://$rawUrl"
-                                    }
-                                    try {
-                                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(safeUrl)))
-                                    } catch (_: Exception) {
-                                        onAttachmentError?.invoke("Unable to open link")
-                                    }
-                                }
-                            )
                         }
 
                         Spacer(modifier = Modifier.height(12.dp))

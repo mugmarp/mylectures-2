@@ -2,6 +2,7 @@ package com.lectures.features.account
 
 import android.content.Context
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -42,7 +43,9 @@ import com.lectures.ui.components.desktopHandCursor
 import com.lectures.ui.components.onEscapeKey
 import com.lectures.ui.LocalAppTheme
 import com.lectures.ui.LocalExtendedColors
+import com.lectures.ui.MotionSpec
 import com.lectures.ui.rememberLecturesWindow
+import com.lectures.ui.rememberPrefersReducedMotion
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -67,6 +70,7 @@ fun AccountScreen(
 
     val isDark = LocalAppTheme.current.isDark
     val ext = LocalExtendedColors.current
+    val reducedMotion = rememberPrefersReducedMotion()
     val surfaceColor = ext.surfaceCard
     val borderSubtle = ext.borderSubtle
     val textMuted = ext.textMuted
@@ -99,6 +103,7 @@ fun AccountScreen(
                         IconButton(
                             onClick = onBack,
                             modifier = Modifier
+                                .size(48.dp)
                                 .desktopHandCursor()
                                 .testTag("account_back_button")
                         ) {
@@ -135,7 +140,7 @@ fun AccountScreen(
                 }
             }
         },
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = ext.surfaceBase
     ) { innerPadding ->
         Box(
             modifier = modifier
@@ -166,7 +171,12 @@ fun AccountScreen(
                             Icon(Icons.Default.ErrorOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error)
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(msg, color = MaterialTheme.colorScheme.onErrorContainer, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                            IconButton(onClick = { errorMessage = null }, modifier = Modifier.desktopHandCursor()) {
+                            IconButton(
+                                onClick = { errorMessage = null },
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .desktopHandCursor()
+                            ) {
                                 Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
                             }
                         }
@@ -189,7 +199,12 @@ fun AccountScreen(
                             Icon(Icons.Default.CheckCircle, contentDescription = null, tint = ext.successIcon)
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(msg, color = ext.successText, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                            IconButton(onClick = { syncMessage = null }, modifier = Modifier.desktopHandCursor()) {
+                            IconButton(
+                                onClick = { syncMessage = null },
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .desktopHandCursor()
+                            ) {
                                 Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = ext.successIcon, modifier = Modifier.size(16.dp))
                             }
                         }
@@ -197,7 +212,13 @@ fun AccountScreen(
                 }
             }
 
-            if (currentUser == null) {
+            AnimatedContent(
+                targetState = currentUser,
+                contentKey = { it?.uid },
+                transitionSpec = { MotionSpec.fadeTransform(reducedMotion = reducedMotion) },
+                label = "account_auth_state"
+            ) { activeUser ->
+                if (activeUser == null) {
                 // ==================== GUEST STATE ====================
                 val signInCard: @Composable (Modifier, Boolean) -> Unit = { cardMod, includeInlinePill ->
                     Card(
@@ -408,7 +429,7 @@ fun AccountScreen(
                 }
             } else {
                 // ==================== AUTHENTICATED STATE ====================
-                val user = currentUser!!
+                val user = activeUser
                 val onSyncNowClick = {
                     scope.launch {
                         isSyncing = true
@@ -627,6 +648,7 @@ fun AccountScreen(
                         }
                     }
                 }
+                }
             }
         }
     }
@@ -682,13 +704,20 @@ fun AccountScreen(
                         contentColor = MaterialTheme.colorScheme.onError
                     ),
                     shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.desktopHandCursor()
+                    modifier = Modifier
+                        .defaultMinSize(minHeight = 48.dp)
+                        .desktopHandCursor()
                 ) {
                     Text("Confirm Sign Out", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showSignOutDialog = false }, modifier = Modifier.desktopHandCursor()) {
+                TextButton(
+                    onClick = { showSignOutDialog = false },
+                    modifier = Modifier
+                        .defaultMinSize(minHeight = 48.dp)
+                        .desktopHandCursor()
+                ) {
                     Text("Cancel")
                 }
             }

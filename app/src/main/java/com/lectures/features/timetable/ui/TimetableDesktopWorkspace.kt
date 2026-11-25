@@ -1,5 +1,7 @@
 package com.lectures.features.timetable.ui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -22,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -36,11 +39,13 @@ import com.lectures.features.timetable.domain.TimetableConflictDetector
 import com.lectures.features.timetable.domain.TimetableEntry
 import com.lectures.ui.LocalAppTheme
 import com.lectures.ui.LocalExtendedColors
+import com.lectures.ui.MotionSpec
 import com.lectures.ui.components.RoomFloorBadge
 import com.lectures.ui.components.desktopHandCursor
 import com.lectures.ui.components.desktopHoverable
 import com.lectures.ui.contrastOnColor
 import com.lectures.ui.rememberLecturesWindow
+import com.lectures.ui.rememberPrefersReducedMotion
 import java.util.Calendar
 import java.util.Locale
 import kotlin.math.max
@@ -93,6 +98,7 @@ fun TimetableDesktopWorkspace(
     val windowInfo = rememberLecturesWindow()
     val ext = LocalExtendedColors.current
     val isDark = LocalAppTheme.current.isDark
+    val reducedMotion = rememberPrefersReducedMotion()
     val accent = MaterialTheme.colorScheme.primary
 
     var viewMode by rememberSaveable(windowInfo.isWideWorkspace) {
@@ -161,59 +167,72 @@ fun TimetableDesktopWorkspace(
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // LEFT / MAIN SCHEDULE PANE
-            Box(
+            AnimatedContent(
+                targetState = if (isLoading) "Loading" else viewMode,
+                transitionSpec = { MotionSpec.fadeTransform(reducedMotion = reducedMotion) },
+                contentKey = { it },
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxHeight()
-            ) {
-                if (isLoading) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = accent)
-                    }
-                } else if (viewMode == "Week") {
-                    WeeklyTimetableMatrix(
-                        entries = filteredEntriesAllDays,
-                        customEvents = if (selectedFilter == "Lectures" || selectedFilter == "Labs") emptyList() else customEvents,
-                        notes = notes,
-                        selectedDay = selectedDay,
-                        todayName = todayName,
-                        selectedEntryKey = selectedEntryForDetail?.naturalKey,
-                        bottomPadding = bottomContentPadding,
-                        onSelectDay = onDaySelected,
-                        onSelectEntry = { entry ->
-                            onDaySelected(entry.dayOfWeek)
-                            onInspectEntry(entry.naturalKey)
-                        },
-                        onSelectActivity = { ev ->
-                            onDaySelected(ev.dayOfWeek)
-                            onInspectActivity(ev.id)
+                    .fillMaxHeight(),
+                label = "desktop_timetable_view_switch"
+            ) { currentMode ->
+                when (currentMode) {
+                    "Loading" -> {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = accent)
                         }
-                    )
-                } else {
-                    DesktopDayTimelinePane(
-                        programme = programme,
-                        selectedDay = selectedDay,
-                        todayName = todayName,
-                        daysList = daysList,
-                        formattedSelectedDate = selectedDayFormatted,
-                        dayEntries = dayEntries,
-                        dayCustomEvents = dayCustomEvents,
-                        notes = notes,
-                        selectedEntryKey = selectedEntryForDetail?.naturalKey,
-                        bottomPadding = bottomContentPadding,
-                        onDaySelected = onDaySelected,
-                        onInspectEntry = onInspectEntry,
-                        onOpenAlarmPicker = onOpenAlarmPicker,
-                        onInspectActivity = onInspectActivity,
-                        onEditActivity = onEditActivity,
-                        onDeleteActivity = onDeleteActivity,
-                        onOpenQuickAdd = onOpenQuickAdd
-                    )
+                    }
+                    "Week" -> {
+                        WeeklyTimetableMatrix(
+                            entries = filteredEntriesAllDays,
+                            customEvents = if (selectedFilter == "Lectures" || selectedFilter == "Labs") emptyList() else customEvents,
+                            notes = notes,
+                            selectedDay = selectedDay,
+                            todayName = todayName,
+                            selectedEntryKey = selectedEntryForDetail?.naturalKey,
+                            bottomPadding = bottomContentPadding,
+                            onSelectDay = onDaySelected,
+                            onSelectEntry = { entry ->
+                                onDaySelected(entry.dayOfWeek)
+                                onInspectEntry(entry.naturalKey)
+                            },
+                            onSelectActivity = { ev ->
+                                onDaySelected(ev.dayOfWeek)
+                                onInspectActivity(ev.id)
+                            }
+                        )
+                    }
+                    else -> {
+                        DesktopDayTimelinePane(
+                            programme = programme,
+                            selectedDay = selectedDay,
+                            todayName = todayName,
+                            daysList = daysList,
+                            formattedSelectedDate = selectedDayFormatted,
+                            dayEntries = dayEntries,
+                            dayCustomEvents = dayCustomEvents,
+                            notes = notes,
+                            selectedEntryKey = selectedEntryForDetail?.naturalKey,
+                            bottomPadding = bottomContentPadding,
+                            onDaySelected = onDaySelected,
+                            onInspectEntry = onInspectEntry,
+                            onOpenAlarmPicker = onOpenAlarmPicker,
+                            onInspectActivity = onInspectActivity,
+                            onEditActivity = onEditActivity,
+                            onDeleteActivity = onDeleteActivity,
+                            onOpenQuickAdd = onOpenQuickAdd
+                        )
+                    }
                 }
             }
 
             // RIGHT DOCKED INSPECTOR PANE
             val inspectorWidth = if (windowInfo.isExtraLargeWidth) 380.dp else 336.dp
+            val inspectorStateKey = when {
+                selectedEntryForDetail != null -> "entry_${selectedEntryForDetail.naturalKey}"
+                selectedActivityForDetail != null -> "activity_${selectedActivityForDetail.id}"
+                else -> "overview"
+            }
             Surface(
                 shape = RoundedCornerShape(20.dp),
                 color = ext.surfaceCard,
@@ -225,46 +244,54 @@ fun TimetableDesktopWorkspace(
                     .padding(bottom = 14.dp)
                     .testTag("timetable_desktop_inspector")
             ) {
-                if (selectedEntryForDetail != null) {
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        InspectorHeader(
-                            title = "Class Inspector",
-                            subtitle = selectedEntryForDetail.courseCode,
-                            onClose = onDismissInspectEntry
+                AnimatedContent(
+                    targetState = inspectorStateKey,
+                    transitionSpec = { MotionSpec.fadeTransform(reducedMotion = reducedMotion) },
+                    contentKey = { it },
+                    modifier = Modifier.fillMaxSize(),
+                    label = "desktop_timetable_inspector_switch"
+                ) { _ ->
+                    if (selectedEntryForDetail != null) {
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            InspectorHeader(
+                                title = "Class Inspector",
+                                subtitle = selectedEntryForDetail.courseCode,
+                                onClose = onDismissInspectEntry
+                            )
+                            HorizontalDivider(color = ext.borderSubtle)
+                            LectureDetailContent(
+                                entry = selectedEntryForDetail,
+                                initialNote = notes[selectedEntryForDetail.naturalKey]?.content ?: "",
+                                initialReminder = notes[selectedEntryForDetail.naturalKey]?.alarmMinutes,
+                                onSaveNote = { text, rem ->
+                                    onSaveNote(selectedEntryForDetail, text, rem)
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth()
+                                    .verticalScroll(rememberScrollState())
+                                    .padding(18.dp)
+                            )
+                        }
+                    } else if (selectedActivityForDetail != null) {
+                        DockedActivityInspector(
+                            event = selectedActivityForDetail,
+                            onClose = onDismissInspectActivity,
+                            onEdit = { onEditActivity(selectedActivityForDetail.id) },
+                            onDelete = { onDeleteActivity(selectedActivityForDetail.id) }
                         )
-                        HorizontalDivider(color = ext.borderSubtle)
-                        LectureDetailContent(
-                            entry = selectedEntryForDetail,
-                            initialNote = notes[selectedEntryForDetail.naturalKey]?.content ?: "",
-                            initialReminder = notes[selectedEntryForDetail.naturalKey]?.alarmMinutes,
-                            onSaveNote = { text, rem ->
-                                onSaveNote(selectedEntryForDetail, text, rem)
-                            },
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxWidth()
-                                .verticalScroll(rememberScrollState())
-                                .padding(18.dp)
+                    } else {
+                        TimetableOverviewInspector(
+                            selectedDay = selectedDay,
+                            formattedSelectedDate = selectedDayFormatted,
+                            dayEntries = dayEntries,
+                            dayCustomEvents = dayCustomEvents,
+                            notes = notes,
+                            globalNextUp = globalNextUp,
+                            onInspectEntry = onInspectEntry,
+                            onOpenQuickAdd = onOpenQuickAdd
                         )
                     }
-                } else if (selectedActivityForDetail != null) {
-                    DockedActivityInspector(
-                        event = selectedActivityForDetail,
-                        onClose = onDismissInspectActivity,
-                        onEdit = { onEditActivity(selectedActivityForDetail.id) },
-                        onDelete = { onDeleteActivity(selectedActivityForDetail.id) }
-                    )
-                } else {
-                    TimetableOverviewInspector(
-                        selectedDay = selectedDay,
-                        formattedSelectedDate = selectedDayFormatted,
-                        dayEntries = dayEntries,
-                        dayCustomEvents = dayCustomEvents,
-                        notes = notes,
-                        globalNextUp = globalNextUp,
-                        onInspectEntry = onInspectEntry,
-                        onOpenQuickAdd = onOpenQuickAdd
-                    )
                 }
             }
         }
@@ -287,6 +314,7 @@ private fun DesktopTimetableToolbar(
     onOpenAlarmNextUp: () -> Unit
 ) {
     val ext = LocalExtendedColors.current
+    val reducedMotion = rememberPrefersReducedMotion()
     val accent = MaterialTheme.colorScheme.primary
     val filterLabel = if (selectedFilter == "All") "All Sessions" else selectedFilter
 
@@ -442,11 +470,21 @@ private fun DesktopTimetableToolbar(
                 Row(modifier = Modifier.padding(3.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                     listOf("Week" to "Week Grid", "Day" to "Day List").forEach { (key, label) ->
                         val active = viewMode == key
+                        val pillBg by animateColorAsState(
+                            targetValue = if (active) accent else Color.Transparent,
+                            animationSpec = MotionSpec.stateTween(MotionSpec.STATE_COLOR_MS, reducedMotion),
+                            label = "view_switch_bg"
+                        )
+                        val pillText by animateColorAsState(
+                            targetValue = if (active) contrastOnColor(accent) else ext.textSecondary,
+                            animationSpec = MotionSpec.stateTween(MotionSpec.STATE_COLOR_MS, reducedMotion),
+                            label = "view_switch_text"
+                        )
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(9.dp))
-                                .background(if (active) accent else Color.Transparent)
-                                .desktopHandCursor()
+                                .background(pillBg)
+                                .desktopHoverable(enabled = !active, hoverContainerColor = accent.copy(alpha = 0.08f))
                                 .clickable { onViewModeChange(key) }
                                 .padding(horizontal = 10.dp, vertical = 6.dp)
                                 .testTag("timetable_view_${key.lowercase(Locale.ROOT)}_btn")
@@ -455,7 +493,7 @@ private fun DesktopTimetableToolbar(
                                 text = label,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = if (active) contrastOnColor(accent) else ext.textSecondary
+                                color = pillText
                             )
                         }
                     }
@@ -479,6 +517,7 @@ private fun WeeklyTimetableMatrix(
     onSelectActivity: (CustomEvent) -> Unit
 ) {
     val ext = LocalExtendedColors.current
+    val reducedMotion = rememberPrefersReducedMotion()
     val accent = MaterialTheme.colorScheme.primary
     val hasSundayItems = remember(entries, customEvents) {
         entries.any { it.dayOfWeek.equals("Sunday", ignoreCase = true) } ||
@@ -509,6 +548,17 @@ private fun WeeklyTimetableMatrix(
     }
 
     val verticalScroll = rememberScrollState()
+    val density = LocalDensity.current
+    LaunchedEffect(startHour, endHour) {
+        val nowCal = Calendar.getInstance()
+        val curHour = nowCal.get(Calendar.HOUR_OF_DAY)
+        val targetHour = (curHour - 1).coerceIn(startHour, max(startHour, endHour - 4))
+        val offsetPx = with(density) { (hourHeightDp * (targetHour - startHour)).toPx().toInt() }
+        if (offsetPx > 0) {
+            if (reducedMotion) verticalScroll.scrollTo(offsetPx)
+            else verticalScroll.animateScrollTo(offsetPx)
+        }
+    }
 
     Surface(
         shape = RoundedCornerShape(20.dp),
@@ -531,19 +581,31 @@ private fun WeeklyTimetableMatrix(
                     val isToday = day.equals(todayName, ignoreCase = true)
                     val isSelected = day.equals(selectedDay, ignoreCase = true)
                     val count = positionedByDay[day]?.size ?: 0
+                    val headerBg by animateColorAsState(
+                        targetValue = when {
+                            isSelected -> accent
+                            isToday -> accent.copy(alpha = 0.12f)
+                            else -> Color.Transparent
+                        },
+                        animationSpec = MotionSpec.stateTween(MotionSpec.STATE_COLOR_MS, reducedMotion),
+                        label = "week_header_bg"
+                    )
+                    val headerTextColor by animateColorAsState(
+                        targetValue = when {
+                            isSelected -> contrastOnColor(accent)
+                            isToday -> accent
+                            else -> ext.textPrimary
+                        },
+                        animationSpec = MotionSpec.stateTween(MotionSpec.STATE_COLOR_MS, reducedMotion),
+                        label = "week_header_text"
+                    )
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .padding(horizontal = 3.dp)
                             .clip(RoundedCornerShape(10.dp))
-                            .background(
-                                when {
-                                    isSelected -> accent
-                                    isToday -> accent.copy(alpha = 0.12f)
-                                    else -> Color.Transparent
-                                }
-                            )
-                            .desktopHandCursor()
+                            .background(headerBg)
+                            .desktopHoverable(enabled = !isSelected, hoverContainerColor = accent.copy(alpha = 0.08f))
                             .clickable { onSelectDay(day) }
                             .padding(vertical = 6.dp, horizontal = 4.dp),
                         contentAlignment = Alignment.Center
@@ -556,11 +618,7 @@ private fun WeeklyTimetableMatrix(
                                 text = day.take(3),
                                 fontSize = 12.5.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = when {
-                                    isSelected -> contrastOnColor(accent)
-                                    isToday -> accent
-                                    else -> ext.textPrimary
-                                }
+                                color = headerTextColor
                             )
                             if (count > 0) {
                                 Text(
@@ -662,17 +720,27 @@ private fun WeeklyTimetableMatrix(
                                     val isSelected = block.entry.naturalKey == selectedEntryKey
                                     val style = sessionStyle(block.entry.sessionType, block.entry.room ?: "", block.entry.courseTitle)
                                     val hasAlarm = notes[block.entry.naturalKey]?.alarmMinutes != null
+                                    val blockContainerColor by animateColorAsState(
+                                        targetValue = if (isSelected) style.accentBar.copy(alpha = 0.22f) else style.badgeBg.copy(alpha = 0.13f),
+                                        animationSpec = MotionSpec.stateTween(MotionSpec.STATE_COLOR_MS, reducedMotion),
+                                        label = "week_block_bg"
+                                    )
+                                    val blockBorderColor by animateColorAsState(
+                                        targetValue = when {
+                                            block.hasConflict -> MaterialTheme.colorScheme.error
+                                            isSelected -> accent
+                                            else -> style.accentBar.copy(alpha = 0.45f)
+                                        },
+                                        animationSpec = MotionSpec.stateTween(MotionSpec.STATE_COLOR_MS, reducedMotion),
+                                        label = "week_block_border"
+                                    )
 
                                     Surface(
                                         shape = RoundedCornerShape(10.dp),
-                                        color = if (isSelected) style.accentBar.copy(alpha = 0.22f) else style.badgeBg.copy(alpha = 0.13f),
+                                        color = blockContainerColor,
                                         border = BorderStroke(
                                             width = if (isSelected || block.hasConflict) 2.dp else 1.dp,
-                                            color = when {
-                                                block.hasConflict -> MaterialTheme.colorScheme.error
-                                                isSelected -> accent
-                                                else -> style.accentBar.copy(alpha = 0.45f)
-                                            }
+                                            color = blockBorderColor
                                         ),
                                         modifier = Modifier
                                             .offset(x = leftDp + 2.dp, y = topDp + 1.dp)

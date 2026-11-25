@@ -17,6 +17,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -27,10 +29,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lectures.ui.LocalAppTheme
+import com.lectures.ui.LocalExtendedColors
 import com.lectures.ui.components.RoomFloorBadge
 import com.lectures.ui.components.desktopHandCursor
 import com.lectures.ui.components.desktopHoverable
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun TimelineClassCard(
     session: SpecClassSession,
@@ -41,13 +45,14 @@ fun TimelineClassCard(
 ) {
     val categoryColor = session.type.tagColor
     val isDark = LocalAppTheme.current.isDark
+    val ext = LocalExtendedColors.current
     val accentColor = MaterialTheme.colorScheme.primary
-    val cardBg = if (isDark) DarkSurfaceCard else Color.White
-    val borderSubtle = if (isDark) DarkBorderSubtle else BorderSubtleLight
-    val textPrimary = if (isDark) Color.White else TextPrimaryLight
-    val textSecondary = if (isDark) Color(0xFF94A3B8) else TextSecondaryLight
-    val textTertiary = if (isDark) Color(0xFF64748B) else TextTertiaryLight
-    val noteBg = if (isDark) DarkSurfaceContainer else SurfaceContainerLowLight
+    val cardBg = ext.surfaceCard
+    val borderSubtle = ext.borderSubtle
+    val textPrimary = ext.textPrimary
+    val textSecondary = ext.textSecondary
+    val textTertiary = ext.textMuted
+    val noteBg = ext.surfaceElevated
 
     Box(
         modifier = modifier
@@ -106,7 +111,12 @@ fun TimelineClassCard(
                     }
                 }
 
-                IconButton(onClick = onToggleAlarm, modifier = Modifier.desktopHandCursor()) {
+                IconButton(
+                    onClick = onToggleAlarm,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .desktopHandCursor()
+                ) {
                     Icon(
                         imageVector = Icons.Outlined.Notifications,
                         contentDescription = "Set Reminder",
@@ -182,9 +192,10 @@ fun TimelineClassCard(
 
             if (hasVenue || hasLecturer || hasStartsIn) {
                 Spacer(modifier = Modifier.height(10.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     if (hasVenue) {
                         Row(
@@ -223,7 +234,9 @@ fun TimelineClassCard(
                             Text(
                                 text = session.lecturer!!,
                                 fontSize = 12.sp,
-                                color = textSecondary
+                                color = textSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }

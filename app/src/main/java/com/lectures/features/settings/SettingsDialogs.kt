@@ -6,11 +6,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -33,13 +35,17 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.DialogProperties
 import com.lectures.features.rooms.UniversityDirectory
+import com.lectures.ui.LocalExtendedColors
+import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.components.onEscapeKey
+import com.lectures.ui.rememberLecturesWindow
 import java.util.Locale
 
 @Composable
@@ -49,8 +55,15 @@ internal fun CustomLeadMinutesDialog(
     onSave: (Int) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val windowInfo = rememberLecturesWindow()
+    val ext = LocalExtendedColors.current
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = !windowInfo.preferDesktopDialogs),
+        modifier = Modifier
+            .then(if (windowInfo.preferDesktopDialogs) Modifier.widthIn(min = 360.dp, max = 480.dp) else Modifier)
+            .onEscapeKey(onDismiss),
+        containerColor = ext.surfaceCard,
         icon = { Icon(Icons.Default.Alarm, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
         title = { Text("Custom Lecture Reminder", fontWeight = FontWeight.Bold, fontSize = 18.sp) },
         text = {
@@ -85,13 +98,21 @@ internal fun CustomLeadMinutesDialog(
                     }
                     onDismiss()
                 },
-                shape = RoundedCornerShape(10.dp)
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier
+                    .defaultMinSize(minHeight = 48.dp)
+                    .desktopHandCursor()
             ) {
                 Text("Save")
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .defaultMinSize(minHeight = 48.dp)
+                    .desktopHandCursor()
+            ) {
                 Text("Cancel")
             }
         }
@@ -100,8 +121,15 @@ internal fun CustomLeadMinutesDialog(
 
 @Composable
 internal fun DisclaimerDialog(onDismiss: () -> Unit) {
+    val windowInfo = rememberLecturesWindow()
+    val ext = LocalExtendedColors.current
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = !windowInfo.preferDesktopDialogs),
+        modifier = Modifier
+            .then(if (windowInfo.preferDesktopDialogs) Modifier.widthIn(min = 420.dp, max = 560.dp) else Modifier)
+            .onEscapeKey(onDismiss),
+        containerColor = ext.surfaceCard,
         title = { Text("Institutional Non-Affiliation Disclaimer", fontWeight = FontWeight.Bold, fontSize = 18.sp) },
         text = {
             Column(
@@ -162,7 +190,10 @@ internal fun DisclaimerDialog(onDismiss: () -> Unit) {
         confirmButton = {
             Button(
                 onClick = onDismiss,
-                shape = RoundedCornerShape(10.dp)
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier
+                    .defaultMinSize(minHeight = 48.dp)
+                    .desktopHandCursor()
             ) {
                 Text("I Understand")
             }
@@ -172,8 +203,15 @@ internal fun DisclaimerDialog(onDismiss: () -> Unit) {
 
 @Composable
 internal fun TermsDialog(onDismiss: () -> Unit) {
+    val windowInfo = rememberLecturesWindow()
+    val ext = LocalExtendedColors.current
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = !windowInfo.preferDesktopDialogs),
+        modifier = Modifier
+            .then(if (windowInfo.preferDesktopDialogs) Modifier.widthIn(min = 420.dp, max = 560.dp) else Modifier)
+            .onEscapeKey(onDismiss),
+        containerColor = ext.surfaceCard,
         title = { Text("Disclaimer & Terms", fontWeight = FontWeight.Bold, fontSize = 18.sp) },
         text = {
             Column(
@@ -246,7 +284,10 @@ internal fun TermsDialog(onDismiss: () -> Unit) {
         confirmButton = {
             Button(
                 onClick = onDismiss,
-                shape = RoundedCornerShape(10.dp)
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier
+                    .defaultMinSize(minHeight = 48.dp)
+                    .desktopHandCursor()
             ) {
                 Text("I accept the Terms of Service & Disclaimer.")
             }
@@ -256,8 +297,15 @@ internal fun TermsDialog(onDismiss: () -> Unit) {
 
 @Composable
 internal fun PrivacyDialog(onDismiss: () -> Unit) {
+    val windowInfo = rememberLecturesWindow()
+    val ext = LocalExtendedColors.current
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = !windowInfo.preferDesktopDialogs),
+        modifier = Modifier
+            .then(if (windowInfo.preferDesktopDialogs) Modifier.widthIn(min = 420.dp, max = 560.dp) else Modifier)
+            .onEscapeKey(onDismiss),
+        containerColor = ext.surfaceCard,
         title = { Text("Privacy Policy", fontWeight = FontWeight.Bold, fontSize = 18.sp) },
         text = {
             Column(
@@ -306,7 +354,10 @@ internal fun PrivacyDialog(onDismiss: () -> Unit) {
         confirmButton = {
             Button(
                 onClick = onDismiss,
-                shape = RoundedCornerShape(10.dp)
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier
+                    .defaultMinSize(minHeight = 48.dp)
+                    .desktopHandCursor()
             ) {
                 Text("Done")
             }
@@ -319,8 +370,15 @@ internal fun ResetNotesConfirmDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val windowInfo = rememberLecturesWindow()
+    val ext = LocalExtendedColors.current
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = !windowInfo.preferDesktopDialogs),
+        modifier = Modifier
+            .then(if (windowInfo.preferDesktopDialogs) Modifier.widthIn(min = 360.dp, max = 480.dp) else Modifier)
+            .onEscapeKey(onDismiss),
+        containerColor = ext.surfaceCard,
         icon = { Icon(Icons.Default.DeleteOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
         title = { Text("Reset All Notes?", fontWeight = FontWeight.Bold) },
         text = { Text("This will permanently delete all your lecture notes and attached class alarm intervals. This action cannot be undone.") },
@@ -330,13 +388,21 @@ internal fun ResetNotesConfirmDialog(
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.error,
                     contentColor = MaterialTheme.colorScheme.onError
-                )
+                ),
+                modifier = Modifier
+                    .defaultMinSize(minHeight = 48.dp)
+                    .desktopHandCursor()
             ) {
                 Text("Delete Notes")
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .defaultMinSize(minHeight = 48.dp)
+                    .desktopHandCursor()
+            ) {
                 Text("Cancel")
             }
         }
@@ -348,8 +414,15 @@ internal fun ResetTasksConfirmDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val windowInfo = rememberLecturesWindow()
+    val ext = LocalExtendedColors.current
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = !windowInfo.preferDesktopDialogs),
+        modifier = Modifier
+            .then(if (windowInfo.preferDesktopDialogs) Modifier.widthIn(min = 360.dp, max = 480.dp) else Modifier)
+            .onEscapeKey(onDismiss),
+        containerColor = ext.surfaceCard,
         icon = { Icon(Icons.Default.AlarmOff, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
         title = { Text("Reset Academic Tasks?", fontWeight = FontWeight.Bold) },
         text = { Text("This will remove all saved assignments and cancel any scheduled reminder notifications.") },
@@ -359,13 +432,21 @@ internal fun ResetTasksConfirmDialog(
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.error,
                     contentColor = MaterialTheme.colorScheme.onError
-                )
+                ),
+                modifier = Modifier
+                    .defaultMinSize(minHeight = 48.dp)
+                    .desktopHandCursor()
             ) {
                 Text("Clear Tasks & Alarms")
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .defaultMinSize(minHeight = 48.dp)
+                    .desktopHandCursor()
+            ) {
                 Text("Cancel")
             }
         }
@@ -378,24 +459,21 @@ internal fun VersionDetailsDialog(
     isDark: Boolean,
     onDismiss: () -> Unit
 ) {
+    val windowInfo = rememberLecturesWindow()
+    val ext = LocalExtendedColors.current
     val meta = uiState.metadata
     val isFinal = uiState.isFinal || uiState.timetableVersion.contains("Final", ignoreCase = true)
     val stageLabel = if (isFinal) "Official Final Release" else "Active Draft ${meta?.draftNumber ?: ""}".trim()
-    val badgeBg = when {
-        isFinal && isDark -> Color(0xFF064E3B)
-        isFinal -> Color(0xFFDCFCE7)
-        isDark -> Color(0xFF78350F)
-        else -> Color(0xFFFEF3C7)
-    }
-    val badgeColor = when {
-        isFinal && isDark -> Color(0xFF6EE7B7)
-        isFinal -> Color(0xFF15803D)
-        isDark -> Color(0xFFFCD34D)
-        else -> Color(0xFFB45309)
-    }
+    val badgeBg = if (isFinal) ext.successBg else ext.warningBg
+    val badgeColor = if (isFinal) ext.successText else ext.warningText
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = !windowInfo.preferDesktopDialogs),
+        modifier = Modifier
+            .then(if (windowInfo.preferDesktopDialogs) Modifier.widthIn(min = 380.dp, max = 520.dp) else Modifier)
+            .onEscapeKey(onDismiss),
+        containerColor = ext.surfaceCard,
         icon = {
             Box(
                 modifier = Modifier
@@ -510,7 +588,10 @@ internal fun VersionDetailsDialog(
         confirmButton = {
             Button(
                 onClick = onDismiss,
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                modifier = Modifier
+                    .defaultMinSize(minHeight = 48.dp)
+                    .desktopHandCursor()
             ) {
                 Text("Close")
             }

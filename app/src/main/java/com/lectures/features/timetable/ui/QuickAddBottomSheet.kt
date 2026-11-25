@@ -1,5 +1,7 @@
 package com.lectures.features.timetable.ui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -27,12 +29,14 @@ import com.lectures.core.util.TimeUtil
 import com.lectures.features.timetable.domain.ActivityCategory
 import com.lectures.features.timetable.domain.CustomEvent
 import com.lectures.features.timetable.domain.TaskCategory
+import com.lectures.ui.MotionSpec
 import com.lectures.ui.components.AdaptiveSheetOrDialog
 import com.lectures.ui.components.DedicatedCalendarDatePickerDialog
 import com.lectures.ui.components.DedicatedCoursePickerDialog
 import com.lectures.ui.components.DedicatedTimePickerDialog
 import com.lectures.ui.components.desktopHandCursor
 import com.lectures.ui.contrastOnColor
+import com.lectures.ui.rememberPrefersReducedMotion
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -63,6 +67,7 @@ fun QuickAddBottomSheet(
 ) {
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
+    val reducedMotion = rememberPrefersReducedMotion()
 
     var currentMode by remember { mutableStateOf(initialMode) }
 
@@ -175,82 +180,93 @@ fun QuickAddBottomSheet(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                when (currentMode) {
-                    QuickAddMode.ACTIVITY -> {
-                        QuickAddActivityForm(
-                            activityTitle = activityTitle,
-                            onActivityTitleChange = {
-                                activityTitle = it
-                                if (it.isNotBlank()) activityHasError = false
-                            },
-                            onSuggestionClick = { sugg ->
-                                activityTitle = sugg
-                                activityHasError = false
-                            },
-                            activityHasError = activityHasError,
-                            selectedCategory = selectedActivityCategory,
-                            onCategoryChange = { selectedActivityCategory = it },
-                            activityDay = activityDay,
-                            onDayChange = { activityDay = it },
-                            activityStartTime = activityStartTime,
-                            onOpenStartTimePicker = { showStartTimePicker = true },
-                            activityEndTime = activityEndTime,
-                            onEndTimeChange = { activityEndTime = it },
-                            onOpenEndTimePicker = { showEndTimePicker = true },
-                            activityLocation = activityLocation,
-                            onLocationChange = { activityLocation = it },
-                            activityAlarmMinutes = activityAlarmMinutes,
-                            isCustomAlarm = isActivityCustomAlarm,
-                            customMinutesText = activityCustomMinutesText,
-                            onPresetAlarmSelected = { minutes ->
-                                isActivityCustomAlarm = false
-                                activityAlarmMinutes = minutes
-                            },
-                            onToggleCustomAlarm = { isActivityCustomAlarm = !isActivityCustomAlarm },
-                            onCustomMinutesChange = { filtered ->
-                                activityCustomMinutesText = filtered
-                                activityAlarmMinutes = filtered.toIntOrNull()
-                            },
-                            activityNotes = activityNotes,
-                            onNotesChange = { activityNotes = it }
+                AnimatedContent(
+                    targetState = currentMode,
+                    transitionSpec = {
+                        MotionSpec.directionalSlideTransform(
+                            forward = targetState == QuickAddMode.TASK,
+                            reducedMotion = reducedMotion
                         )
-                    }
-                    QuickAddMode.TASK -> {
-                        QuickAddTaskForm(
-                            taskTitle = taskTitle,
-                            onTaskTitleChange = {
-                                taskTitle = it
-                                if (it.isNotBlank()) taskHasError = false
-                            },
-                            taskHasError = taskHasError,
-                            selectedCategory = selectedTaskCategory,
-                            onCategoryChange = { selectedTaskCategory = it },
-                            taskPriority = taskPriority,
-                            onPriorityChange = { taskPriority = it },
-                            taskCourseCode = taskCourseCode,
-                            onCourseCodeChange = { taskCourseCode = it },
-                            availableCourses = availableCourses,
-                            onOpenCoursePicker = { showCoursePicker = true },
-                            taskDueDateOnly = taskDueDateOnly,
-                            taskDueTime = taskDueTime,
-                            fullTaskDueDateTime = fullTaskDueDateTime,
-                            onOpenDueDatePicker = { showDueCalendarPicker = true },
-                            onOpenDueTimePicker = { showDueTimePicker = true },
-                            taskReminderMinutes = taskReminderMinutes,
-                            isCustomReminder = isTaskCustomReminder,
-                            customMinutesText = taskCustomMinutesText,
-                            onPresetReminderSelected = { minutes ->
-                                isTaskCustomReminder = false
-                                taskReminderMinutes = minutes
-                            },
-                            onToggleCustomReminder = { isTaskCustomReminder = !isTaskCustomReminder },
-                            onCustomMinutesChange = { filtered ->
-                                taskCustomMinutesText = filtered
-                                taskReminderMinutes = filtered.toIntOrNull()
-                            },
-                            taskNotes = taskNotes,
-                            onNotesChange = { taskNotes = it }
-                        )
+                    },
+                    label = "quick_add_form_switch"
+                ) { mode ->
+                    when (mode) {
+                        QuickAddMode.ACTIVITY -> {
+                            QuickAddActivityForm(
+                                activityTitle = activityTitle,
+                                onActivityTitleChange = {
+                                    activityTitle = it
+                                    if (it.isNotBlank()) activityHasError = false
+                                },
+                                onSuggestionClick = { sugg ->
+                                    activityTitle = sugg
+                                    activityHasError = false
+                                },
+                                activityHasError = activityHasError,
+                                selectedCategory = selectedActivityCategory,
+                                onCategoryChange = { selectedActivityCategory = it },
+                                activityDay = activityDay,
+                                onDayChange = { activityDay = it },
+                                activityStartTime = activityStartTime,
+                                onOpenStartTimePicker = { showStartTimePicker = true },
+                                activityEndTime = activityEndTime,
+                                onEndTimeChange = { activityEndTime = it },
+                                onOpenEndTimePicker = { showEndTimePicker = true },
+                                activityLocation = activityLocation,
+                                onLocationChange = { activityLocation = it },
+                                activityAlarmMinutes = activityAlarmMinutes,
+                                isCustomAlarm = isActivityCustomAlarm,
+                                customMinutesText = activityCustomMinutesText,
+                                onPresetAlarmSelected = { minutes ->
+                                    isActivityCustomAlarm = false
+                                    activityAlarmMinutes = minutes
+                                },
+                                onToggleCustomAlarm = { isActivityCustomAlarm = !isActivityCustomAlarm },
+                                onCustomMinutesChange = { filtered ->
+                                    activityCustomMinutesText = filtered
+                                    activityAlarmMinutes = filtered.toIntOrNull()
+                                },
+                                activityNotes = activityNotes,
+                                onNotesChange = { activityNotes = it }
+                            )
+                        }
+                        QuickAddMode.TASK -> {
+                            QuickAddTaskForm(
+                                taskTitle = taskTitle,
+                                onTaskTitleChange = {
+                                    taskTitle = it
+                                    if (it.isNotBlank()) taskHasError = false
+                                },
+                                taskHasError = taskHasError,
+                                selectedCategory = selectedTaskCategory,
+                                onCategoryChange = { selectedTaskCategory = it },
+                                taskPriority = taskPriority,
+                                onPriorityChange = { taskPriority = it },
+                                taskCourseCode = taskCourseCode,
+                                onCourseCodeChange = { taskCourseCode = it },
+                                availableCourses = availableCourses,
+                                onOpenCoursePicker = { showCoursePicker = true },
+                                taskDueDateOnly = taskDueDateOnly,
+                                taskDueTime = taskDueTime,
+                                fullTaskDueDateTime = fullTaskDueDateTime,
+                                onOpenDueDatePicker = { showDueCalendarPicker = true },
+                                onOpenDueTimePicker = { showDueTimePicker = true },
+                                taskReminderMinutes = taskReminderMinutes,
+                                isCustomReminder = isTaskCustomReminder,
+                                customMinutesText = taskCustomMinutesText,
+                                onPresetReminderSelected = { minutes ->
+                                    isTaskCustomReminder = false
+                                    taskReminderMinutes = minutes
+                                },
+                                onToggleCustomReminder = { isTaskCustomReminder = !isTaskCustomReminder },
+                                onCustomMinutesChange = { filtered ->
+                                    taskCustomMinutesText = filtered
+                                    taskReminderMinutes = filtered.toIntOrNull()
+                                },
+                                taskNotes = taskNotes,
+                                onNotesChange = { taskNotes = it }
+                            )
+                        }
                     }
                 }
             }
@@ -269,93 +285,99 @@ fun QuickAddBottomSheet(
                         .navigationBarsPadding()
                         .padding(horizontal = 20.dp, vertical = 10.dp)
                 ) {
-                    when (currentMode) {
-                        QuickAddMode.ACTIVITY -> {
-                            Button(
-                                onClick = {
-                                    if (activityTitle.isBlank()) {
-                                        activityHasError = true
-                                        return@Button
-                                    }
-                                    val newEvent = CustomEvent(
-                                        title = activityTitle.trim(),
-                                        dayOfWeek = activityDay,
-                                        startTime = activityStartTime.trim(),
-                                        endTime = activityEndTime.trim(),
-                                        location = activityLocation.trim(),
-                                        notes = activityNotes.trim(),
-                                        category = selectedActivityCategory.displayName,
-                                        colorTag = selectedActivityCategory.colorHex,
-                                        alarmMinutes = activityAlarmMinutes
+                    AnimatedContent(
+                        targetState = currentMode,
+                        transitionSpec = { MotionSpec.fadeTransform(reducedMotion = reducedMotion) },
+                        label = "quick_add_cta_switch"
+                    ) { mode ->
+                        when (mode) {
+                            QuickAddMode.ACTIVITY -> {
+                                Button(
+                                    onClick = {
+                                        if (activityTitle.isBlank()) {
+                                            activityHasError = true
+                                            return@Button
+                                        }
+                                        val newEvent = CustomEvent(
+                                            title = activityTitle.trim(),
+                                            dayOfWeek = activityDay,
+                                            startTime = activityStartTime.trim(),
+                                            endTime = activityEndTime.trim(),
+                                            location = activityLocation.trim(),
+                                            notes = activityNotes.trim(),
+                                            category = selectedActivityCategory.displayName,
+                                            colorTag = selectedActivityCategory.colorHex,
+                                            alarmMinutes = activityAlarmMinutes
+                                        )
+                                        focusManager.clearFocus()
+                                        keyboardController?.hide()
+                                        onSaveActivity(newEvent)
+                                        onDismiss()
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(48.dp)
+                                        .desktopHandCursor()
+                                        .testTag("save_activity_button"),
+                                    shape = RoundedCornerShape(14.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = selectedActivityCategory.color,
+                                        contentColor = contrastOnColor(selectedActivityCategory.color)
                                     )
-                                    focusManager.clearFocus()
-                                    keyboardController?.hide()
-                                    onSaveActivity(newEvent)
-                                    onDismiss()
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(48.dp)
-                                    .desktopHandCursor()
-                                    .testTag("save_activity_button"),
-                                shape = RoundedCornerShape(14.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = selectedActivityCategory.color,
-                                    contentColor = contrastOnColor(selectedActivityCategory.color)
-                                )
-                            ) {
-                                Icon(Icons.AutoMirrored.Filled.EventNote, contentDescription = null, modifier = Modifier.size(20.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "Add Activity",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 15.sp
-                                )
+                                ) {
+                                    Icon(Icons.AutoMirrored.Filled.EventNote, contentDescription = null, modifier = Modifier.size(20.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Add Activity",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 15.sp
+                                    )
+                                }
                             }
-                        }
-                        QuickAddMode.TASK -> {
-                            Button(
-                                onClick = {
-                                    if (taskTitle.isBlank()) {
-                                        taskHasError = true
-                                        return@Button
-                                    }
-                                    val effectiveCourse = taskCourseCode.ifBlank { "GEN100" }
-                                    val fullTitle = if (selectedTaskCategory != TaskCategory.GENERAL && !taskTitle.startsWith(selectedTaskCategory.displayName)) {
-                                        "[${selectedTaskCategory.displayName}] ${taskTitle.trim()}"
-                                    } else {
-                                        taskTitle.trim()
-                                    }
-                                    focusManager.clearFocus()
-                                    keyboardController?.hide()
-                                    onSaveTask(
-                                        fullTitle,
-                                        effectiveCourse.trim(),
-                                        fullTaskDueDateTime.trim(),
-                                        taskPriority,
-                                        taskReminderMinutes,
-                                        taskNotes.trim()
+                            QuickAddMode.TASK -> {
+                                Button(
+                                    onClick = {
+                                        if (taskTitle.isBlank()) {
+                                            taskHasError = true
+                                            return@Button
+                                        }
+                                        val effectiveCourse = taskCourseCode.ifBlank { "GEN100" }
+                                        val fullTitle = if (selectedTaskCategory != TaskCategory.GENERAL && !taskTitle.startsWith(selectedTaskCategory.displayName)) {
+                                            "[${selectedTaskCategory.displayName}] ${taskTitle.trim()}"
+                                        } else {
+                                            taskTitle.trim()
+                                        }
+                                        focusManager.clearFocus()
+                                        keyboardController?.hide()
+                                        onSaveTask(
+                                            fullTitle,
+                                            effectiveCourse.trim(),
+                                            fullTaskDueDateTime.trim(),
+                                            taskPriority,
+                                            taskReminderMinutes,
+                                            taskNotes.trim()
+                                        )
+                                        onDismiss()
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(48.dp)
+                                        .desktopHandCursor()
+                                        .testTag("save_task_button"),
+                                    shape = RoundedCornerShape(14.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary,
+                                        contentColor = contrastOnColor(MaterialTheme.colorScheme.primary)
                                     )
-                                    onDismiss()
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(48.dp)
-                                    .desktopHandCursor()
-                                    .testTag("save_task_button"),
-                                shape = RoundedCornerShape(14.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.primary,
-                                    contentColor = contrastOnColor(MaterialTheme.colorScheme.primary)
-                                )
-                            ) {
-                                Icon(Icons.AutoMirrored.Outlined.Assignment, contentDescription = null, modifier = Modifier.size(20.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "Add Task",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 15.sp
-                                )
+                                ) {
+                                    Icon(Icons.AutoMirrored.Outlined.Assignment, contentDescription = null, modifier = Modifier.size(20.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Add Task",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 15.sp
+                                    )
+                                }
                             }
                         }
                     }
@@ -425,6 +447,7 @@ private fun QuickAddModeSelectorTabs(
     currentMode: QuickAddMode,
     onModeSelected: (QuickAddMode) -> Unit
 ) {
+    val reducedMotion = rememberPrefersReducedMotion()
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -436,13 +459,23 @@ private fun QuickAddModeSelectorTabs(
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         val isActivity = currentMode == QuickAddMode.ACTIVITY
+        val activityBg by animateColorAsState(
+            targetValue = if (isActivity) MaterialTheme.colorScheme.surface else Color.Transparent,
+            animationSpec = MotionSpec.stateTween(MotionSpec.STATE_COLOR_MS, reducedMotion),
+            label = "qa_tab_activity_bg"
+        )
+        val activityTint by animateColorAsState(
+            targetValue = if (isActivity) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            animationSpec = MotionSpec.stateTween(MotionSpec.STATE_COLOR_MS, reducedMotion),
+            label = "qa_tab_activity_tint"
+        )
         Box(
             modifier = Modifier
                 .weight(1f)
                 .defaultMinSize(minHeight = 48.dp)
                 .clip(RoundedCornerShape(12.dp))
                 .desktopHandCursor()
-                .background(if (isActivity) MaterialTheme.colorScheme.surface else Color.Transparent)
+                .background(activityBg)
                 .clickable { onModeSelected(QuickAddMode.ACTIVITY) }
                 .padding(vertical = 10.dp, horizontal = 12.dp)
                 .testTag("quick_add_tab_activity"),
@@ -452,7 +485,7 @@ private fun QuickAddModeSelectorTabs(
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.EventNote,
                     contentDescription = null,
-                    tint = if (isActivity) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = activityTint,
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
@@ -473,13 +506,23 @@ private fun QuickAddModeSelectorTabs(
         }
 
         val isTask = currentMode == QuickAddMode.TASK
+        val taskBg by animateColorAsState(
+            targetValue = if (isTask) MaterialTheme.colorScheme.surface else Color.Transparent,
+            animationSpec = MotionSpec.stateTween(MotionSpec.STATE_COLOR_MS, reducedMotion),
+            label = "qa_tab_task_bg"
+        )
+        val taskTint by animateColorAsState(
+            targetValue = if (isTask) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            animationSpec = MotionSpec.stateTween(MotionSpec.STATE_COLOR_MS, reducedMotion),
+            label = "qa_tab_task_tint"
+        )
         Box(
             modifier = Modifier
                 .weight(1f)
                 .defaultMinSize(minHeight = 48.dp)
                 .clip(RoundedCornerShape(12.dp))
                 .desktopHandCursor()
-                .background(if (isTask) MaterialTheme.colorScheme.surface else Color.Transparent)
+                .background(taskBg)
                 .clickable { onModeSelected(QuickAddMode.TASK) }
                 .padding(vertical = 10.dp, horizontal = 12.dp)
                 .testTag("quick_add_tab_task"),
@@ -489,7 +532,7 @@ private fun QuickAddModeSelectorTabs(
                 Icon(
                     imageVector = Icons.AutoMirrored.Outlined.Assignment,
                     contentDescription = null,
-                    tint = if (isTask) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = taskTint,
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))

@@ -1,5 +1,9 @@
 package com.lectures.ui.components
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -18,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -25,13 +30,10 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.lectures.features.onboarding.FACULTIES
 import com.lectures.features.timetable.domain.TimetableMatcher
-import com.lectures.features.timetable.ui.BorderSubtleLight
-import com.lectures.features.timetable.ui.DarkBorderSubtle
-import com.lectures.features.timetable.ui.DarkSurfaceBase
-import com.lectures.features.timetable.ui.DarkSurfaceCard
-import com.lectures.features.timetable.ui.TextMutedLight
-import com.lectures.features.timetable.ui.TextPrimaryLight
+import com.lectures.ui.LocalExtendedColors
+import com.lectures.ui.MotionSpec
 import com.lectures.ui.rememberLecturesWindow
+import com.lectures.ui.rememberPrefersReducedMotion
 import java.util.Locale
 
 @Composable
@@ -113,6 +115,8 @@ fun QuickChangeProgrammeDialog(
     }
 
     val windowInfo = rememberLecturesWindow()
+    val ext = LocalExtendedColors.current
+    val reducedMotion = rememberPrefersReducedMotion()
 
     Dialog(
         onDismissRequest = handleDismiss,
@@ -122,21 +126,43 @@ fun QuickChangeProgrammeDialog(
             dismissOnClickOutside = true
         )
     ) {
-        val dialogModifier = if (windowInfo.preferDesktopDialogs) {
-            Modifier
-                .padding(horizontal = 24.dp, vertical = 20.dp)
-                .widthIn(min = 420.dp, max = 600.dp)
-                .heightIn(max = (windowInfo.heightDp - 48).coerceAtLeast(360).dp)
-                .fillMaxWidth()
-                .onEscapeKey(handleDismiss)
-        } else {
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp)
-        }
+        var entered by remember { mutableStateOf(reducedMotion || !windowInfo.preferDesktopDialogs) }
+        LaunchedEffect(Unit) { entered = true }
+        val dialogScale by animateFloatAsState(
+            targetValue = if (entered) 1f else 0.95f,
+            animationSpec = if (reducedMotion || !windowInfo.preferDesktopDialogs) snap() else MotionSpec.standardSpring(),
+            label = "quick_change_dialog_scale"
+        )
+        val dialogAlpha by animateFloatAsState(
+            targetValue = if (entered) 1f else 0f,
+            animationSpec = if (reducedMotion || !windowInfo.preferDesktopDialogs) snap() else tween(MotionSpec.DIALOG_ENTER_MS),
+            label = "quick_change_dialog_alpha"
+        )
+
+        val dialogModifier = Modifier
+            .graphicsLayer {
+                scaleX = dialogScale
+                scaleY = dialogScale
+                alpha = dialogAlpha
+            }
+            .then(
+                if (windowInfo.preferDesktopDialogs) {
+                    Modifier
+                        .padding(horizontal = 24.dp, vertical = 20.dp)
+                        .widthIn(min = 420.dp, max = 600.dp)
+                        .heightIn(max = (windowInfo.heightDp - 48).coerceAtLeast(360).dp)
+                        .fillMaxWidth()
+                        .onEscapeKey(handleDismiss)
+                } else {
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp)
+                }
+            )
         Card(
             shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = if (isDark) DarkSurfaceCard else Color.White),
+            colors = CardDefaults.cardColors(containerColor = ext.surfaceCard),
+            border = BorderStroke(1.dp, ext.borderSubtle),
             modifier = dialogModifier
         ) {
             Column(
@@ -151,22 +177,24 @@ fun QuickChangeProgrammeDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "Switch Programme",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
-                            color = if (isDark) Color.White else TextPrimaryLight
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
                             text = "Select your faculty, program and year group",
                             fontSize = 12.sp,
-                            color = if (isDark) Color(0xFF94A3B8) else TextMutedLight
+                            color = ext.textMuted
                         )
                     }
                     IconButton(
                         onClick = handleDismiss,
-                        modifier = Modifier.desktopHandCursor()
+                        modifier = Modifier
+                            .size(48.dp)
+                            .desktopHandCursor()
                     ) {
                         Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(20.dp))
                     }
@@ -196,7 +224,7 @@ fun QuickChangeProgrammeDialog(
                             text = selectedFaculty.name,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = if (isDark) Color.White else TextPrimaryLight,
+                            color = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.weight(1f)
                         )
                     },
@@ -244,13 +272,13 @@ fun QuickChangeProgrammeDialog(
                                 text = "${selectedProgramme.code} · ${selectedProgramme.name}",
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = if (isDark) Color.White else TextPrimaryLight,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 1
                             )
                             Text(
                                 text = "${selectedProgramme.years} Year Curriculum",
                                 fontSize = 11.sp,
-                                color = if (isDark) Color(0xFF94A3B8) else TextMutedLight
+                                color = ext.textMuted
                             )
                         }
                     },
@@ -305,7 +333,7 @@ fun QuickChangeProgrammeDialog(
                     text = "Year of Study",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium,
-                    color = if (isDark) Color(0xFF94A3B8) else TextMutedLight
+                    color = ext.textMuted
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 @OptIn(ExperimentalLayoutApi::class)
@@ -326,7 +354,8 @@ fun QuickChangeProgrammeDialog(
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                                 )
                             },
-                            shape = RoundedCornerShape(10.dp)
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.desktopHandCursor()
                         )
                     }
                 }
@@ -337,7 +366,7 @@ fun QuickChangeProgrammeDialog(
                         text = "Subject Track / Specialization",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium,
-                        color = if (isDark) Color(0xFF94A3B8) else TextMutedLight
+                        color = ext.textMuted
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     @OptIn(ExperimentalLayoutApi::class)
@@ -377,7 +406,8 @@ fun QuickChangeProgrammeDialog(
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                                     )
                                 },
-                                shape = RoundedCornerShape(10.dp)
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.desktopHandCursor()
                             )
                         }
                     }
@@ -402,15 +432,18 @@ fun QuickChangeProgrammeDialog(
                             onPeekSelected(chosenGroup)
                         },
                         enabled = previewEnabled,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .defaultMinSize(minHeight = 48.dp)
+                            .desktopHandCursor(enabled = previewEnabled),
                         shape = RoundedCornerShape(12.dp),
                         border = BorderStroke(
                             1.dp,
-                            if (previewEnabled) (if (isDark) Color(0xFFF59E0B) else Color(0xFFD97706)) else (if (isDark) DarkBorderSubtle else Color(0xFFCBD5E1))
+                            if (previewEnabled) ext.warningBorder else ext.borderSubtle
                         ),
                         colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = if (isDark) Color(0xFFFBBF24) else Color(0xFFB45309),
-                            disabledContentColor = if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8)
+                            contentColor = ext.warningText,
+                            disabledContentColor = ext.textMuted.copy(alpha = 0.6f)
                         )
                     ) {
                         Icon(
@@ -436,12 +469,15 @@ fun QuickChangeProgrammeDialog(
                             onProgrammeSelected(chosenGroup)
                         },
                         enabled = isDifferentFromEnrolled,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .defaultMinSize(minHeight = 48.dp)
+                            .desktopHandCursor(enabled = isDifferentFromEnrolled),
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = primaryColor,
-                            disabledContainerColor = if (isDark) DarkSurfaceBase else Color(0xFFE2E8F0),
-                            disabledContentColor = if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8)
+                            disabledContainerColor = ext.surfaceBase,
+                            disabledContentColor = ext.textMuted.copy(alpha = 0.6f)
                         )
                     ) {
                         Text(
@@ -459,7 +495,10 @@ fun QuickChangeProgrammeDialog(
                         programmeDropdownExpanded = false
                         onOpenFullReconfigure()
                     },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .defaultMinSize(minHeight = 48.dp)
+                        .desktopHandCursor()
                 ) {
                     Text("Open Full Onboarding / Reconfigure", fontSize = 12.sp)
                 }
@@ -477,15 +516,18 @@ private fun ProfileSelectorBox(
     triggerContent: @Composable RowScope.() -> Unit,
     dropdownContent: @Composable ColumnScope.() -> Unit
 ) {
+    val ext = LocalExtendedColors.current
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
         val triggerWidth = maxWidth
         Surface(
             shape = RoundedCornerShape(12.dp),
-            color = if (isDark) DarkSurfaceBase else Color(0xFFF8FAFC),
-            border = BorderStroke(1.dp, if (isDark) DarkBorderSubtle else BorderSubtleLight),
+            color = ext.surfaceBase,
+            border = BorderStroke(1.dp, ext.borderSubtle),
             modifier = Modifier
                 .fillMaxWidth()
-                .desktopHandCursor()
+                .defaultMinSize(minHeight = 48.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .desktopHoverable()
                 .clickable { onExpandedChange(!expanded) }
         ) {
             Row(
@@ -510,8 +552,8 @@ private fun ProfileSelectorBox(
             modifier = Modifier
                 .width(triggerWidth)
                 .heightIn(max = 240.dp)
-                .background(if (isDark) DarkSurfaceCard else Color.White, RoundedCornerShape(12.dp))
-                .border(1.dp, if (isDark) DarkBorderSubtle else BorderSubtleLight, RoundedCornerShape(12.dp))
+                .background(ext.surfaceCard, RoundedCornerShape(12.dp))
+                .border(1.dp, ext.borderSubtle, RoundedCornerShape(12.dp))
         ) {
             dropdownContent()
         }
@@ -527,12 +569,14 @@ private fun ProfileDropdownOptionRow(
     subtitle: String?,
     onClick: () -> Unit
 ) {
+    val ext = LocalExtendedColors.current
     DropdownMenuItem(
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 4.dp, vertical = 2.dp)
             .clip(RoundedCornerShape(8.dp))
+            .desktopHandCursor()
             .background(
                 if (isSelected) (if (isDark) primaryColor.copy(alpha = 0.28f) else primaryColor.copy(alpha = 0.16f))
                 else Color.Transparent
@@ -553,13 +597,13 @@ private fun ProfileDropdownOptionRow(
                         text = title,
                         fontSize = 13.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                        color = if (isSelected) primaryColor else (if (isDark) Color.White else TextPrimaryLight)
+                        color = if (isSelected) primaryColor else MaterialTheme.colorScheme.onSurface
                     )
                     if (subtitle != null) {
                         Text(
                             text = subtitle,
                             fontSize = 10.sp,
-                            color = if (isSelected) primaryColor.copy(alpha = 0.85f) else (if (isDark) Color(0xFF94A3B8) else TextMutedLight)
+                            color = if (isSelected) primaryColor.copy(alpha = 0.85f) else ext.textMuted
                         )
                     }
                 }

@@ -217,87 +217,157 @@ fun AppTheme(
     val (lightContainer, onLightContainer) = AccentLightContainers[safeAccentIndex]
     val (darkContainer, onDarkContainer) = AccentDarkContainers[safeAccentIndex]
 
+    val reducedMotion = rememberPrefersReducedMotion()
+    val animSpec = MotionSpec.stateTween<Color>(
+        durationMillis = MotionSpec.THEME_TRANSITION_MS,
+        reducedMotion = reducedMotion
+    )
+
     val targetPrimary = if (isDark) primaryDark else primaryColor
     val targetOnPrimary = contrastOnColor(targetPrimary)
+    val targetPrimaryContainer = if (isDark) darkContainer else lightContainer
+    val targetOnPrimaryContainer = if (isDark) onDarkContainer else onLightContainer
     val targetTertiary = if (isDark) AccentTertiaryDark[safeAccentIndex] else AccentTertiaryLight[safeAccentIndex]
-    val targetBackground = if (isDark) DarkExtendedColors.surfaceBase else LightExtendedColors.surfaceBase
-    val targetOnBackground = if (isDark) DarkExtendedColors.textPrimary else LightExtendedColors.textPrimary
-    val targetSurface = if (isDark) DarkExtendedColors.surfaceCard else LightExtendedColors.surfaceCard
-    val targetSurfaceVariant = if (isDark) DarkExtendedColors.surfaceElevated else LightExtendedColors.surfaceElevated
-    val targetOnSurfaceVariant = if (isDark) DarkExtendedColors.textMuted else LightExtendedColors.textMuted
+    val targetExtended = if (isDark) DarkExtendedColors else LightExtendedColors
 
-    val animSpec = tween<Color>(durationMillis = 220)
     val animatedPrimary by animateColorAsState(targetPrimary, animSpec, label = "theme_primary")
-    val animatedBackground by animateColorAsState(targetBackground, animSpec, label = "theme_bg")
-    val animatedSurface by animateColorAsState(targetSurface, animSpec, label = "theme_surface")
-    val animatedSurfaceVariant by animateColorAsState(targetSurfaceVariant, animSpec, label = "theme_surface_var")
-    val animatedOnSurface by animateColorAsState(targetOnBackground, animSpec, label = "theme_on_surface")
+    val animatedOnPrimary by animateColorAsState(targetOnPrimary, animSpec, label = "theme_on_primary")
+    val animatedPrimaryContainer by animateColorAsState(targetPrimaryContainer, animSpec, label = "theme_primary_container")
+    val animatedOnPrimaryContainer by animateColorAsState(targetOnPrimaryContainer, animSpec, label = "theme_on_primary_container")
+    val animatedTertiary by animateColorAsState(targetTertiary, animSpec, label = "theme_tertiary")
+
+    val animSurfaceBase by animateColorAsState(targetExtended.surfaceBase, animSpec, label = "ext_surface_base")
+    val animSurfaceCard by animateColorAsState(targetExtended.surfaceCard, animSpec, label = "ext_surface_card")
+    val animSurfaceElevated by animateColorAsState(targetExtended.surfaceElevated, animSpec, label = "ext_surface_elevated")
+    val animSurfaceSubtle by animateColorAsState(targetExtended.surfaceSubtle, animSpec, label = "ext_surface_subtle")
+    val animBorderSubtle by animateColorAsState(targetExtended.borderSubtle, animSpec, label = "ext_border_subtle")
+    val animBorderStrong by animateColorAsState(targetExtended.borderStrong, animSpec, label = "ext_border_strong")
+    val animTextPrimary by animateColorAsState(targetExtended.textPrimary, animSpec, label = "ext_text_primary")
+    val animTextSecondary by animateColorAsState(targetExtended.textSecondary, animSpec, label = "ext_text_secondary")
+    val animTextMuted by animateColorAsState(targetExtended.textMuted, animSpec, label = "ext_text_muted")
+    val animSuccessBg by animateColorAsState(targetExtended.successBg, animSpec, label = "ext_success_bg")
+    val animSuccessBorder by animateColorAsState(targetExtended.successBorder, animSpec, label = "ext_success_border")
+    val animSuccessText by animateColorAsState(targetExtended.successText, animSpec, label = "ext_success_text")
+    val animSuccessIcon by animateColorAsState(targetExtended.successIcon, animSpec, label = "ext_success_icon")
+    val animWarningBg by animateColorAsState(targetExtended.warningBg, animSpec, label = "ext_warning_bg")
+    val animWarningBorder by animateColorAsState(targetExtended.warningBorder, animSpec, label = "ext_warning_border")
+    val animWarningText by animateColorAsState(targetExtended.warningText, animSpec, label = "ext_warning_text")
+    val animWarningIcon by animateColorAsState(targetExtended.warningIcon, animSpec, label = "ext_warning_icon")
+    val animDangerBg by animateColorAsState(targetExtended.dangerBg, animSpec, label = "ext_danger_bg")
+    val animDangerBorder by animateColorAsState(targetExtended.dangerBorder, animSpec, label = "ext_danger_border")
+    val animDangerText by animateColorAsState(targetExtended.dangerText, animSpec, label = "ext_danger_text")
+    val animDangerIcon by animateColorAsState(targetExtended.dangerIcon, animSpec, label = "ext_danger_icon")
+    val animInfoBg by animateColorAsState(targetExtended.infoBg, animSpec, label = "ext_info_bg")
+    val animInfoBorder by animateColorAsState(targetExtended.infoBorder, animSpec, label = "ext_info_border")
+    val animInfoText by animateColorAsState(targetExtended.infoText, animSpec, label = "ext_info_text")
+
+    val targetContainerLowest = if (isDark) Color(0xFF0C0E12) else Color.White
+    val targetContainerLow = if (isDark) Color(0xFF14171D) else Color(0xFFF8FAFC)
+    val targetContainerHighest = if (isDark) Color(0xFF282D38) else Color(0xFFE2E8F0)
+    val targetOutline = if (isDark) Color(0xFF2E3442) else Color(0xFFE2E8F0)
+    val targetOutlineVariant = if (isDark) Color(0xFF242935) else Color(0xFFF1F5F9)
+    val targetError = if (isDark) Color(0xFFF87171) else Color(0xFFDC2626)
+    val targetOnError = if (isDark) Color(0xFF450A0A) else Color.White
+    val targetErrorContainer = if (isDark) Color(0xFF7F1D1D).copy(alpha = 0.55f) else Color(0xFFFEE2E2)
+    val targetOnErrorContainer = if (isDark) Color(0xFFFECACA) else Color(0xFF991B1B)
+
+    val animContainerLowest by animateColorAsState(targetContainerLowest, animSpec, label = "theme_lowest")
+    val animContainerLow by animateColorAsState(targetContainerLow, animSpec, label = "theme_low")
+    val animContainerHighest by animateColorAsState(targetContainerHighest, animSpec, label = "theme_highest")
+    val animOutline by animateColorAsState(targetOutline, animSpec, label = "theme_outline")
+    val animOutlineVariant by animateColorAsState(targetOutlineVariant, animSpec, label = "theme_outline_var")
+    val animErrorContainer by animateColorAsState(targetErrorContainer, animSpec, label = "theme_error_container")
 
     val colorScheme: ColorScheme = if (isDark) {
         darkColorScheme(
             primary = animatedPrimary,
-            onPrimary = targetOnPrimary,
-            primaryContainer = darkContainer,
-            onPrimaryContainer = onDarkContainer,
+            onPrimary = animatedOnPrimary,
+            primaryContainer = animatedPrimaryContainer,
+            onPrimaryContainer = animatedOnPrimaryContainer,
             secondary = animatedPrimary,
-            onSecondary = targetOnPrimary,
-            secondaryContainer = darkContainer,
-            onSecondaryContainer = onDarkContainer,
-            tertiary = targetTertiary,
+            onSecondary = animatedOnPrimary,
+            secondaryContainer = animatedPrimaryContainer,
+            onSecondaryContainer = animatedOnPrimaryContainer,
+            tertiary = animatedTertiary,
             onTertiary = contrastOnColor(targetTertiary),
-            background = animatedBackground,
-            onBackground = animatedOnSurface,
-            surface = animatedSurface,
-            onSurface = animatedOnSurface,
-            surfaceVariant = animatedSurfaceVariant,
-            onSurfaceVariant = targetOnSurfaceVariant,
-            surfaceContainerLowest = Color(0xFF0C0E12),
-            surfaceContainerLow = Color(0xFF14171D),
-            surfaceContainer = animatedSurface,
-            surfaceContainerHigh = animatedSurfaceVariant,
-            surfaceContainerHighest = Color(0xFF282D38),
-            outline = Color(0xFF2E3442),
-            outlineVariant = Color(0xFF242935),
-            error = Color(0xFFF87171),
-            onError = Color(0xFF450A0A),
-            errorContainer = Color(0xFF7F1D1D).copy(alpha = 0.55f),
-            onErrorContainer = Color(0xFFFECACA),
+            background = animSurfaceBase,
+            onBackground = animTextPrimary,
+            surface = animSurfaceCard,
+            onSurface = animTextPrimary,
+            surfaceVariant = animSurfaceElevated,
+            onSurfaceVariant = animTextMuted,
+            surfaceContainerLowest = animContainerLowest,
+            surfaceContainerLow = animContainerLow,
+            surfaceContainer = animSurfaceCard,
+            surfaceContainerHigh = animSurfaceElevated,
+            surfaceContainerHighest = animContainerHighest,
+            outline = animOutline,
+            outlineVariant = animOutlineVariant,
+            error = targetError,
+            onError = targetOnError,
+            errorContainer = animErrorContainer,
+            onErrorContainer = targetOnErrorContainer,
             scrim = Color.Black.copy(alpha = 0.65f)
         )
     } else {
         lightColorScheme(
             primary = animatedPrimary,
-            onPrimary = targetOnPrimary,
-            primaryContainer = lightContainer,
-            onPrimaryContainer = onLightContainer,
+            onPrimary = animatedOnPrimary,
+            primaryContainer = animatedPrimaryContainer,
+            onPrimaryContainer = animatedOnPrimaryContainer,
             secondary = animatedPrimary,
-            onSecondary = targetOnPrimary,
-            secondaryContainer = lightContainer,
-            onSecondaryContainer = onLightContainer,
-            tertiary = targetTertiary,
+            onSecondary = animatedOnPrimary,
+            secondaryContainer = animatedPrimaryContainer,
+            onSecondaryContainer = animatedOnPrimaryContainer,
+            tertiary = animatedTertiary,
             onTertiary = contrastOnColor(targetTertiary),
-            background = animatedBackground,
-            onBackground = animatedOnSurface,
-            surface = animatedSurface,
-            onSurface = animatedOnSurface,
-            surfaceVariant = animatedSurfaceVariant,
-            onSurfaceVariant = targetOnSurfaceVariant,
-            surfaceContainerLowest = Color.White,
-            surfaceContainerLow = Color(0xFFF8FAFC),
-            surfaceContainer = Color(0xFFF1F5F9),
-            surfaceContainerHigh = Color(0xFFE8EEF5),
-            surfaceContainerHighest = Color(0xFFE2E8F0),
-            outline = Color(0xFFE2E8F0),
-            outlineVariant = Color(0xFFF1F5F9),
-            error = Color(0xFFDC2626),
-            onError = Color.White,
-            errorContainer = Color(0xFFFEE2E2),
-            onErrorContainer = Color(0xFF991B1B),
+            background = animSurfaceBase,
+            onBackground = animTextPrimary,
+            surface = animSurfaceCard,
+            onSurface = animTextPrimary,
+            surfaceVariant = animSurfaceElevated,
+            onSurfaceVariant = animTextMuted,
+            surfaceContainerLowest = animContainerLowest,
+            surfaceContainerLow = animContainerLow,
+            surfaceContainer = animSurfaceElevated,
+            surfaceContainerHigh = animSurfaceSubtle,
+            surfaceContainerHighest = animContainerHighest,
+            outline = animOutline,
+            outlineVariant = animOutlineVariant,
+            error = targetError,
+            onError = targetOnError,
+            errorContainer = animErrorContainer,
+            onErrorContainer = targetOnErrorContainer,
             scrim = Color(0xFF0F172A).copy(alpha = 0.45f)
         )
     }
 
-    val extendedColors = if (isDark) DarkExtendedColors else LightExtendedColors
+    val extendedColors = AppExtendedColors(
+        surfaceBase = animSurfaceBase,
+        surfaceCard = animSurfaceCard,
+        surfaceElevated = animSurfaceElevated,
+        surfaceSubtle = animSurfaceSubtle,
+        borderSubtle = animBorderSubtle,
+        borderStrong = animBorderStrong,
+        textPrimary = animTextPrimary,
+        textSecondary = animTextSecondary,
+        textMuted = animTextMuted,
+        successBg = animSuccessBg,
+        successBorder = animSuccessBorder,
+        successText = animSuccessText,
+        successIcon = animSuccessIcon,
+        warningBg = animWarningBg,
+        warningBorder = animWarningBorder,
+        warningText = animWarningText,
+        warningIcon = animWarningIcon,
+        dangerBg = animDangerBg,
+        dangerBorder = animDangerBorder,
+        dangerText = animDangerText,
+        dangerIcon = animDangerIcon,
+        infoBg = animInfoBg,
+        infoBorder = animInfoBorder,
+        infoText = animInfoText
+    )
 
     val themeState = AppThemeState(
         themeMode = themeMode,

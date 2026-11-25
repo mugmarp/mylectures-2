@@ -1,6 +1,6 @@
 package com.lectures.features.timetable.ui
 
-import androidx.compose.animation.core.*
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -22,7 +22,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -30,7 +29,11 @@ import androidx.compose.ui.unit.sp
 import com.lectures.ui.AccentColors
 import com.lectures.ui.AccentDarkColors
 import com.lectures.ui.LocalAppTheme
+import com.lectures.ui.MotionSpec
+import com.lectures.ui.components.LivePulseBadge
 import com.lectures.ui.components.RoomFloorBadge
+import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.rememberPrefersReducedMotion
 
 @Composable
 fun HappeningNowHeroCard(
@@ -99,6 +102,8 @@ fun HappeningNowHeroCard(
                 brush = Brush.verticalGradient(listOf(heroStart, heroEnd)),
                 shape = HeroCardShape
             )
+            .clip(HeroCardShape)
+            .desktopHandCursor()
             .clickable(onClick = onClick)
             .padding(20.dp)
     ) {
@@ -108,7 +113,17 @@ fun HappeningNowHeroCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                HappeningNowLiveBadge()
+                LivePulseBadge(
+                    text = "HAPPENING NOW",
+                    dotColor = StatusGreenLive,
+                    containerColor = Color.White.copy(alpha = 0.2f),
+                    contentColor = Color.White,
+                    shape = RoundedCornerShape(12.dp),
+                    dotSize = 7.dp,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 5.dp)
+                )
 
                 Row(
                     modifier = Modifier
@@ -212,6 +227,12 @@ fun HappeningNowHeroCard(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
+                val reducedMotion = rememberPrefersReducedMotion()
+                val animatedProgress by animateFloatAsState(
+                    targetValue = progress.coerceIn(0f, 1f),
+                    animationSpec = MotionSpec.stateTween(450, reducedMotion),
+                    label = "hero_live_progress"
+                )
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -221,7 +242,7 @@ fun HappeningNowHeroCard(
                 ) {
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth(fraction = progress.coerceIn(0f, 1f))
+                            .fillMaxWidth(fraction = animatedProgress)
                             .fillMaxHeight()
                             .clip(ProgressTrackShape)
                             .background(
@@ -360,7 +381,10 @@ fun HappeningNowHeroCard(
             ) {
                 Button(
                     onClick = onQuickNote,
-                    modifier = Modifier.weight(1f).height(44.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp)
+                        .desktopHandCursor(),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (isDark) MaterialTheme.colorScheme.primary else Color.White,
                         contentColor = if (isDark) MaterialTheme.colorScheme.onPrimary else heroStart
@@ -375,7 +399,10 @@ fun HappeningNowHeroCard(
 
                 Button(
                     onClick = onAlarmDismiss,
-                    modifier = Modifier.weight(1f).height(44.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp)
+                        .desktopHandCursor(),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color.White.copy(alpha = if (isDark) 0.14f else 0.2f),
                         contentColor = Color.White
@@ -389,41 +416,5 @@ fun HappeningNowHeroCard(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun HappeningNowLiveBadge() {
-    val infiniteTransition = rememberInfiniteTransition(label = "LivePulse")
-    val alpha by infiniteTransition.animateFloat(
-        initialValue = 0.4f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(900, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "AlphaPulse"
-    )
-
-    Row(
-        modifier = Modifier
-            .background(Color.White.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
-            .padding(horizontal = 10.dp, vertical = 5.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(7.dp)
-                .graphicsLayer { this.alpha = alpha }
-                .background(StatusGreenLive, CircleShape)
-        )
-        Spacer(modifier = Modifier.width(6.dp))
-        Text(
-            text = "HAPPENING NOW",
-            color = Color.White,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 0.5.sp
-        )
     }
 }

@@ -48,7 +48,22 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        installSplashScreen()
+        val splashScreen = installSplashScreen()
+        splashScreen.setOnExitAnimationListener { splashScreenView ->
+            val iconView = splashScreenView.iconView
+            splashScreenView.view.animate()
+                .alpha(0f)
+                .setDuration(220L)
+                .setInterpolator(android.view.animation.DecelerateInterpolator())
+                .withEndAction { splashScreenView.remove() }
+                .start()
+            iconView?.animate()
+                ?.scaleX(1.08f)
+                ?.scaleY(1.08f)
+                ?.alpha(0f)
+                ?.setDuration(200L)
+                ?.start()
+        }
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 

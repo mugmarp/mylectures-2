@@ -37,7 +37,9 @@ import com.lectures.features.timetable.ui.DarkSurfaceCard
 import com.lectures.features.timetable.ui.StatusGreenLive
 import com.lectures.features.timetable.ui.TextMutedLight
 import com.lectures.features.timetable.ui.TextPrimaryLight
+import com.lectures.ui.LocalExtendedColors
 import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.components.desktopHoverable
 import com.lectures.ui.rememberLecturesWindow
 
 @Composable
@@ -65,10 +67,11 @@ internal fun VacantRoomsSearchAndFilters(
     isNarrow: Boolean
 ) {
     val accentColor = MaterialTheme.colorScheme.primary
-    val surfaceColor = if (isDark) DarkSurfaceCard else Color.White
-    val textPrimary = if (isDark) Color.White else TextPrimaryLight
-    val textMuted = if (isDark) Color(0xFF94A3B8) else TextMutedLight
-    val borderSubtle = if (isDark) DarkBorderSubtle else BorderSubtleLight
+    val ext = LocalExtendedColors.current
+    val surfaceColor = ext.surfaceCard
+    val textPrimary = ext.textPrimary
+    val textMuted = ext.textMuted
+    val borderSubtle = ext.borderSubtle
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         // 1. Sleek Compact Pill-shaped Search Bar
@@ -115,7 +118,10 @@ internal fun VacantRoomsSearchAndFilters(
                     )
                 }
                 if (searchQuery.isNotEmpty()) {
-                    IconButton(onClick = { onSearchQueryChange("") }) {
+                    IconButton(
+                        onClick = { onSearchQueryChange("") },
+                        modifier = Modifier.size(48.dp).desktopHandCursor()
+                    ) {
                         Icon(
                             Icons.Default.Close,
                             contentDescription = "Clear search",
@@ -147,10 +153,12 @@ internal fun VacantRoomsSearchAndFilters(
                 Box(
                     modifier = Modifier
                         .weight(1f)
+                        .defaultMinSize(minHeight = 48.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .desktopHandCursor()
+                        .desktopHoverable()
                         .clickable { onCampusDropdownExpandedChange(true) }
-                        .padding(horizontal = if (isNarrow) 4.dp else 8.dp, vertical = 2.dp)
+                        .padding(horizontal = if (isNarrow) 4.dp else 8.dp, vertical = 4.dp),
+                    contentAlignment = Alignment.CenterStart
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -287,10 +295,12 @@ internal fun VacantRoomsSearchAndFilters(
                 Box(
                     modifier = Modifier
                         .weight(1f)
+                        .defaultMinSize(minHeight = 48.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .desktopHandCursor()
+                        .desktopHoverable()
                         .clickable { onBuildingDropdownExpandedChange(true) }
-                        .padding(horizontal = if (isNarrow) 4.dp else 8.dp, vertical = 2.dp)
+                        .padding(horizontal = if (isNarrow) 4.dp else 8.dp, vertical = 4.dp),
+                    contentAlignment = Alignment.CenterStart
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -548,7 +558,8 @@ internal fun VacantRoomsSearchAndFilters(
                             enabled = true,
                             selected = freeOnly,
                             borderColor = if (freeOnly) StatusGreenLive else borderSubtle
-                        )
+                        ),
+                        modifier = Modifier.desktopHandCursor()
                     )
                 }
 
@@ -578,7 +589,8 @@ internal fun VacantRoomsSearchAndFilters(
                             enabled = true,
                             selected = isSelected,
                             borderColor = if (isSelected) accentColor else borderSubtle
-                        )
+                        ),
+                        modifier = Modifier.desktopHandCursor()
                     )
                 }
 
@@ -606,7 +618,8 @@ internal fun VacantRoomsSearchAndFilters(
                             colors = SuggestionChipDefaults.suggestionChipColors(
                                 containerColor = accentColor.copy(alpha = 0.1f)
                             ),
-                            border = BorderStroke(1.dp, accentColor.copy(alpha = 0.3f))
+                            border = BorderStroke(1.dp, accentColor.copy(alpha = 0.3f)),
+                            modifier = Modifier.desktopHandCursor()
                         )
                     }
                 }

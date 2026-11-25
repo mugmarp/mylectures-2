@@ -1,6 +1,7 @@
 package com.lectures.features.calendar
 
 import android.widget.Toast
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -57,10 +58,12 @@ import com.lectures.features.timetable.ui.LectureCard
 import com.lectures.ui.Chrome
 import com.lectures.ui.LocalAppTheme
 import com.lectures.ui.LocalExtendedColors
+import com.lectures.ui.MotionSpec
 import com.lectures.ui.components.FloatingIslandTopBar
 import com.lectures.ui.components.desktopHandCursor
 import com.lectures.ui.contrastOnColor
 import com.lectures.ui.rememberLecturesWindow
+import com.lectures.ui.rememberPrefersReducedMotion
 
 internal sealed class CalendarTimelineItem(val startTime: String) {
     data class Lecture(val entry: TimetableEntry) : CalendarTimelineItem(entry.startTime)
@@ -207,6 +210,8 @@ fun CalendarScreen(
     }
 
     val windowInfo = rememberLecturesWindow()
+    val ext = LocalExtendedColors.current
+    val reducedMotion = rememberPrefersReducedMotion()
     val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val listBottomPadding = Chrome.listBottomPadding(navBarBottom, windowInfo.useNavigationRail)
     val listState = rememberLazyListState()
@@ -237,7 +242,7 @@ fun CalendarScreen(
             } else false
         },
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = ext.surfaceBase,
         floatingActionButton = {
             if (uiState.activeTabMode == CalendarTabMode.MONTH_PLANNER) {
                 if (windowInfo.collapseFab) {
@@ -282,7 +287,7 @@ fun CalendarScreen(
                         if (onBack != null) {
                             IconButton(
                                 onClick = onBack,
-                                modifier = Modifier.desktopHandCursor()
+                                modifier = Modifier.size(48.dp).desktopHandCursor()
                             ) {
                                 Icon(
                                     Icons.AutoMirrored.Filled.ArrowBack,
@@ -349,6 +354,7 @@ fun CalendarScreen(
                         IconButton(
                             onClick = { showProfileSheet = true },
                             modifier = Modifier
+                                .size(48.dp)
                                 .desktopHandCursor()
                                 .testTag("topbar_academic_info_btn")
                         ) {
@@ -364,12 +370,17 @@ fun CalendarScreen(
             }
         }
     ) { innerPadding ->
-        val ext = LocalExtendedColors.current
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.TopCenter
         ) {
-            if (windowInfo.isDualPane && uiState.activeTabMode == CalendarTabMode.MONTH_PLANNER) {
+            AnimatedContent(
+                targetState = Triple(windowInfo.isDualPane, windowInfo.isTablet, uiState.activeTabMode),
+                transitionSpec = { MotionSpec.fadeTransform(reducedMotion = reducedMotion) },
+                contentKey = { "${it.first}_${it.second}_${it.third}" },
+                label = "calendar_tab_mode_switch"
+            ) { (isDualPane, isTablet, tabMode) ->
+            if (isDualPane && tabMode == CalendarTabMode.MONTH_PLANNER) {
                 // Desktop / Expanded-tablet 2-pane split planner: Month Calendar LEFT + Day Agenda RIGHT
                 Column(
                     modifier = Modifier
@@ -534,7 +545,7 @@ fun CalendarScreen(
                         }
                     }
                 }
-            } else if (windowInfo.isTablet && uiState.activeTabMode == CalendarTabMode.SEMESTER_MILESTONES) {
+            } else if (isTablet && tabMode == CalendarTabMode.SEMESTER_MILESTONES) {
                 // Multi-column Adaptive Milestones Grid on Medium / Expanded / Desktop screens
                 LazyVerticalGrid(
                     columns = GridCells.Adaptive(minSize = 300.dp),
@@ -624,7 +635,7 @@ fun CalendarScreen(
                         Spacer(modifier = Modifier.height(10.dp))
                     }
 
-                    if (uiState.activeTabMode == CalendarTabMode.SEMESTER_MILESTONES) {
+                    if (tabMode == CalendarTabMode.SEMESTER_MILESTONES) {
                         item {
                             Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
                                 Text(
@@ -693,7 +704,8 @@ fun CalendarScreen(
                                         colors = FilterChipDefaults.filterChipColors(
                                             selectedContainerColor = MaterialTheme.colorScheme.primary,
                                             selectedLabelColor = MaterialTheme.colorScheme.onPrimary
-                                        )
+                                        ),
+                                        modifier = Modifier.desktopHandCursor()
                                     )
                                 }
                             }
@@ -766,6 +778,7 @@ fun CalendarScreen(
                         }
                     }
                 }
+            }
             }
         }
     }

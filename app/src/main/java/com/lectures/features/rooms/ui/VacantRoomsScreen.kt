@@ -1,5 +1,6 @@
 package com.lectures.features.rooms.ui
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -48,12 +49,15 @@ import com.lectures.features.rooms.SuggestionValue
 import com.lectures.features.rooms.UniversityDirectory
 import com.lectures.features.timetable.ui.*
 import com.lectures.ui.LocalAppTheme
+import com.lectures.ui.LocalExtendedColors
+import com.lectures.ui.MotionSpec
 import com.lectures.ui.components.DedicatedDayPickerDialog
 import com.lectures.ui.components.DedicatedTimePickerDialog
 import com.lectures.ui.components.FloatingIslandTopBar
 import com.lectures.ui.components.desktopHandCursor
 import com.lectures.ui.contrastOnColor
 import com.lectures.ui.rememberLecturesWindow
+import com.lectures.ui.rememberPrefersReducedMotion
 import java.util.Calendar
 import java.util.Locale
 
@@ -74,11 +78,13 @@ fun VacantRoomsScreen(
         .collectAsState(initial = emptyList())
 
     val isDark = LocalAppTheme.current.isDark
-    val surfaceColor = if (isDark) DarkSurfaceCard else Color.White
-    val bgColor = if (isDark) DarkSurfaceBase else SurfaceBaseLight
-    val textPrimary = if (isDark) Color.White else TextPrimaryLight
-    val textMuted = if (isDark) Color(0xFF94A3B8) else TextMutedLight
-    val borderSubtle = if (isDark) DarkBorderSubtle else BorderSubtleLight
+    val ext = LocalExtendedColors.current
+    val reducedMotion = rememberPrefersReducedMotion()
+    val surfaceColor = ext.surfaceCard
+    val bgColor = ext.surfaceBase
+    val textPrimary = ext.textPrimary
+    val textMuted = ext.textMuted
+    val borderSubtle = ext.borderSubtle
 
     // Current real-time clock defaults
     val calendar = remember { Calendar.getInstance() }
@@ -288,7 +294,7 @@ fun VacantRoomsScreen(
                     if (onBack != null) {
                         IconButton(
                             onClick = onBack,
-                            modifier = Modifier.desktopHandCursor()
+                            modifier = Modifier.size(48.dp).desktopHandCursor()
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -340,6 +346,7 @@ fun VacantRoomsScreen(
                             shape = RoundedCornerShape(6.dp),
                             color = if (isLiveNow) StatusGreenLive.copy(alpha = 0.12f) else accentColor.copy(alpha = 0.12f),
                             modifier = Modifier
+                                .minimumInteractiveComponentSize()
                                 .desktopHandCursor()
                                 .clickable {
                                     if (showDesktopSplit) {
@@ -388,7 +395,7 @@ fun VacantRoomsScreen(
                                 )
                                 isLiveNow = true
                             },
-                            modifier = Modifier.desktopHandCursor()
+                            modifier = Modifier.size(48.dp).desktopHandCursor()
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.RestartAlt,
@@ -401,7 +408,7 @@ fun VacantRoomsScreen(
                     if (!showDesktopSplit) {
                         IconButton(
                             onClick = { showFilterSheet = true },
-                            modifier = Modifier.desktopHandCursor()
+                            modifier = Modifier.size(48.dp).desktopHandCursor()
                         ) {
                             BadgedBox(
                                 badge = {
@@ -610,14 +617,18 @@ fun VacantRoomsScreen(
                             windowInfo.isWideWorkspace -> 320.dp
                             else -> 288.dp
                         }
-                        Box(
+                        AnimatedContent(
+                            targetState = selectedRoomForSchedule,
+                            transitionSpec = { MotionSpec.fadeTransform(reducedMotion = reducedMotion) },
+                            contentKey = { it?.room?.id ?: "empty_room_inspector" },
                             modifier = Modifier
                                 .width(inspectorWidth)
                                 .fillMaxHeight()
                                 .padding(bottom = padding.calculateBottomPadding() + 16.dp)
-                                .testTag("vacant_rooms_inspector_pane")
-                        ) {
-                            if (selectedRoomForSchedule != null) {
+                                .testTag("vacant_rooms_inspector_pane"),
+                            label = "vacant_room_inspector_switch"
+                        ) { roomStatus ->
+                            if (roomStatus != null) {
                                 Surface(
                                     shape = RoundedCornerShape(20.dp),
                                     color = surfaceColor,
@@ -625,7 +636,7 @@ fun VacantRoomsScreen(
                                     modifier = Modifier.fillMaxSize()
                                 ) {
                                     RoomScheduleInspectorContent(
-                                        status = selectedRoomForSchedule,
+                                        status = roomStatus,
                                         dayOfWeek = queryDay,
                                         isDark = isDark,
                                         showBottomCloseButton = false,

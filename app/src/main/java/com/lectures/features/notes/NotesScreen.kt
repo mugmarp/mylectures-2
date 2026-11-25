@@ -1,6 +1,7 @@
 package com.lectures.features.notes
 
 import android.widget.Toast
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -56,12 +57,14 @@ import com.lectures.features.timetable.ui.DarkSurfaceBase
 import com.lectures.ui.Chrome
 import com.lectures.ui.LocalAppTheme
 import com.lectures.ui.LocalExtendedColors
+import com.lectures.ui.MotionSpec
 import com.lectures.ui.components.AcademicProfileSheet
 import com.lectures.ui.components.FloatingIslandTopBar
 import com.lectures.ui.components.desktopHandCursor
 import com.lectures.ui.components.onEscapeKey
 import com.lectures.ui.contrastOnColor
 import com.lectures.ui.rememberLecturesWindow
+import com.lectures.ui.rememberPrefersReducedMotion
 import kotlinx.coroutines.delay
 
 @Composable
@@ -90,6 +93,8 @@ fun NotesScreen(
     }
 
     val isDark = LocalAppTheme.current.isDark
+    val ext = LocalExtendedColors.current
+    val reducedMotion = rememberPrefersReducedMotion()
     val windowInfo = rememberLecturesWindow()
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -132,54 +137,6 @@ fun NotesScreen(
         onDispose {
             onEditingChanged(false)
         }
-    }
-
-    if (isEditing) {
-        NoteEditorScreen(
-            initialNote = noteToEdit,
-            initialTab = editingInitialTab,
-            availableCourses = uiState.availableCourses,
-            timetableClasses = uiState.timetableClasses,
-            onAttachmentError = { message ->
-                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-            },
-            onWikiLinkClick = { linkTitle ->
-                val target = viewModel.findNoteByTitle(linkTitle)
-                if (target != null) {
-                    editingNoteKey = target.naturalKey
-                    editingInitialTab = if (windowInfo.isDualPane) {
-                        NoteEditorTab.SPLIT
-                    } else if (target.content.isNotBlank()) {
-                        NoteEditorTab.PREVIEW
-                    } else {
-                        NoteEditorTab.WRITE
-                    }
-                    isEditing = true
-                } else {
-                    Toast.makeText(context, "Linked note \"$linkTitle\" not found", Toast.LENGTH_SHORT).show()
-                }
-            },
-            onSave = { key, course, title, content, alarm, tag, attachedClass, attachment, attachmentPath ->
-                viewModel.saveNote(
-                    naturalKey = key,
-                    courseCode = course,
-                    title = title,
-                    content = content,
-                    alarmMinutes = alarm,
-                    tag = tag,
-                    attachedClass = attachedClass,
-                    attachmentName = attachment,
-                    attachmentPath = attachmentPath
-                )
-                isEditing = false
-                editingNoteKey = null
-            },
-            onCancel = {
-                isEditing = false
-                editingNoteKey = null
-            }
-        )
-        return
     }
 
     val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
@@ -226,7 +183,65 @@ fun NotesScreen(
         }
     }
 
-    Scaffold(
+    AnimatedContent(
+        targetState = isEditing,
+        transitionSpec = {
+            MotionSpec.directionalSlideTransform(
+                forward = targetState,
+                reducedMotion = reducedMotion,
+                useFadeOnly = windowInfo.useNavigationRail
+            )
+        },
+        contentKey = { it },
+        label = "notes_editor_transition"
+    ) { editing ->
+        if (editing) {
+            NoteEditorScreen(
+                initialNote = noteToEdit,
+                initialTab = editingInitialTab,
+                availableCourses = uiState.availableCourses,
+                timetableClasses = uiState.timetableClasses,
+                onAttachmentError = { message ->
+                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                },
+                onWikiLinkClick = { linkTitle ->
+                    val target = viewModel.findNoteByTitle(linkTitle)
+                    if (target != null) {
+                        editingNoteKey = target.naturalKey
+                        editingInitialTab = if (windowInfo.isDualPane) {
+                            NoteEditorTab.SPLIT
+                        } else if (target.content.isNotBlank()) {
+                            NoteEditorTab.PREVIEW
+                        } else {
+                            NoteEditorTab.WRITE
+                        }
+                        isEditing = true
+                    } else {
+                        Toast.makeText(context, "Linked note \"$linkTitle\" not found", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                onSave = { key, course, title, content, alarm, tag, attachedClass, attachment, attachmentPath ->
+                    viewModel.saveNote(
+                        naturalKey = key,
+                        courseCode = course,
+                        title = title,
+                        content = content,
+                        alarmMinutes = alarm,
+                        tag = tag,
+                        attachedClass = attachedClass,
+                        attachmentName = attachment,
+                        attachmentPath = attachmentPath
+                    )
+                    isEditing = false
+                    editingNoteKey = null
+                },
+                onCancel = {
+                    isEditing = false
+                    editingNoteKey = null
+                }
+            )
+        } else {
+            Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         modifier = Modifier.onPreviewKeyEvent { event ->
             if (event.type == KeyEventType.KeyDown) {
@@ -383,7 +398,7 @@ fun NotesScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(if (isDark) DarkSurfaceBase else MaterialTheme.colorScheme.background)
+                .background(ext.surfaceBase)
                 .padding(top = innerPadding.calculateTopPadding()),
             contentAlignment = Alignment.TopCenter
         ) {
@@ -692,7 +707,7 @@ fun NotesScreen(
                         deleteNoteKey = null
                     },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                    modifier = Modifier.desktopHandCursor()
+                    modifier = Modifier.defaultMinSize(minHeight = 48.dp).desktopHandCursor()
                 ) {
                     Text("Delete", fontWeight = FontWeight.Bold)
                 }
@@ -700,7 +715,7 @@ fun NotesScreen(
             dismissButton = {
                 TextButton(
                     onClick = { deleteNoteKey = null },
-                    modifier = Modifier.desktopHandCursor()
+                    modifier = Modifier.defaultMinSize(minHeight = 48.dp).desktopHandCursor()
                 ) {
                     Text("Cancel")
                 }
@@ -746,5 +761,7 @@ fun NotesScreen(
                 onNavigateToTimetable()
             }
         )
+    }
+        }
     }
 }

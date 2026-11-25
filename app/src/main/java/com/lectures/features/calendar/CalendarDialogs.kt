@@ -7,6 +7,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
 import com.lectures.features.tasks.AddTaskDialog
 import com.lectures.features.timetable.domain.Assignment
 import com.lectures.features.timetable.domain.CustomEvent
@@ -16,6 +17,9 @@ import com.lectures.features.timetable.ui.AddActivitySheet
 import com.lectures.features.timetable.ui.LectureDetailSheet
 import com.lectures.ui.components.AcademicProfileSheet
 import com.lectures.ui.components.RoomFloorBadge
+import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.components.onEscapeKey
+import com.lectures.ui.rememberLecturesWindow
 
 @Composable
 internal fun CalendarActionDialogs(
@@ -56,9 +60,16 @@ internal fun CalendarActionDialogs(
     onSettingsClick: () -> Unit,
     onNavigateToTimetable: () -> Unit
 ) {
+    val windowInfo = rememberLecturesWindow()
+    val useWideDialogs = windowInfo.preferDesktopDialogs
+
     selectedActivityForDetail?.let { event ->
         AlertDialog(
             onDismissRequest = onDismissActivityDetail,
+            properties = DialogProperties(usePlatformDefaultWidth = !useWideDialogs),
+            modifier = Modifier
+                .then(if (useWideDialogs) Modifier.widthIn(min = 360.dp, max = 480.dp) else Modifier)
+                .onEscapeKey(onDismissActivityDetail),
             title = {
                 Text(
                     text = event.title,
@@ -99,14 +110,20 @@ internal fun CalendarActionDialogs(
             },
             confirmButton = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = {
-                        val toEditId = event.id
-                        onDismissActivityDetail()
-                        onEditActivity(toEditId)
-                    }) {
+                    TextButton(
+                        onClick = {
+                            val toEditId = event.id
+                            onDismissActivityDetail()
+                            onEditActivity(toEditId)
+                        },
+                        modifier = Modifier.defaultMinSize(minHeight = 48.dp).desktopHandCursor()
+                    ) {
                         Text("Edit", fontWeight = FontWeight.Bold)
                     }
-                    TextButton(onClick = onDismissActivityDetail) {
+                    TextButton(
+                        onClick = onDismissActivityDetail,
+                        modifier = Modifier.defaultMinSize(minHeight = 48.dp).desktopHandCursor()
+                    ) {
                         Text("Close")
                     }
                 }
@@ -118,7 +135,8 @@ internal fun CalendarActionDialogs(
                         onDismissActivityDetail()
                         onRequestDeleteActivity(toDelId)
                     },
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    modifier = Modifier.defaultMinSize(minHeight = 48.dp).desktopHandCursor()
                 ) {
                     Text("Delete Activity")
                 }
@@ -222,18 +240,26 @@ internal fun CalendarActionDialogs(
     eventToDelete?.let { event ->
         AlertDialog(
             onDismissRequest = onDismissDeleteActivity,
+            properties = DialogProperties(usePlatformDefaultWidth = !useWideDialogs),
+            modifier = Modifier
+                .then(if (useWideDialogs) Modifier.widthIn(min = 340.dp, max = 460.dp) else Modifier)
+                .onEscapeKey(onDismissDeleteActivity),
             title = { Text("Delete Activity") },
             text = { Text("Are you sure you want to delete \"${event.title}\"?") },
             confirmButton = {
                 TextButton(
                     onClick = { onConfirmDeleteActivity(event.id) },
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    modifier = Modifier.defaultMinSize(minHeight = 48.dp).desktopHandCursor()
                 ) {
                     Text("Delete", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = onDismissDeleteActivity) {
+                TextButton(
+                    onClick = onDismissDeleteActivity,
+                    modifier = Modifier.defaultMinSize(minHeight = 48.dp).desktopHandCursor()
+                ) {
                     Text("Cancel")
                 }
             }
@@ -243,18 +269,26 @@ internal fun CalendarActionDialogs(
     taskToDelete?.let { task ->
         AlertDialog(
             onDismissRequest = onDismissDeleteTask,
+            properties = DialogProperties(usePlatformDefaultWidth = !useWideDialogs),
+            modifier = Modifier
+                .then(if (useWideDialogs) Modifier.widthIn(min = 340.dp, max = 460.dp) else Modifier)
+                .onEscapeKey(onDismissDeleteTask),
             title = { Text("Delete Deadline") },
             text = { Text("Are you sure you want to delete \"${task.title}\"?") },
             confirmButton = {
                 TextButton(
                     onClick = { onConfirmDeleteTask(task) },
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    modifier = Modifier.defaultMinSize(minHeight = 48.dp).desktopHandCursor()
                 ) {
                     Text("Delete", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = onDismissDeleteTask) {
+                TextButton(
+                    onClick = onDismissDeleteTask,
+                    modifier = Modifier.defaultMinSize(minHeight = 48.dp).desktopHandCursor()
+                ) {
                     Text("Cancel")
                 }
             }

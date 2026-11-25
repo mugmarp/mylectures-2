@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -60,9 +61,11 @@ import com.lectures.features.timetable.domain.LectureNote
 import com.lectures.features.timetable.ui.DarkBorderSubtle
 import com.lectures.features.timetable.ui.DarkSurfaceCard
 import com.lectures.ui.LocalExtendedColors
+import com.lectures.ui.MotionSpec
 import com.lectures.ui.components.desktopHandCursor
 import com.lectures.ui.components.desktopHoverable
 import com.lectures.ui.contrastOnColor
+import com.lectures.ui.rememberPrefersReducedMotion
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -83,8 +86,8 @@ internal fun NotesSearchBarCard(
             .fillMaxWidth()
             .padding(horizontal = 20.dp),
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = if (isDark) DarkSurfaceCard else Color.White),
-        border = BorderStroke(1.dp, if (isDark) DarkBorderSubtle else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
+        colors = CardDefaults.cardColors(containerColor = ext.surfaceCard),
+        border = BorderStroke(1.dp, ext.borderSubtle),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Row(
@@ -281,7 +284,8 @@ internal fun NotesFilterChipsStrip(
                                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
                             )
                         },
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.desktopHandCursor()
                     )
                 }
             }
@@ -291,6 +295,7 @@ internal fun NotesFilterChipsStrip(
                     onClick = { sortMenuExpanded = true },
                     modifier = Modifier
                         .size(48.dp)
+                        .desktopHandCursor()
                         .testTag("notes_sort_button")
                 ) {
                     Icon(
@@ -317,7 +322,8 @@ internal fun NotesFilterChipsStrip(
                             onClick = {
                                 sortMenuExpanded = false
                                 onSortOrderSelected(option)
-                            }
+                            },
+                            modifier = Modifier.desktopHandCursor()
                         )
                     }
                 }
@@ -504,9 +510,11 @@ internal fun NotesCourseGroupHeader(
     val courseInfo = availableCourses.find { it.code.equals(courseCode, ignoreCase = true) }
     val courseTitle = courseInfo?.title ?: "Academic Course"
     val fallbackPrimary = MaterialTheme.colorScheme.primary
-    val dotColor = courseInfo?.color?.let {
-        try { Color(android.graphics.Color.parseColor(it)) } catch (_: Exception) { fallbackPrimary }
-    } ?: fallbackPrimary
+    val dotColor = remember(courseInfo?.color, fallbackPrimary) {
+        courseInfo?.color?.let {
+            try { Color(android.graphics.Color.parseColor(it)) } catch (_: Exception) { fallbackPrimary }
+        } ?: fallbackPrimary
+    }
 
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -552,6 +560,7 @@ internal fun NotesDesktopPreviewPane(
     modifier: Modifier = Modifier
 ) {
     val ext = LocalExtendedColors.current
+    val reducedMotion = rememberPrefersReducedMotion()
     val accent = MaterialTheme.colorScheme.primary
     val context = LocalContext.current
 
@@ -562,7 +571,14 @@ internal fun NotesDesktopPreviewPane(
         shadowElevation = 2.dp,
         modifier = modifier.testTag("notes_quick_preview_pane")
     ) {
-        if (note == null) {
+        AnimatedContent(
+            targetState = note,
+            transitionSpec = { MotionSpec.fadeTransform(reducedMotion = reducedMotion) },
+            contentKey = { it?.naturalKey ?: "empty_note_preview" },
+            modifier = Modifier.fillMaxSize(),
+            label = "notes_preview_pane_switch"
+        ) { activeNote ->
+        if (activeNote == null) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -598,12 +614,12 @@ internal fun NotesDesktopPreviewPane(
                 }
             }
         } else {
-            val courseCode = note.naturalKey.split("|").firstOrNull()?.ifBlank { "General" } ?: "General"
-            val formattedDate = remember(note.updatedAt) {
-                SimpleDateFormat("MMM d, yyyy · HH:mm", Locale.getDefault()).format(Date(note.updatedAt))
+            val courseCode = activeNote.naturalKey.split("|").firstOrNull()?.ifBlank { "General" } ?: "General"
+            val formattedDate = remember(activeNote.updatedAt) {
+                SimpleDateFormat("MMM d, yyyy · HH:mm", Locale.getDefault()).format(Date(activeNote.updatedAt))
             }
-            val checklistProgress = remember(note.content) {
-                MarkdownUtils.countChecklistProgress(note.content)
+            val checklistProgress = remember(activeNote.content) {
+                MarkdownUtils.countChecklistProgress(activeNote.content)
             }
 
             Column(modifier = Modifier.fillMaxSize()) {
@@ -631,13 +647,13 @@ internal fun NotesDesktopPreviewPane(
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                             )
                         }
-                        if (!note.tag.isNullOrBlank()) {
+                        if (!activeNote.tag.isNullOrBlank()) {
                             Surface(
                                 shape = RoundedCornerShape(8.dp),
                                 color = ext.surfaceElevated
                             ) {
                                 Text(
-                                    text = note.tag.orEmpty(),
+                                    text = activeNote.tag.orEmpty(),
                                     fontSize = 11.sp,
                                     color = ext.textSecondary,
                                     maxLines = 1,
@@ -652,7 +668,7 @@ internal fun NotesDesktopPreviewPane(
                         IconButton(
                             onClick = {
                                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                clipboard.setPrimaryClip(ClipData.newPlainText(note.title ?: courseCode, note.content))
+                                clipboard.setPrimaryClip(ClipData.newPlainText(activeNote.title ?: courseCode, activeNote.content))
                                 Toast.makeText(context, "Markdown copied to clipboard", Toast.LENGTH_SHORT).show()
                             },
                             modifier = Modifier
@@ -668,20 +684,20 @@ internal fun NotesDesktopPreviewPane(
                             )
                         }
                         IconButton(
-                            onClick = { onTogglePin(note) },
+                            onClick = { onTogglePin(activeNote) },
                             modifier = Modifier
                                 .size(48.dp)
                                 .desktopHandCursor()
                         ) {
                             Icon(
-                                imageVector = if (note.isPinned) Icons.Default.PushPin else Icons.Outlined.PushPin,
-                                contentDescription = if (note.isPinned) "Unpin" else "Pin",
-                                tint = if (note.isPinned) accent else ext.textMuted,
+                                imageVector = if (activeNote.isPinned) Icons.Default.PushPin else Icons.Outlined.PushPin,
+                                contentDescription = if (activeNote.isPinned) "Unpin" else "Pin",
+                                tint = if (activeNote.isPinned) accent else ext.textMuted,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
                         IconButton(
-                            onClick = { onDelete(note) },
+                            onClick = { onDelete(activeNote) },
                             modifier = Modifier
                                 .size(48.dp)
                                 .desktopHandCursor()
@@ -717,7 +733,7 @@ internal fun NotesDesktopPreviewPane(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        text = note.title?.ifBlank { "Untitled Note" } ?: "Academic Note: $courseCode",
+                        text = activeNote.title?.ifBlank { "Untitled Note" } ?: "Academic Note: $courseCode",
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
                         color = ext.textPrimary
@@ -733,7 +749,7 @@ internal fun NotesDesktopPreviewPane(
                             fontSize = 11.5.sp,
                             color = ext.textMuted
                         )
-                        if (note.alarmMinutes != null) {
+                        if (activeNote.alarmMinutes != null) {
                             Surface(
                                 shape = RoundedCornerShape(6.dp),
                                 color = accent.copy(alpha = 0.12f)
@@ -744,7 +760,7 @@ internal fun NotesDesktopPreviewPane(
                                 ) {
                                     Icon(Icons.Default.NotificationsActive, contentDescription = null, tint = accent, modifier = Modifier.size(11.dp))
                                     Spacer(modifier = Modifier.width(3.dp))
-                                    Text("${note.alarmMinutes}m alert", fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold, color = accent)
+                                    Text("${activeNote.alarmMinutes}m alert", fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold, color = accent)
                                 }
                             }
                         }
@@ -765,14 +781,14 @@ internal fun NotesDesktopPreviewPane(
                         }
                     }
 
-                    if (!note.attachedClass.isNullOrBlank()) {
+                    if (!activeNote.attachedClass.isNullOrBlank()) {
                         Surface(
                             shape = RoundedCornerShape(10.dp),
                             color = ext.surfaceElevated,
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
-                                text = "Linked Class: ${note.attachedClass}",
+                                text = "Linked Class: ${activeNote.attachedClass}",
                                 fontSize = 12.sp,
                                 color = ext.textSecondary,
                                 maxLines = 2,
@@ -782,7 +798,7 @@ internal fun NotesDesktopPreviewPane(
                         }
                     }
 
-                    if (!note.attachmentName.isNullOrBlank()) {
+                    if (!activeNote.attachmentName.isNullOrBlank()) {
                         Surface(
                             shape = RoundedCornerShape(10.dp),
                             color = ext.surfaceElevated,
@@ -791,9 +807,9 @@ internal fun NotesDesktopPreviewPane(
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(10.dp))
                                 .let { mod ->
-                                    if (!note.attachmentPath.isNullOrBlank()) {
+                                    if (!activeNote.attachmentPath.isNullOrBlank()) {
                                         mod.desktopHoverable().clickable {
-                                            val uri = AttachmentStore.contentUriFor(context, note.attachmentPath)
+                                            val uri = AttachmentStore.contentUriFor(context, activeNote.attachmentPath)
                                             if (uri != null) {
                                                 val intent = Intent(Intent.ACTION_VIEW).apply {
                                                     setDataAndType(uri, context.contentResolver.getType(uri) ?: "*/*")
@@ -822,7 +838,7 @@ internal fun NotesDesktopPreviewPane(
                                 )
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = note.attachmentName,
+                                        text = activeNote.attachmentName,
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.SemiBold,
                                         color = ext.textPrimary,
@@ -830,7 +846,7 @@ internal fun NotesDesktopPreviewPane(
                                         overflow = TextOverflow.Ellipsis
                                     )
                                     Text(
-                                        text = if (note.attachmentPath != null) "Click to open attached file" else "Attachment name saved",
+                                        text = if (activeNote.attachmentPath != null) "Click to open attached file" else "Attachment name saved",
                                         fontSize = 10.5.sp,
                                         color = ext.textMuted
                                     )
@@ -847,7 +863,7 @@ internal fun NotesDesktopPreviewPane(
 
                     HorizontalDivider(color = ext.borderSubtle.copy(alpha = 0.6f))
 
-                    if (note.content.isBlank()) {
+                    if (activeNote.content.isBlank()) {
                         Text(
                             text = "This note is empty yet. Click \"Open Split Editor\" below to start writing or apply a Cornell/Exam template.",
                             fontSize = 13.sp,
@@ -855,8 +871,8 @@ internal fun NotesDesktopPreviewPane(
                         )
                     } else {
                         MarkdownViewer(
-                            markdown = note.content,
-                            onToggleChecklist = onToggleChecklist?.let { cb -> { lineIdx -> cb(note, lineIdx) } },
+                            markdown = activeNote.content,
+                            onToggleChecklist = onToggleChecklist?.let { cb -> { lineIdx -> cb(activeNote, lineIdx) } },
                             onWikiLinkClick = onWikiLinkClick,
                             onUrlClick = { rawUrl ->
                                 val safe = if (rawUrl.startsWith("http://", true) || rawUrl.startsWith("https://", true)) rawUrl else "https://$rawUrl"
@@ -873,7 +889,7 @@ internal fun NotesDesktopPreviewPane(
                         .padding(horizontal = 18.dp, vertical = 12.dp)
                 ) {
                     Button(
-                        onClick = { onEdit(note) },
+                        onClick = { onEdit(activeNote) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(48.dp)
@@ -891,6 +907,7 @@ internal fun NotesDesktopPreviewPane(
                     }
                 }
             }
+        }
         }
     }
 }

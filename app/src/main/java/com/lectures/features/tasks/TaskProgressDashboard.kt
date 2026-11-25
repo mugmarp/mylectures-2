@@ -1,18 +1,18 @@
 package com.lectures.features.tasks
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BarChart
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.PendingActions
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -26,17 +26,16 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lectures.core.alarm.TaskDateTimeParser
 import com.lectures.features.timetable.domain.Assignment
-import com.lectures.features.timetable.ui.DarkBorderSubtle
-import com.lectures.features.timetable.ui.DarkSurfaceBase
-import com.lectures.features.timetable.ui.DarkSurfaceCard
 import com.lectures.ui.LocalAppTheme
+import com.lectures.ui.LocalExtendedColors
+import com.lectures.ui.MotionSpec
 import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.rememberPrefersReducedMotion
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -197,12 +196,14 @@ fun TaskProgressDashboard(
     modifier: Modifier = Modifier
 ) {
     val isDark = LocalAppTheme.current.isDark
+    val ext = LocalExtendedColors.current
+    val reducedMotion = rememberPrefersReducedMotion()
     val windowInfo = com.lectures.ui.rememberLecturesWindow()
-    val cardBg = if (isDark) DarkSurfaceCard else Color.White
-    val textPrimary = if (isDark) Color.White else Color(0xFF0F172A)
-    val textSecondary = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
-    val slotBg = if (isDark) DarkSurfaceBase else Color(0xFFF1F5F9)
-    val slotActive = if (isDark) Color(0xFF334155) else Color.White
+    val cardBg = ext.surfaceCard
+    val textPrimary = ext.textPrimary
+    val textSecondary = ext.textSecondary
+    val slotBg = ext.surfaceBase
+    val slotActive = ext.surfaceElevated
 
     var scopeThisWeekOnly by remember { mutableStateOf(true) }
 
@@ -212,7 +213,7 @@ fun TaskProgressDashboard(
 
     val animatedProgress by animateFloatAsState(
         targetValue = if (metrics.totalCount > 0) metrics.completedCount.toFloat() / metrics.totalCount else 0f,
-        animationSpec = tween(durationMillis = 600),
+        animationSpec = if (reducedMotion) snap() else tween(durationMillis = MotionSpec.CHART_BAR_MS),
         label = "task_progress_animation"
     )
 
@@ -223,12 +224,7 @@ fun TaskProgressDashboard(
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = cardBg),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        border = CardDefaults.outlinedCardBorder().copy(
-            brush = Brush.linearGradient(
-                if (isDark) listOf(DarkBorderSubtle, DarkBorderSubtle)
-                else listOf(Color(0xFFE2E8F0), Color(0xFFEFF6FF))
-            )
-        )
+        border = BorderStroke(1.dp, ext.borderSubtle)
     ) {
         Column(
             modifier = Modifier
@@ -249,7 +245,7 @@ fun TaskProgressDashboard(
                     Box(
                         modifier = Modifier
                             .size(34.dp)
-                            .background(if (isDark) DarkSurfaceBase else accentColor.copy(alpha = 0.1f), CircleShape),
+                            .background(if (isDark) ext.surfaceBase else accentColor.copy(alpha = 0.1f), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -280,6 +276,27 @@ fun TaskProgressDashboard(
                 }
 
                 // Scope Switcher (This Week vs All Time)
+                val weekPillBg by animateColorAsState(
+                    targetValue = if (scopeThisWeekOnly) slotActive else Color.Transparent,
+                    animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+                    label = "week_pill_bg"
+                )
+                val weekPillText by animateColorAsState(
+                    targetValue = if (scopeThisWeekOnly) MaterialTheme.colorScheme.primary else textSecondary,
+                    animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+                    label = "week_pill_text"
+                )
+                val allPillBg by animateColorAsState(
+                    targetValue = if (!scopeThisWeekOnly) slotActive else Color.Transparent,
+                    animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+                    label = "all_pill_bg"
+                )
+                val allPillText by animateColorAsState(
+                    targetValue = if (!scopeThisWeekOnly) MaterialTheme.colorScheme.primary else textSecondary,
+                    animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+                    label = "all_pill_text"
+                )
+
                 Row(
                     modifier = Modifier
                         .clip(RoundedCornerShape(12.dp))
@@ -289,33 +306,51 @@ fun TaskProgressDashboard(
                 ) {
                     Box(
                         modifier = Modifier
+                            .defaultMinSize(minHeight = 48.dp)
                             .clip(RoundedCornerShape(10.dp))
-                            .background(if (scopeThisWeekOnly) slotActive else Color.Transparent)
                             .desktopHandCursor()
                             .clickable { scopeThisWeekOnly = true }
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                            .padding(horizontal = 2.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            "Week",
-                            fontSize = 11.sp,
-                            fontWeight = if (scopeThisWeekOnly) FontWeight.Bold else FontWeight.Medium,
-                            color = if (scopeThisWeekOnly) MaterialTheme.colorScheme.primary else textSecondary
-                        )
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(weekPillBg)
+                                .padding(horizontal = 8.dp, vertical = 5.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "Week",
+                                fontSize = 11.sp,
+                                fontWeight = if (scopeThisWeekOnly) FontWeight.Bold else FontWeight.Medium,
+                                color = weekPillText
+                            )
+                        }
                     }
                     Box(
                         modifier = Modifier
+                            .defaultMinSize(minHeight = 48.dp)
                             .clip(RoundedCornerShape(10.dp))
-                            .background(if (!scopeThisWeekOnly) slotActive else Color.Transparent)
                             .desktopHandCursor()
                             .clickable { scopeThisWeekOnly = false }
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                            .padding(horizontal = 2.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            "All",
-                            fontSize = 11.sp,
-                            fontWeight = if (!scopeThisWeekOnly) FontWeight.Bold else FontWeight.Medium,
-                            color = if (!scopeThisWeekOnly) MaterialTheme.colorScheme.primary else textSecondary
-                        )
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(allPillBg)
+                                .padding(horizontal = 8.dp, vertical = 5.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "All",
+                                fontSize = 11.sp,
+                                fontWeight = if (!scopeThisWeekOnly) FontWeight.Bold else FontWeight.Medium,
+                                color = allPillText
+                            )
+                        }
                     }
                 }
             }
@@ -503,7 +538,7 @@ fun TaskProgressDashboard(
             }
 
             Spacer(modifier = Modifier.height(14.dp))
-            HorizontalDivider(color = if (isDark) DarkBorderSubtle else Color(0xFFF1F5F9), thickness = 1.dp)
+            HorizontalDivider(color = ext.borderSubtle, thickness = 1.dp)
             Spacer(modifier = Modifier.height(12.dp))
 
             // D3 / Recharts-style Daily Breakdown Bar Chart
@@ -564,7 +599,23 @@ private fun DayColumnItem(
     modifier: Modifier = Modifier
 ) {
     val isDark = LocalAppTheme.current.isDark
+    val ext = LocalExtendedColors.current
+    val reducedMotion = rememberPrefersReducedMotion()
     val total = day.completedCount + day.pendingCount
+
+    val targetTotalFraction = if (total > 0) (total.toFloat() / maxTotal).coerceIn(0.18f, 1f) else 0f
+    val targetCompletedFraction = if (total > 0) day.completedCount.toFloat() / total else 0f
+
+    val animatedTotalFraction by animateFloatAsState(
+        targetValue = targetTotalFraction,
+        animationSpec = if (reducedMotion) snap() else tween(durationMillis = MotionSpec.CHART_BAR_MS),
+        label = "day_bar_total_fraction"
+    )
+    val animatedCompletedFraction by animateFloatAsState(
+        targetValue = targetCompletedFraction,
+        animationSpec = if (reducedMotion) snap() else tween(durationMillis = MotionSpec.CHART_BAR_MS),
+        label = "day_bar_completed_fraction"
+    )
 
     Column(
         modifier = modifier
@@ -584,7 +635,7 @@ private fun DayColumnItem(
                 text = "$total",
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
-                color = if (day.isToday) Color(0xFF60A5FA) else (if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B))
+                color = if (day.isToday) Color(0xFF60A5FA) else ext.textSecondary
             )
         } else {
             Spacer(modifier = Modifier.height(12.dp))
@@ -609,17 +660,15 @@ private fun DayColumnItem(
                 cornerRadius = CornerRadius(6.dp.toPx(), 6.dp.toPx())
             )
 
-            if (total > 0) {
-                val totalFraction = (total.toFloat() / maxTotal).coerceIn(0.18f, 1f)
-                val barTotalH = canvasH * totalFraction
+            if (total > 0 && animatedTotalFraction > 0f) {
+                val barTotalH = canvasH * animatedTotalFraction
                 val barTopY = canvasH - barTotalH
 
-                val completedFraction = day.completedCount.toFloat() / total
-                val completedH = barTotalH * completedFraction
-                val pendingH = barTotalH - completedH
+                val completedH = barTotalH * animatedCompletedFraction
+                val pendingH = (barTotalH - completedH).coerceAtLeast(0f)
 
                 // Pending segment (Blue - on top)
-                if (pendingH > 0) {
+                if (pendingH > 0.5f) {
                     drawRoundRect(
                         color = Color(0xFF3B82F6),
                         topLeft = Offset(0f, barTopY),
@@ -629,7 +678,7 @@ private fun DayColumnItem(
                 }
 
                 // Completed segment (Green - on bottom)
-                if (completedH > 0) {
+                if (completedH > 0.5f) {
                     drawRoundRect(
                         color = Color(0xFF10B981),
                         topLeft = Offset(0f, canvasH - completedH),

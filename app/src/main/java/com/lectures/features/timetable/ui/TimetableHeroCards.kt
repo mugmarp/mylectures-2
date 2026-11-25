@@ -19,6 +19,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -31,6 +32,7 @@ import com.lectures.ui.AccentDarkColors
 import com.lectures.ui.LocalAppTheme
 import com.lectures.ui.LocalExtendedColors
 import com.lectures.ui.components.RoomFloorBadge
+import com.lectures.ui.components.desktopHandCursor
 
 @Composable
 fun NextUpHeroCard(
@@ -98,6 +100,8 @@ fun NextUpHeroCard(
                 brush = Brush.verticalGradient(listOf(heroStart, heroEnd)),
                 shape = HeroCardShape
             )
+            .clip(HeroCardShape)
+            .desktopHandCursor()
             .clickable(onClick = onClick)
             .padding(20.dp)
     ) {
@@ -297,7 +301,8 @@ fun NextUpHeroCard(
                     onClick = onSetAlarm,
                     modifier = Modifier
                         .weight(1f)
-                        .height(44.dp),
+                        .height(48.dp)
+                        .desktopHandCursor(),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = when {
                             isDark && session.isAlarmSet -> ext.successBg
@@ -333,7 +338,8 @@ fun NextUpHeroCard(
                     onClick = onQuickNote,
                     modifier = Modifier
                         .weight(1f)
-                        .height(44.dp),
+                        .height(48.dp)
+                        .desktopHandCursor(),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color.White.copy(alpha = if (isDark) 0.14f else 0.2f),
                         contentColor = cardTextPrimary
@@ -365,17 +371,18 @@ fun DockedUpNextBar(
     onSessionClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isDark = LocalAppTheme.current.isDark
     val ext = LocalExtendedColors.current
     val accentColor = MaterialTheme.colorScheme.primary
-    val containerColor = if (isDark) DarkSurfaceCard else SurfaceContainerLowLight
-    val borderSubtle = if (isDark) DarkBorderSubtle else BorderSubtleLight
-    val textPrimary = if (isDark) ext.textPrimary else TextPrimaryLight
+    val containerColor = ext.surfaceCard
+    val borderSubtle = ext.borderSubtle
+    val textPrimary = ext.textPrimary
 
     Surface(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
+            .clip(UpNextBarShape)
+            .desktopHandCursor()
             .clickable(onClick = onSessionClick),
         shape = UpNextBarShape,
         color = containerColor,
@@ -420,7 +427,7 @@ fun DockedUpNextBar(
                         Text(
                             text = "• ${session.courseCode}",
                             fontSize = 11.sp,
-                            color = if (isDark) ext.textMuted else TextMutedLight
+                            color = ext.textMuted
                         )
                     }
                     Text(

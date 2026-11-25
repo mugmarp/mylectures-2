@@ -1,5 +1,6 @@
 package com.lectures.features.timetable.ui
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -15,6 +16,7 @@ import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -27,8 +29,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lectures.core.util.TimeUtil
 import com.lectures.ui.LocalAppTheme
+import com.lectures.ui.LocalExtendedColors
+import com.lectures.ui.MotionSpec
 import com.lectures.ui.components.FloatingIslandTopBar
+import com.lectures.ui.components.desktopHandCursor
+import com.lectures.ui.components.desktopHoverable
 import com.lectures.ui.rememberLecturesWindow
+import com.lectures.ui.rememberPrefersReducedMotion
 import java.util.Calendar
 import java.util.Locale
 
@@ -44,19 +51,19 @@ fun TimetableTopAppBar(
     onOpenVacantRooms: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val isDark = LocalAppTheme.current.isDark
+    val ext = LocalExtendedColors.current
     val accentColor = MaterialTheme.colorScheme.primary
-    val textPrimary = if (isDark) Color.White else TextPrimaryLight
-    val textMuted = if (isDark) Color(0xFF94A3B8) else TextMutedLight
-    val capsuleBg = if (isDark) DarkSurfaceCard else SurfaceContainerLowLight
-    val borderSubtle = if (isDark) DarkBorderSubtle else BorderSubtleLight
-    val iconTint = if (isDark) Color(0xFFCBD5E1) else TextSecondaryLight
+    val textPrimary = ext.textPrimary
+    val textMuted = ext.textMuted
+    val capsuleBg = ext.surfaceElevated
+    val borderSubtle = ext.borderSubtle
+    val iconTint = ext.textSecondary
 
     FloatingIslandTopBar(modifier = modifier) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 8.dp),
+                .padding(horizontal = 14.dp, vertical = 6.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -121,61 +128,73 @@ fun TimetableTopAppBar(
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 if (!windowInfo.useNavigationRail) {
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = accentColor.copy(alpha = 0.12f),
-                        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.35f)),
+                    Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(12.dp))
+                            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .desktopHandCursor()
                             .clickable { onOpenVacantRooms() }
-                            .testTag("topbar_vacant_rooms_btn")
+                            .testTag("topbar_vacant_rooms_btn"),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Row(
-                            modifier = Modifier.padding(
-                                horizontal = if (windowInfo.topBarCompactAction) 8.dp else 10.dp,
-                                vertical = 6.dp
-                            ),
-                            verticalAlignment = Alignment.CenterVertically
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = accentColor.copy(alpha = 0.12f),
+                            border = BorderStroke(1.dp, accentColor.copy(alpha = 0.35f))
                         ) {
-                            Icon(
-                                imageVector = Icons.Outlined.MeetingRoom,
-                                contentDescription = "Vacant Rooms",
-                                tint = accentColor,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            if (!windowInfo.topBarCompactAction) {
-                                Spacer(modifier = Modifier.width(5.dp))
-                                Text(
-                                    text = "Free Rooms",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = accentColor
+                            Row(
+                                modifier = Modifier.padding(
+                                    horizontal = if (windowInfo.topBarCompactAction) 9.dp else 10.dp,
+                                    vertical = 7.dp
+                                ),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.MeetingRoom,
+                                    contentDescription = "Vacant Rooms",
+                                    tint = accentColor,
+                                    modifier = Modifier.size(16.dp)
                                 )
+                                if (!windowInfo.topBarCompactAction) {
+                                    Spacer(modifier = Modifier.width(5.dp))
+                                    Text(
+                                        text = "Free Rooms",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = accentColor
+                                    )
+                                }
                             }
                         }
                     }
                 }
 
-                Surface(
-                    shape = CircleShape,
-                    color = capsuleBg,
-                    border = BorderStroke(1.dp, borderSubtle),
+                Box(
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(48.dp)
                         .clip(CircleShape)
+                        .desktopHandCursor()
                         .clickable { onProfileClick() }
-                        .testTag("topbar_academic_info_btn")
+                        .testTag("topbar_academic_info_btn"),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Outlined.Menu,
-                            contentDescription = "Academic Info",
-                            tint = iconTint,
-                            modifier = Modifier.size(20.dp)
-                        )
+                    Surface(
+                        shape = CircleShape,
+                        color = capsuleBg,
+                        border = BorderStroke(1.dp, borderSubtle),
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Outlined.Menu,
+                                contentDescription = "Academic Info",
+                                tint = iconTint,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -191,17 +210,17 @@ fun ScheduleHeaderSection(
     onFilterClicked: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isDark = LocalAppTheme.current.isDark
+    val ext = LocalExtendedColors.current
     val accentColor = MaterialTheme.colorScheme.primary
-    val textPrimary = if (isDark) Color.White else TextPrimaryLight
-    val textMuted = if (isDark) Color(0xFF94A3B8) else TextMutedLight
-    val pillBg = if (isDark) DarkSurfaceCard else SurfaceContainerLowLight
-    val borderSubtle = if (isDark) DarkBorderSubtle else BorderSubtleLight
+    val textPrimary = ext.textPrimary
+    val textMuted = ext.textMuted
+    val pillBg = ext.surfaceElevated
+    val borderSubtle = ext.borderSubtle
 
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 6.dp),
+            .padding(horizontal = 20.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -225,31 +244,39 @@ fun ScheduleHeaderSection(
 
         Spacer(modifier = Modifier.width(12.dp))
 
-        Surface(
-            onClick = onFilterClicked,
-            shape = RoundedCornerShape(14.dp),
-            color = pillBg,
-            border = BorderStroke(1.dp, borderSubtle)
+        Box(
+            modifier = Modifier
+                .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .desktopHandCursor()
+                .clickable(onClick = onFilterClicked),
+            contentAlignment = Alignment.Center
         ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                verticalAlignment = Alignment.CenterVertically
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = pillBg,
+                border = BorderStroke(1.dp, borderSubtle)
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.Tune,
-                    contentDescription = "Filter",
-                    tint = accentColor,
-                    modifier = Modifier.size(15.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = activeFilter,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = accentColor,
-                    maxLines = 1,
-                    softWrap = false
-                )
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Tune,
+                        contentDescription = "Filter",
+                        tint = accentColor,
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = activeFilter,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = accentColor,
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                }
             }
         }
     }
@@ -268,6 +295,8 @@ fun DayCapsuleStrip(
     modifier: Modifier = Modifier
 ) {
     val isDark = LocalAppTheme.current.isDark
+    val ext = LocalExtendedColors.current
+    val reducedMotion = rememberPrefersReducedMotion()
     val accentColor = MaterialTheme.colorScheme.primary
     val windowInfo = rememberLecturesWindow()
     val isCompact = windowInfo.dayStripCompact
@@ -283,44 +312,36 @@ fun DayCapsuleStrip(
             val isActive = item.isSelected
             val isToday = item.isToday
 
-            val capsuleModifier = when {
-                isActive -> {
-                    Modifier
-                        .weight(1f)
-                        .heightIn(min = 44.dp)
-                        .shadow(
-                            elevation = 4.dp,
-                            shape = RoundedCornerShape(12.dp),
-                            ambientColor = accentColor.copy(alpha = 0.35f),
-                            spotColor = accentColor.copy(alpha = 0.45f)
-                        )
-                        .background(accentColor, RoundedCornerShape(12.dp))
-                        .clickable { onDaySelected(item.name) }
-                }
-                isToday -> {
-                    Modifier
-                        .weight(1f)
-                        .heightIn(min = 44.dp)
-                        .background(
-                            if (isDark) accentColor.copy(alpha = 0.22f) else accentColor.copy(alpha = 0.12f),
-                            RoundedCornerShape(12.dp)
-                        )
-                        .border(width = 1.5.dp, color = accentColor, shape = RoundedCornerShape(12.dp))
-                        .clickable { onDaySelected(item.name) }
-                }
-                else -> {
-                    Modifier
-                        .weight(1f)
-                        .heightIn(min = 44.dp)
-                        .background(if (isDark) DarkSurfaceCard else Color.White, RoundedCornerShape(12.dp))
-                        .border(
-                            width = 1.dp,
-                            color = if (isDark) DarkBorderSubtle else BorderSubtleLight,
-                            shape = RoundedCornerShape(12.dp)
-                        )
-                        .clickable { onDaySelected(item.name) }
-                }
+            val targetBg = when {
+                isActive -> accentColor
+                isToday -> if (isDark) accentColor.copy(alpha = 0.22f) else accentColor.copy(alpha = 0.12f)
+                else -> ext.surfaceCard
             }
+            val targetBorder = when {
+                isActive || isToday -> accentColor
+                else -> ext.borderSubtle
+            }
+            val targetText = when {
+                isActive -> MaterialTheme.colorScheme.onPrimary
+                isToday -> accentColor
+                else -> ext.textSecondary
+            }
+
+            val animBg by animateColorAsState(
+                targetValue = targetBg,
+                animationSpec = MotionSpec.stateTween(MotionSpec.STATE_COLOR_MS, reducedMotion),
+                label = "day_capsule_bg"
+            )
+            val animBorder by animateColorAsState(
+                targetValue = targetBorder,
+                animationSpec = MotionSpec.stateTween(MotionSpec.STATE_COLOR_MS, reducedMotion),
+                label = "day_capsule_border"
+            )
+            val animText by animateColorAsState(
+                targetValue = targetText,
+                animationSpec = MotionSpec.stateTween(MotionSpec.STATE_COLOR_MS, reducedMotion),
+                label = "day_capsule_text"
+            )
 
             val dayLabel = if (isCompact) {
                 when (item.name.lowercase(Locale.ROOT).take(3)) {
@@ -337,20 +358,40 @@ fun DayCapsuleStrip(
                 item.name.take(3)
             }
 
+            val shape = RoundedCornerShape(12.dp)
             Box(
-                modifier = capsuleModifier,
+                modifier = Modifier
+                    .weight(1f)
+                    .heightIn(min = 48.dp)
+                    .then(
+                        if (isActive) {
+                            Modifier.shadow(
+                                elevation = 4.dp,
+                                shape = shape,
+                                ambientColor = accentColor.copy(alpha = 0.35f),
+                                spotColor = accentColor.copy(alpha = 0.45f)
+                            )
+                        } else {
+                            Modifier
+                        }
+                    )
+                    .clip(shape)
+                    .background(animBg, shape)
+                    .border(
+                        width = if (isToday && !isActive) 1.5.dp else 1.dp,
+                        color = animBorder,
+                        shape = shape
+                    )
+                    .desktopHoverable(enabled = !isActive)
+                    .desktopHandCursor()
+                    .clickable { onDaySelected(item.name) },
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = dayLabel,
                     fontSize = if (isCompact) 12.sp else 13.sp,
                     fontWeight = if (isActive || isToday) FontWeight.Bold else FontWeight.Medium,
-                    color = when {
-                        isActive -> MaterialTheme.colorScheme.onPrimary
-                        isToday -> accentColor
-                        isDark -> Color(0xFFF1F5F9)
-                        else -> TextSecondaryLight
-                    },
+                    color = animText,
                     maxLines = 1
                 )
             }
@@ -366,6 +407,8 @@ fun DayCapsuleStrip(
 ) {
     val days = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
     val isDark = LocalAppTheme.current.isDark
+    val ext = LocalExtendedColors.current
+    val reducedMotion = rememberPrefersReducedMotion()
     val accentColor = MaterialTheme.colorScheme.primary
     val todayIndex = run {
         val dow = Calendar.getInstance().get(Calendar.DAY_OF_WEEK)
@@ -383,59 +426,71 @@ fun DayCapsuleStrip(
             val isActive = selectedDayIndex == index
             val isToday = index == todayIndex
 
-            val capsuleModifier = when {
-                isActive -> {
-                    Modifier
-                        .weight(1f)
-                        .heightIn(min = 44.dp)
-                        .shadow(
-                            elevation = 4.dp,
-                            shape = RoundedCornerShape(12.dp),
-                            ambientColor = accentColor.copy(alpha = 0.35f),
-                            spotColor = accentColor.copy(alpha = 0.45f)
-                        )
-                        .background(accentColor, RoundedCornerShape(12.dp))
-                        .clickable { onDaySelected(index, day) }
-                }
-                isToday -> {
-                    Modifier
-                        .weight(1f)
-                        .heightIn(min = 44.dp)
-                        .background(
-                            if (isDark) accentColor.copy(alpha = 0.22f) else accentColor.copy(alpha = 0.12f),
-                            RoundedCornerShape(12.dp)
-                        )
-                        .border(width = 1.5.dp, color = accentColor, shape = RoundedCornerShape(12.dp))
-                        .clickable { onDaySelected(index, day) }
-                }
-                else -> {
-                    Modifier
-                        .weight(1f)
-                        .heightIn(min = 44.dp)
-                        .background(if (isDark) DarkSurfaceCard else Color.White, RoundedCornerShape(12.dp))
-                        .border(
-                            width = 1.dp,
-                            color = if (isDark) DarkBorderSubtle else BorderSubtleLight,
-                            shape = RoundedCornerShape(12.dp)
-                        )
-                        .clickable { onDaySelected(index, day) }
-                }
+            val targetBg = when {
+                isActive -> accentColor
+                isToday -> if (isDark) accentColor.copy(alpha = 0.22f) else accentColor.copy(alpha = 0.12f)
+                else -> ext.surfaceCard
+            }
+            val targetBorder = when {
+                isActive || isToday -> accentColor
+                else -> ext.borderSubtle
+            }
+            val targetText = when {
+                isActive -> MaterialTheme.colorScheme.onPrimary
+                isToday -> accentColor
+                else -> ext.textSecondary
             }
 
+            val animBg by animateColorAsState(
+                targetValue = targetBg,
+                animationSpec = MotionSpec.stateTween(MotionSpec.STATE_COLOR_MS, reducedMotion),
+                label = "day_idx_bg"
+            )
+            val animBorder by animateColorAsState(
+                targetValue = targetBorder,
+                animationSpec = MotionSpec.stateTween(MotionSpec.STATE_COLOR_MS, reducedMotion),
+                label = "day_idx_border"
+            )
+            val animText by animateColorAsState(
+                targetValue = targetText,
+                animationSpec = MotionSpec.stateTween(MotionSpec.STATE_COLOR_MS, reducedMotion),
+                label = "day_idx_text"
+            )
+
+            val shape = RoundedCornerShape(12.dp)
             Box(
-                modifier = capsuleModifier,
+                modifier = Modifier
+                    .weight(1f)
+                    .heightIn(min = 48.dp)
+                    .then(
+                        if (isActive) {
+                            Modifier.shadow(
+                                elevation = 4.dp,
+                                shape = shape,
+                                ambientColor = accentColor.copy(alpha = 0.35f),
+                                spotColor = accentColor.copy(alpha = 0.45f)
+                            )
+                        } else {
+                            Modifier
+                        }
+                    )
+                    .clip(shape)
+                    .background(animBg, shape)
+                    .border(
+                        width = if (isToday && !isActive) 1.5.dp else 1.dp,
+                        color = animBorder,
+                        shape = shape
+                    )
+                    .desktopHoverable(enabled = !isActive)
+                    .desktopHandCursor()
+                    .clickable { onDaySelected(index, day) },
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = day,
                     fontSize = 13.sp,
                     fontWeight = if (isActive || isToday) FontWeight.Bold else FontWeight.Medium,
-                    color = when {
-                        isActive -> MaterialTheme.colorScheme.onPrimary
-                        isToday -> accentColor
-                        isDark -> Color(0xFFF1F5F9)
-                        else -> TextSecondaryLight
-                    }
+                    color = animText
                 )
             }
         }
@@ -447,12 +502,12 @@ fun OfflineArchiveCard(
     onViewClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isDark = LocalAppTheme.current.isDark
+    val ext = LocalExtendedColors.current
     val accentColor = MaterialTheme.colorScheme.primary
-    val cardBg = if (isDark) DarkSurfaceCard else Color.White
-    val borderSubtle = if (isDark) DarkBorderSubtle else BorderSubtleLight
-    val textPrimary = if (isDark) Color.White else TextPrimaryLight
-    val textMuted = if (isDark) Color(0xFF94A3B8) else TextMutedLight
+    val cardBg = ext.surfaceCard
+    val borderSubtle = ext.borderSubtle
+    val textPrimary = ext.textPrimary
+    val textMuted = ext.textMuted
 
     Surface(
         modifier = modifier

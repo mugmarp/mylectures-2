@@ -4,7 +4,9 @@ import android.app.Application
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
@@ -15,6 +17,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -83,14 +86,15 @@ import com.lectures.features.onboarding.FacultyCatalog
 import com.lectures.features.timetable.data.ETagStore
 import com.lectures.ui.LocalAppTheme
 import com.lectures.ui.LocalExtendedColors
+import com.lectures.ui.MotionSpec
 import com.lectures.ui.ThemeMode
 import com.lectures.ui.components.FloatingIslandTopBar
 import com.lectures.ui.components.desktopHandCursor
-import kotlinx.coroutines.delay
 import com.lectures.ui.components.desktopHoverable
-import com.lectures.ui.contrastOnColor
 import com.lectures.ui.rememberLecturesWindow
+import com.lectures.ui.rememberPrefersReducedMotion
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 
 enum class SettingsSubScreen {
     MAIN,
@@ -119,6 +123,8 @@ fun SettingsScreen(
     onBack: (() -> Unit)? = null
 ) {
     val windowInfo = rememberLecturesWindow()
+    val reducedMotion = rememberPrefersReducedMotion()
+    val ext = LocalExtendedColors.current
     var currentSubScreen by rememberSaveable { mutableStateOf(SettingsSubScreen.MAIN) }
     var selectedCategory by rememberSaveable { mutableStateOf(SettingsCategory.OVERVIEW) }
 
@@ -141,10 +147,20 @@ fun SettingsScreen(
         }
     }
 
-    if (isAccountScreenOpen) {
-        AccountScreen(onBack = { isAccountScreenOpen = false })
-        return
-    }
+    AnimatedContent(
+        targetState = isAccountScreenOpen,
+        transitionSpec = {
+            MotionSpec.directionalSlideTransform(
+                forward = targetState,
+                reducedMotion = reducedMotion,
+                useFadeOnly = windowInfo.useNavigationRail
+            )
+        },
+        label = "settings_account_transition"
+    ) { accountOpen ->
+        if (accountOpen) {
+            AccountScreen(onBack = { isAccountScreenOpen = false })
+        } else {
 
     val context = LocalContext.current
     val app = context.applicationContext as? TimetableApplication
@@ -158,8 +174,7 @@ fun SettingsScreen(
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
         }
-        return
-    }
+    } else {
 
     val viewModel: SettingsViewModel = viewModel(
         factory = SettingsViewModel.provideFactory(
@@ -277,7 +292,7 @@ fun SettingsScreen(
     val scrollState = rememberScrollState()
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = ext.surfaceBase,
         topBar = {
             FloatingIslandTopBar {
                 Row(
@@ -326,20 +341,27 @@ fun SettingsScreen(
                         }
                         Spacer(modifier = Modifier.width(10.dp))
                     }
-                    Text(
-                        text = if (windowInfo.isDualPane) {
-                            "Settings"
-                        } else {
-                            when (currentSubScreen) {
-                                SettingsSubScreen.APPEARANCE -> "Appearance & Theme"
-                                SettingsSubScreen.NOTIFICATIONS -> "Notifications & Alarms"
-                                SettingsSubScreen.MAIN -> "Settings"
-                            }
-                        },
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
+                    val topBarTitle = if (windowInfo.isDualPane) {
+                        "Settings"
+                    } else {
+                        when (currentSubScreen) {
+                            SettingsSubScreen.APPEARANCE -> "Appearance & Theme"
+                            SettingsSubScreen.NOTIFICATIONS -> "Notifications & Alarms"
+                            SettingsSubScreen.MAIN -> "Settings"
+                        }
+                    }
+                    AnimatedContent(
+                        targetState = topBarTitle,
+                        transitionSpec = { MotionSpec.fadeTransform(reducedMotion = reducedMotion) },
+                        label = "settings_topbar_title"
+                    ) { titleText ->
+                        Text(
+                            text = titleText,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                    }
                 }
             }
         }
@@ -402,20 +424,26 @@ fun SettingsScreen(
 
                             SettingsCategory.entries.forEach { category ->
                                 val isSelected = selectedCategory == category
-                                val bgColor = if (isSelected) {
-                                    MaterialTheme.colorScheme.primaryContainer
-                                } else {
-                                    Color.Transparent
-                                }
-                                val fgColor = if (isSelected) {
-                                    MaterialTheme.colorScheme.onPrimaryContainer
-                                } else {
-                                    MaterialTheme.colorScheme.onSurface
-                                }
+                                val bgColor by animateColorAsState(
+                                    targetValue = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+                                    animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+                                    label = "settings_cat_bg"
+                                )
+                                val fgColor by animateColorAsState(
+                                    targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                                    animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+                                    label = "settings_cat_fg"
+                                )
+                                val iconTint by animateColorAsState(
+                                    targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+                                    label = "settings_cat_icon"
+                                )
 
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
+                                        .defaultMinSize(minHeight = 48.dp)
                                         .clip(RoundedCornerShape(14.dp))
                                         .desktopHoverable(
                                             hoverContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.06f)
@@ -436,7 +464,7 @@ fun SettingsScreen(
                                     Icon(
                                         imageVector = category.icon,
                                         contentDescription = null,
-                                        tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        tint = iconTint,
                                         modifier = Modifier.size(20.dp)
                                     )
                                     Spacer(modifier = Modifier.width(12.dp))
@@ -476,7 +504,13 @@ fun SettingsScreen(
                             onDismiss = { viewModel.clearFeedbackMessages() }
                         )
 
-                        when (selectedCategory) {
+                        AnimatedContent(
+                            targetState = selectedCategory,
+                            transitionSpec = { MotionSpec.fadeTransform(reducedMotion = reducedMotion) },
+                            modifier = Modifier.weight(1f).fillMaxWidth(),
+                            label = "settings_desktop_detail"
+                        ) { activeCategory ->
+                        when (activeCategory) {
                             SettingsCategory.OVERVIEW -> {
                                 Column(
                                     modifier = Modifier
@@ -596,61 +630,74 @@ fun SettingsScreen(
                                 }
                             }
                         }
+                        }
                     }
                 }
             }
-        } else if (currentSubScreen == SettingsSubScreen.APPEARANCE) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentAlignment = Alignment.TopCenter
-            ) {
-                AppearanceSettingsView(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .widthIn(max = 760.dp),
-                    appTheme = appTheme,
-                    onSelectThemeMode = onSelectThemeMode,
-                    onSelectAccent = onSelectAccent
-                )
-            }
-        } else if (currentSubScreen == SettingsSubScreen.NOTIFICATIONS) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentAlignment = Alignment.TopCenter
-            ) {
-                NotificationSettingsView(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .widthIn(max = 760.dp),
-                    context = context,
-                    uiState = uiState,
-                    isDark = isDark,
-                    areNotificationsAllowed = areNotificationsAllowed,
-                    canScheduleExactAlarms = canScheduleExactAlarms,
-                    blockedChannels = blockedChannels,
-                    isPermissionBannerDismissed = isPermissionBannerDismissed,
-                    onDismissPermissionBanner = { isPermissionBannerDismissed = true },
-                    onToggleNotifications = { viewModel.setNotificationsEnabled(it) },
-                    onSelectClassLeadMinutes = { viewModel.setClassAlarmLeadMinutes(it) },
-                    onOpenCustomLeadDialog = {
-                        customLeadInput = uiState.classAlarmLeadMinutes.toString()
-                        showCustomLeadDialog = true
-                    },
-                    onSelectTaskLeadHours = { viewModel.setTaskReminderLeadHours(it) },
-                    onToggleDailyDigest = { viewModel.setDailyDigestEnabled(it) }
-                )
-            }
         } else {
-            Box(
+            AnimatedContent(
+                targetState = currentSubScreen,
+                transitionSpec = {
+                    MotionSpec.directionalSlideTransform(
+                        forward = targetState != SettingsSubScreen.MAIN,
+                        reducedMotion = reducedMotion,
+                        useFadeOnly = windowInfo.useNavigationRail
+                    )
+                },
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding),
-                contentAlignment = Alignment.TopCenter
-            ) {
+                label = "settings_phone_subscreen"
+            ) { activeSubScreen ->
+                when (activeSubScreen) {
+                    SettingsSubScreen.APPEARANCE -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.TopCenter
+                        ) {
+                            AppearanceSettingsView(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .widthIn(max = 760.dp),
+                                appTheme = appTheme,
+                                onSelectThemeMode = onSelectThemeMode,
+                                onSelectAccent = onSelectAccent
+                            )
+                        }
+                    }
+                    SettingsSubScreen.NOTIFICATIONS -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.TopCenter
+                        ) {
+                            NotificationSettingsView(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .widthIn(max = 760.dp),
+                                context = context,
+                                uiState = uiState,
+                                isDark = isDark,
+                                areNotificationsAllowed = areNotificationsAllowed,
+                                canScheduleExactAlarms = canScheduleExactAlarms,
+                                blockedChannels = blockedChannels,
+                                isPermissionBannerDismissed = isPermissionBannerDismissed,
+                                onDismissPermissionBanner = { isPermissionBannerDismissed = true },
+                                onToggleNotifications = { viewModel.setNotificationsEnabled(it) },
+                                onSelectClassLeadMinutes = { viewModel.setClassAlarmLeadMinutes(it) },
+                                onOpenCustomLeadDialog = {
+                                    customLeadInput = uiState.classAlarmLeadMinutes.toString()
+                                    showCustomLeadDialog = true
+                                },
+                                onSelectTaskLeadHours = { viewModel.setTaskReminderLeadHours(it) },
+                                onToggleDailyDigest = { viewModel.setDailyDigestEnabled(it) }
+                            )
+                        }
+                    }
+                    SettingsSubScreen.MAIN -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.TopCenter
+                        ) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -738,6 +785,9 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(48.dp))
                 }
             }
+                    }
+                }
+            }
         }
     }
 
@@ -748,6 +798,9 @@ fun SettingsScreen(
             onDismiss = { viewModel.dismissUpdateDialog() }
         )
     }
+    }
+    }
+}
 }
 
 @Composable

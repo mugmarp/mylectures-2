@@ -1,5 +1,13 @@
 package com.lectures.features.onboarding
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -27,13 +35,16 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lectures.ui.MotionSpec
 import com.lectures.ui.components.desktopHandCursor
 import com.lectures.ui.components.desktopHoverable
 import com.lectures.ui.contrastOnColor
 import com.lectures.ui.rememberLecturesWindow
+import com.lectures.ui.rememberPrefersReducedMotion
 
 @Composable
 fun OnboardingProgressBar(currentStep: Int, totalSteps: Int = 3) {
+    val reducedMotion = rememberPrefersReducedMotion()
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -42,13 +53,25 @@ fun OnboardingProgressBar(currentStep: Int, totalSteps: Int = 3) {
     ) {
         for (step in 1..totalSteps) {
             val isActive = step <= currentStep
+            val fillFraction by animateFloatAsState(
+                targetValue = if (isActive) 1f else 0f,
+                animationSpec = if (reducedMotion) MotionSpec.stateTween(0, true) else MotionSpec.standardSpring(),
+                label = "onboarding_step_fill_$step"
+            )
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .height(4.dp)
                     .clip(RoundedCornerShape(2.dp))
-                    .background(if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant)
-            )
+                    .background(MaterialTheme.colorScheme.outlineVariant)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(fillFraction)
+                        .fillMaxHeight()
+                        .background(MaterialTheme.colorScheme.primary)
+                )
+            }
         }
     }
 }
@@ -76,7 +99,10 @@ fun FacultySelectionScreen(
                     Column(modifier = Modifier.widthIn(max = windowInfo.maxReadingWidth).fillMaxWidth()) {
                         IconButton(
                             onClick = onBack,
-                            modifier = Modifier.padding(start = 12.dp).desktopHandCursor()
+                            modifier = Modifier
+                                .padding(start = 8.dp)
+                                .size(48.dp)
+                                .desktopHandCursor()
                         ) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground)
                         }
@@ -206,7 +232,10 @@ fun ProgrammeSelectionScreen(
                     Column(modifier = Modifier.widthIn(max = windowInfo.maxReadingWidth).fillMaxWidth()) {
                         IconButton(
                             onClick = onBack,
-                            modifier = Modifier.padding(start = 12.dp).desktopHandCursor()
+                            modifier = Modifier
+                                .padding(start = 8.dp)
+                                .size(48.dp)
+                                .desktopHandCursor()
                         ) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground)
                         }
@@ -359,7 +388,10 @@ fun ClassGroupSelectionScreen(
                     Column(modifier = Modifier.widthIn(max = windowInfo.maxReadingWidth).fillMaxWidth()) {
                         IconButton(
                             onClick = onBack,
-                            modifier = Modifier.padding(start = 12.dp).desktopHandCursor()
+                            modifier = Modifier
+                                .padding(start = 8.dp)
+                                .size(48.dp)
+                                .desktopHandCursor()
                         ) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground)
                         }
@@ -452,15 +484,35 @@ fun ClassGroupSelectionScreen(
                 }
             }
 
+            val reducedMotion = rememberPrefersReducedMotion()
             val groupCard: @Composable (String) -> Unit = { group ->
                 val isSelected = group == selectedGroup
                 val count = resolvedCounts[group] ?: 0
+                val cardContainerColor by animateColorAsState(
+                    targetValue = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+                    animationSpec = MotionSpec.stateTween(MotionSpec.STATE_COLOR_MS, reducedMotion),
+                    label = "group_card_bg"
+                )
+                val cardBorderColor by animateColorAsState(
+                    targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                    animationSpec = MotionSpec.stateTween(MotionSpec.STATE_COLOR_MS, reducedMotion),
+                    label = "group_card_border"
+                )
+                val cardBorderWidth by animateDpAsState(
+                    targetValue = if (isSelected) 2.dp else 1.dp,
+                    animationSpec = if (reducedMotion) MotionSpec.stateTween(0, true) else MotionSpec.standardSpring(),
+                    label = "group_card_border_w"
+                )
+                val checkBgColor by animateColorAsState(
+                    targetValue = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                    animationSpec = MotionSpec.stateTween(MotionSpec.STATE_COLOR_MS, reducedMotion),
+                    label = "group_check_bg"
+                )
 
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(16.dp))
-                        .desktopHandCursor()
                         .clickable {
                             if (selectedGroup == group) {
                                 onConfirm(group)
@@ -468,20 +520,15 @@ fun ClassGroupSelectionScreen(
                                 selectedGroup = group
                             }
                         }
-                        .then(
-                            if (isSelected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(16.dp))
-                            else Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp))
-                        ),
+                        .border(cardBorderWidth, cardBorderColor, RoundedCornerShape(16.dp)),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
-                    ),
+                    colors = CardDefaults.cardColors(containerColor = cardContainerColor),
                     elevation = CardDefaults.cardElevation(defaultElevation = if (isSelected) 2.dp else 1.dp)
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .desktopHoverable()
+                            .desktopHoverable(enabled = !isSelected)
                             .padding(20.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -507,13 +554,19 @@ fun ClassGroupSelectionScreen(
                         Box(
                             modifier = Modifier
                                 .size(28.dp)
+                                .clip(CircleShape)
+                                .background(checkBgColor, CircleShape)
                                 .then(
-                                    if (isSelected) Modifier.background(MaterialTheme.colorScheme.primary, CircleShape)
-                                    else Modifier.border(1.5.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
+                                    if (!isSelected) Modifier.border(1.5.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
+                                    else Modifier
                                 ),
                             contentAlignment = Alignment.Center
                         ) {
-                            if (isSelected) {
+                            androidx.compose.animation.AnimatedVisibility(
+                                visible = isSelected,
+                                enter = if (reducedMotion) fadeIn() else scaleIn(MotionSpec.bouncyCheckSpring()) + fadeIn(),
+                                exit = if (reducedMotion) fadeOut() else scaleOut() + fadeOut()
+                            ) {
                                 Icon(
                                     Icons.Default.Check,
                                     contentDescription = "Selected",

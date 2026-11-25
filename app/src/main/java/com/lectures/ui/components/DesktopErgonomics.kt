@@ -1,6 +1,8 @@
 package com.lectures.ui.components
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -22,12 +24,16 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -41,29 +47,36 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.lectures.ui.LocalExtendedColors
+import com.lectures.ui.MotionSpec
 import com.lectures.ui.rememberLecturesWindow
+import com.lectures.ui.rememberPrefersReducedMotion
 
 /**
  * Adds desktop mouse/trackpad hover pointer cursor and subtle surface highlight
  * without interfering with mobile touch behavior.
+ * Keeps the pointer cursor active when [showHandCursor] is true even if [enabled]
+ * suppresses the hover tint (e.g. for already-selected cards).
  */
 fun Modifier.desktopHoverable(
     enabled: Boolean = true,
     hoverContainerColor: Color? = null,
     defaultContainerColor: Color = Color.Transparent,
-    pointerIcon: PointerIcon = PointerIcon.Hand
+    pointerIcon: PointerIcon = PointerIcon.Hand,
+    showHandCursor: Boolean = true
 ): Modifier = composed {
-    if (!enabled) return@composed this
+    val withCursor = if (showHandCursor) this.pointerHoverIcon(pointerIcon) else this
+    if (!enabled) return@composed withCursor
+
+    val reducedMotion = rememberPrefersReducedMotion()
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
     val targetHover = hoverContainerColor ?: MaterialTheme.colorScheme.primary.copy(alpha = 0.06f)
     val animatedBg by animateColorAsState(
         targetValue = if (isHovered) targetHover else defaultContainerColor,
-        animationSpec = tween(durationMillis = 120),
+        animationSpec = MotionSpec.stateTween(MotionSpec.HOVER_MS, reducedMotion),
         label = "desktop_hover_bg"
     )
-    this
-        .pointerHoverIcon(pointerIcon)
+    withCursor
         .hoverable(interactionSource = interactionSource)
         .drawWithContent {
             drawContent()
@@ -95,8 +108,8 @@ fun Modifier.onEscapeKey(onEscape: () -> Unit): Modifier =
 /**
  * Adaptive modal container:
  * - Compact phones (< 600dp): native ModalBottomSheet with drag handle
- * - Tablets, Chromebooks & Desktops (>= 600dp): spacious centered Dialog with Escape-to-dismiss,
- *   eliminating awkward full-width bottom drag sheets on large monitors.
+ * - Tablets, Chromebooks & Desktops (>= 600dp): spacious centered Dialog with smooth scale+fade entrance
+ *   and Escape-to-dismiss, eliminating awkward full-width bottom drag sheets on large monitors.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -111,6 +124,7 @@ fun AdaptiveSheetOrDialog(
 ) {
     val windowInfo = rememberLecturesWindow()
     val ext = LocalExtendedColors.current
+    val reducedMotion = rememberPrefersReducedMotion()
 
     if (!windowInfo.preferDesktopDialogs) {
         val baseMod = if (sheetTestTag != null) modifier.testTag(sheetTestTag) else modifier
@@ -135,7 +149,25 @@ fun AdaptiveSheetOrDialog(
                 dismissOnClickOutside = true
             )
         ) {
+            var entered by remember { mutableStateOf(reducedMotion) }
+            LaunchedEffect(Unit) { entered = true }
+            val dialogScale by animateFloatAsState(
+                targetValue = if (entered) 1f else 0.95f,
+                animationSpec = if (reducedMotion) snap() else MotionSpec.standardSpring(),
+                label = "desktop_dialog_scale"
+            )
+            val dialogAlpha by animateFloatAsState(
+                targetValue = if (entered) 1f else 0f,
+                animationSpec = if (reducedMotion) snap() else tween(MotionSpec.DIALOG_ENTER_MS),
+                label = "desktop_dialog_alpha"
+            )
+
             val surfaceMod = Modifier
+                .graphicsLayer {
+                    scaleX = dialogScale
+                    scaleY = dialogScale
+                    alpha = dialogAlpha
+                }
                 .padding(horizontal = 24.dp, vertical = 20.dp)
                 .widthIn(min = 400.dp, max = dialogMaxW)
                 .heightIn(max = dialogMaxH)
