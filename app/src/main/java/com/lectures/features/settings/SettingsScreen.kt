@@ -98,20 +98,23 @@ import kotlinx.coroutines.delay
 
 enum class SettingsSubScreen {
     MAIN,
+    NOTIFICATIONS,
     APPEARANCE,
-    NOTIFICATIONS
+    DATA_BACKUP,
+    ABOUT_LEGAL
 }
 
 enum class SettingsCategory(
     val title: String,
     val subtitle: String,
-    val icon: ImageVector
+    val icon: ImageVector,
+    val subScreen: SettingsSubScreen
 ) {
-    OVERVIEW("Overview & Profile", "Programme & quick controls", Icons.Outlined.School),
-    NOTIFICATIONS("Notifications & Alarms", "Lead times, digest & delivery", Icons.Outlined.NotificationsActive),
-    APPEARANCE("Appearance & Theme", "Dark mode & accent colors", Icons.Outlined.Palette),
-    DATA_SYNC("Data & Cloud Sync", "Timetable sync, backup & updates", Icons.Outlined.CloudSync),
-    ABOUT_DANGER("About & Data Reset", "Developer, legal & reset", Icons.Outlined.Info)
+    OVERVIEW("Overview & Profile", "Programme & quick status", Icons.Outlined.School, SettingsSubScreen.MAIN),
+    NOTIFICATIONS("Notifications & Alarms", "Lead times, digest & delivery", Icons.Outlined.NotificationsActive, SettingsSubScreen.NOTIFICATIONS),
+    APPEARANCE("Appearance & Theme", "Dark mode & accent colors", Icons.Outlined.Palette, SettingsSubScreen.APPEARANCE),
+    DATA_SYNC("Data, Sync & Reset", "Cloud backup, export & reset", Icons.Outlined.CloudSync, SettingsSubScreen.DATA_BACKUP),
+    ABOUT_DANGER("About, Updates & Legal", "Releases, developer & privacy", Icons.Outlined.Info, SettingsSubScreen.ABOUT_LEGAL)
 }
 
 @Composable
@@ -361,6 +364,8 @@ fun SettingsScreen(
                         when (currentSubScreen) {
                             SettingsSubScreen.APPEARANCE -> "Appearance & Theme"
                             SettingsSubScreen.NOTIFICATIONS -> "Notifications & Alarms"
+                            SettingsSubScreen.DATA_BACKUP -> "Data, Sync & Reset"
+                            SettingsSubScreen.ABOUT_LEGAL -> "About, Updates & Legal"
                             SettingsSubScreen.MAIN -> "Settings"
                         }
                     }
@@ -465,11 +470,7 @@ fun SettingsScreen(
                                         .background(bgColor, RoundedCornerShape(14.dp))
                                         .clickable {
                                             selectedCategory = category
-                                            currentSubScreen = when (category) {
-                                                SettingsCategory.APPEARANCE -> SettingsSubScreen.APPEARANCE
-                                                SettingsCategory.NOTIFICATIONS -> SettingsSubScreen.NOTIFICATIONS
-                                                else -> SettingsSubScreen.MAIN
-                                            }
+                                            currentSubScreen = category.subScreen
                                         }
                                         .padding(horizontal = 12.dp, vertical = 12.dp)
                                         .testTag("settings_category_${category.name}"),
@@ -521,6 +522,7 @@ fun SettingsScreen(
                         AnimatedContent(
                             targetState = selectedCategory,
                             transitionSpec = { MotionSpec.fadeTransform(reducedMotion = reducedMotion) },
+                            contentKey = { it },
                             modifier = Modifier.weight(1f).fillMaxWidth(),
                             label = "settings_desktop_detail"
                         ) { activeCategory ->
@@ -563,6 +565,22 @@ fun SettingsScreen(
                                             currentSubScreen = SettingsSubScreen.APPEARANCE
                                         }
                                     )
+                                    Spacer(modifier = Modifier.height(22.dp))
+                                    SettingsDataSummaryCard(
+                                        uiState = uiState,
+                                        onOpenDataAndBackup = {
+                                            selectedCategory = SettingsCategory.DATA_SYNC
+                                            currentSubScreen = SettingsSubScreen.DATA_BACKUP
+                                        }
+                                    )
+                                    Spacer(modifier = Modifier.height(22.dp))
+                                    SettingsAboutSummaryCard(
+                                        uiState = uiState,
+                                        onOpenAboutAndLegal = {
+                                            selectedCategory = SettingsCategory.ABOUT_DANGER
+                                            currentSubScreen = SettingsSubScreen.ABOUT_LEGAL
+                                        }
+                                    )
                                 }
                             }
 
@@ -600,50 +618,38 @@ fun SettingsScreen(
                             }
 
                             SettingsCategory.DATA_SYNC -> {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .verticalScroll(dataSyncScrollState)
-                                        .padding(vertical = 8.dp)
-                                ) {
-                                    SettingsDataAndSyncSection(
-                                        uiState = uiState,
-                                        isDark = isDark,
-                                        onSyncTimetable = { viewModel.syncTimetable() },
-                                        onOpenAccount = handleOpenAccount,
-                                        onSyncUserData = { viewModel.syncUserData() },
-                                        onExportBackup = { filename -> exportBackupLauncher.launch(filename) },
-                                        onShowVersionDetails = { showVersionDetailsDialog = true },
-                                        onCheckOrOpenUpdate = {
-                                            if (uiState.availableUpdateInfo != null) {
-                                                viewModel.openUpdateDialog()
-                                            } else {
-                                                viewModel.checkForAppUpdate()
-                                            }
-                                        }
-                                    )
-                                    Spacer(modifier = Modifier.height(32.dp))
-                                }
+                                DataAndBackupSettingsView(
+                                    modifier = Modifier.fillMaxSize(),
+                                    scrollState = dataSyncScrollState,
+                                    uiState = uiState,
+                                    onSyncTimetable = { viewModel.syncTimetable() },
+                                    onOpenAccount = handleOpenAccount,
+                                    onSyncUserData = { viewModel.syncUserData() },
+                                    onExportBackup = { filename -> exportBackupLauncher.launch(filename) },
+                                    onRequestResetNotes = { showResetNotesDialog = true },
+                                    onRequestResetTasks = { showResetTasksDialog = true }
+                                )
                             }
 
                             SettingsCategory.ABOUT_DANGER -> {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .verticalScroll(aboutDangerScrollState)
-                                        .padding(vertical = 8.dp)
-                                ) {
-                                    SettingsAboutAndDangerSection(
-                                        onOpenDeveloper = { showDeveloperModal = true },
-                                        onOpenFeedback = { showFeedbackModal = true },
-                                        onOpenDisclaimer = { showDisclaimerDialog = true },
-                                        onOpenTerms = { showTermsDialog = true },
-                                        onOpenPrivacy = { showPrivacyDialog = true },
-                                        onRequestResetNotes = { showResetNotesDialog = true },
-                                        onRequestResetTasks = { showResetTasksDialog = true }
-                                    )
-                                    Spacer(modifier = Modifier.height(32.dp))
-                                }
+                                AboutAndLegalSettingsView(
+                                    modifier = Modifier.fillMaxSize(),
+                                    scrollState = aboutDangerScrollState,
+                                    uiState = uiState,
+                                    onCheckOrOpenUpdate = {
+                                        if (uiState.availableUpdateInfo != null) {
+                                            viewModel.openUpdateDialog()
+                                        } else {
+                                            viewModel.checkForAppUpdate()
+                                        }
+                                    },
+                                    onShowVersionDetails = { showVersionDetailsDialog = true },
+                                    onOpenDeveloper = { showDeveloperModal = true },
+                                    onOpenFeedback = { showFeedbackModal = true },
+                                    onOpenDisclaimer = { showDisclaimerDialog = true },
+                                    onOpenTerms = { showTermsDialog = true },
+                                    onOpenPrivacy = { showPrivacyDialog = true }
+                                )
                             }
                         }
                         }
@@ -660,6 +666,7 @@ fun SettingsScreen(
                         useFadeOnly = windowInfo.useNavigationRail
                     )
                 },
+                contentKey = { it },
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding),
@@ -711,98 +718,134 @@ fun SettingsScreen(
                             )
                         }
                     }
+                    SettingsSubScreen.DATA_BACKUP -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.TopCenter
+                        ) {
+                            DataAndBackupSettingsView(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .widthIn(max = 760.dp),
+                                scrollState = dataSyncScrollState,
+                                uiState = uiState,
+                                onSyncTimetable = { viewModel.syncTimetable() },
+                                onOpenAccount = handleOpenAccount,
+                                onSyncUserData = { viewModel.syncUserData() },
+                                onExportBackup = { filename -> exportBackupLauncher.launch(filename) },
+                                onRequestResetNotes = { showResetNotesDialog = true },
+                                onRequestResetTasks = { showResetTasksDialog = true }
+                            )
+                        }
+                    }
+                    SettingsSubScreen.ABOUT_LEGAL -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.TopCenter
+                        ) {
+                            AboutAndLegalSettingsView(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .widthIn(max = 760.dp),
+                                scrollState = aboutDangerScrollState,
+                                uiState = uiState,
+                                onCheckOrOpenUpdate = {
+                                    if (uiState.availableUpdateInfo != null) {
+                                        viewModel.openUpdateDialog()
+                                    } else {
+                                        viewModel.checkForAppUpdate()
+                                    }
+                                },
+                                onShowVersionDetails = { showVersionDetailsDialog = true },
+                                onOpenDeveloper = { showDeveloperModal = true },
+                                onOpenFeedback = { showFeedbackModal = true },
+                                onOpenDisclaimer = { showDisclaimerDialog = true },
+                                onOpenTerms = { showTermsDialog = true },
+                                onOpenPrivacy = { showPrivacyDialog = true }
+                            )
+                        }
+                    }
                     SettingsSubScreen.MAIN -> {
                         Box(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.TopCenter
                         ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .widthIn(max = 760.dp)
-                        .verticalScroll(scrollState)
-                ) {
-                    Spacer(modifier = Modifier.height(12.dp))
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .widthIn(max = 760.dp)
+                                    .verticalScroll(scrollState)
+                            ) {
+                                Spacer(modifier = Modifier.height(12.dp))
 
-                    SettingsFeedbackBanners(
-                        errorMessage = uiState.errorMessage,
-                        successMessage = uiState.successMessage,
-                        isDark = isDark,
-                        onDismiss = { viewModel.clearFeedbackMessages() }
-                    )
+                                SettingsFeedbackBanners(
+                                    errorMessage = uiState.errorMessage,
+                                    successMessage = uiState.successMessage,
+                                    isDark = isDark,
+                                    onDismiss = { viewModel.clearFeedbackMessages() }
+                                )
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                                Spacer(modifier = Modifier.height(12.dp))
 
-                    SettingsAcademicProfileCard(
-                        programmeDisplayName = programmeDisplayName,
-                        activeProgramme = activeProgramme,
-                        facultyDisplayName = facultyDisplayName,
-                        isTightFont = windowInfo.isTightFont,
-                        onReconfigureAcademicProfile = onReconfigureAcademicProfile
-                    )
+                                SettingsAcademicProfileCard(
+                                    programmeDisplayName = programmeDisplayName,
+                                    activeProgramme = activeProgramme,
+                                    facultyDisplayName = facultyDisplayName,
+                                    isTightFont = windowInfo.isTightFont,
+                                    onReconfigureAcademicProfile = onReconfigureAcademicProfile
+                                )
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                                Spacer(modifier = Modifier.height(22.dp))
 
-                    SettingsNotificationsSection(
-                        context = context,
-                        uiState = uiState,
-                        isDark = isDark,
-                        areNotificationsAllowed = areNotificationsAllowed,
-                        canScheduleExactAlarms = canScheduleExactAlarms,
-                        blockedChannels = blockedChannels,
-                        isPermissionBannerDismissed = isPermissionBannerDismissed,
-                        onDismissPermissionBanner = { isPermissionBannerDismissed = true },
-                        onToggleNotifications = { viewModel.setNotificationsEnabled(it) },
-                        onOpenNotificationPreferences = {
-                            currentSubScreen = SettingsSubScreen.NOTIFICATIONS
-                            selectedCategory = SettingsCategory.NOTIFICATIONS
-                        }
-                    )
+                                SettingsNotificationsSection(
+                                    context = context,
+                                    uiState = uiState,
+                                    isDark = isDark,
+                                    areNotificationsAllowed = areNotificationsAllowed,
+                                    canScheduleExactAlarms = canScheduleExactAlarms,
+                                    blockedChannels = blockedChannels,
+                                    isPermissionBannerDismissed = isPermissionBannerDismissed,
+                                    onDismissPermissionBanner = { isPermissionBannerDismissed = true },
+                                    onToggleNotifications = { viewModel.setNotificationsEnabled(it) },
+                                    onOpenNotificationPreferences = {
+                                        currentSubScreen = SettingsSubScreen.NOTIFICATIONS
+                                        selectedCategory = SettingsCategory.NOTIFICATIONS
+                                    }
+                                )
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                                Spacer(modifier = Modifier.height(22.dp))
 
-                    SettingsAppearanceSection(
-                        appTheme = appTheme,
-                        onOpenAppearance = {
-                            currentSubScreen = SettingsSubScreen.APPEARANCE
-                            selectedCategory = SettingsCategory.APPEARANCE
-                        }
-                    )
+                                SettingsAppearanceSection(
+                                    appTheme = appTheme,
+                                    onOpenAppearance = {
+                                        currentSubScreen = SettingsSubScreen.APPEARANCE
+                                        selectedCategory = SettingsCategory.APPEARANCE
+                                    }
+                                )
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                                Spacer(modifier = Modifier.height(22.dp))
 
-                    SettingsDataAndSyncSection(
-                        uiState = uiState,
-                        isDark = isDark,
-                        onSyncTimetable = { viewModel.syncTimetable() },
-                        onOpenAccount = handleOpenAccount,
-                        onSyncUserData = { viewModel.syncUserData() },
-                        onExportBackup = { filename -> exportBackupLauncher.launch(filename) },
-                        onShowVersionDetails = { showVersionDetailsDialog = true },
-                        onCheckOrOpenUpdate = {
-                            if (uiState.availableUpdateInfo != null) {
-                                viewModel.openUpdateDialog()
-                            } else {
-                                viewModel.checkForAppUpdate()
+                                SettingsDataSummaryCard(
+                                    uiState = uiState,
+                                    onOpenDataAndBackup = {
+                                        currentSubScreen = SettingsSubScreen.DATA_BACKUP
+                                        selectedCategory = SettingsCategory.DATA_SYNC
+                                    }
+                                )
+
+                                Spacer(modifier = Modifier.height(22.dp))
+
+                                SettingsAboutSummaryCard(
+                                    uiState = uiState,
+                                    onOpenAboutAndLegal = {
+                                        currentSubScreen = SettingsSubScreen.ABOUT_LEGAL
+                                        selectedCategory = SettingsCategory.ABOUT_DANGER
+                                    }
+                                )
+
+                                Spacer(modifier = Modifier.height(48.dp))
                             }
                         }
-                    )
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    SettingsAboutAndDangerSection(
-                        onOpenDeveloper = { showDeveloperModal = true },
-                        onOpenFeedback = { showFeedbackModal = true },
-                        onOpenDisclaimer = { showDisclaimerDialog = true },
-                        onOpenTerms = { showTermsDialog = true },
-                        onOpenPrivacy = { showPrivacyDialog = true },
-                        onRequestResetNotes = { showResetNotesDialog = true },
-                        onRequestResetTasks = { showResetTasksDialog = true }
-                    )
-
-                    Spacer(modifier = Modifier.height(48.dp))
-                }
-            }
                     }
                 }
             }
