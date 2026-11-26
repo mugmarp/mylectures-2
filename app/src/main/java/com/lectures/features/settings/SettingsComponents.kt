@@ -60,6 +60,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lectures.ui.AccentColorNames
@@ -74,13 +75,17 @@ import com.lectures.ui.contrastOnColor
 import com.lectures.ui.rememberPrefersReducedMotion
 
 @Composable
-internal fun SectionHeader(title: String, color: Color = MaterialTheme.colorScheme.primary) {
+internal fun SectionHeader(
+    title: String,
+    color: Color = MaterialTheme.colorScheme.primary,
+    horizontalPadding: Dp = 24.dp
+) {
     Text(
         text = title,
         fontSize = 12.sp,
         fontWeight = FontWeight.Bold,
         color = color,
-        modifier = Modifier.padding(horizontal = 24.dp, vertical = 6.dp)
+        modifier = Modifier.padding(horizontal = horizontalPadding, vertical = 6.dp)
     )
 }
 
@@ -293,7 +298,8 @@ internal fun ThemeSelectionCard(
                 text = subtitle,
                 fontSize = 10.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
         }
@@ -306,6 +312,9 @@ internal fun AppearanceSettingsView(
     modifier: Modifier = Modifier,
     scrollState: ScrollState = rememberScrollState(),
     appTheme: AppThemeState,
+    isTightFont: Boolean = false,
+    horizontalPadding: Dp = 20.dp,
+    bottomContentPadding: Dp = 24.dp,
     onSelectThemeMode: (ThemeMode) -> Unit,
     onSelectAccent: (Int) -> Unit
 ) {
@@ -313,19 +322,20 @@ internal fun AppearanceSettingsView(
     val reducedMotion = rememberPrefersReducedMotion()
     val swatches = accentDisplayColors(appTheme.isDark)
     val selectedAccent = appTheme.accentIndex.coerceIn(0, AccentColorNames.lastIndex)
+    val headerHorizontalPadding = horizontalPadding + 4.dp
 
     Column(
         modifier = modifier
             .verticalScroll(scrollState)
-            .padding(vertical = 16.dp)
+            .padding(top = 14.dp)
     ) {
-        SectionHeader("THEME MODE")
+        SectionHeader("THEME MODE", horizontalPadding = headerHorizontalPadding)
         Spacer(modifier = Modifier.height(8.dp))
 
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp),
+                .padding(horizontal = horizontalPadding),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = ext.surfaceCard),
             border = BorderStroke(1.dp, ext.borderSubtle),
@@ -384,13 +394,13 @@ internal fun AppearanceSettingsView(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        SectionHeader("ACCENT COLOR")
+        SectionHeader("ACCENT COLOR", horizontalPadding = headerHorizontalPadding)
         Spacer(modifier = Modifier.height(8.dp))
 
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp),
+                .padding(horizontal = horizontalPadding),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = ext.surfaceCard),
             border = BorderStroke(1.dp, ext.borderSubtle),
@@ -471,7 +481,7 @@ internal fun AppearanceSettingsView(
                     }
                 }
                 BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                    val useFlow = maxWidth < 250.dp
+                    val useFlow = maxWidth < 280.dp || (isTightFont && maxWidth < 360.dp)
                     if (useFlow) {
                         FlowRow(
                             modifier = Modifier.fillMaxWidth(),
@@ -498,13 +508,13 @@ internal fun AppearanceSettingsView(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        SectionHeader("LIVE STUDY PREVIEW")
+        SectionHeader("LIVE STUDY PREVIEW", horizontalPadding = headerHorizontalPadding)
         Spacer(modifier = Modifier.height(8.dp))
 
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp)
+                .padding(horizontal = horizontalPadding)
                 .testTag("appearance_live_preview_card"),
             shape = RoundedCornerShape(18.dp),
             colors = CardDefaults.cardColors(containerColor = ext.surfaceCard),
@@ -621,6 +631,6 @@ internal fun AppearanceSettingsView(
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(bottomContentPadding))
     }
 }

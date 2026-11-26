@@ -298,7 +298,7 @@ internal fun TermsDialog(onDismiss: () -> Unit) {
                     .defaultMinSize(minHeight = 48.dp)
                     .desktopHandCursor()
             ) {
-                Text("I accept the Terms of Service & Disclaimer.")
+                Text("I Understand")
             }
         }
     )
@@ -465,7 +465,6 @@ internal fun ResetTasksConfirmDialog(
 @Composable
 internal fun VersionDetailsDialog(
     uiState: SettingsUiState,
-    isDark: Boolean,
     onDismiss: () -> Unit
 ) {
     val windowInfo = rememberLecturesWindow()
@@ -523,7 +522,9 @@ internal fun VersionDetailsDialog(
         },
         text = {
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(

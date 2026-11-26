@@ -4,8 +4,11 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -34,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lectures.BuildConfig
@@ -41,11 +45,14 @@ import com.lectures.ui.LocalExtendedColors
 import com.lectures.ui.components.desktopHoverable
 import java.util.Locale
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun AboutAndLegalSettingsView(
     modifier: Modifier = Modifier,
     scrollState: ScrollState = rememberScrollState(),
     uiState: SettingsUiState,
+    horizontalPadding: Dp = 20.dp,
+    bottomContentPadding: Dp = 32.dp,
     onCheckOrOpenUpdate: () -> Unit,
     onShowVersionDetails: () -> Unit,
     onOpenDeveloper: () -> Unit,
@@ -55,17 +62,18 @@ internal fun AboutAndLegalSettingsView(
     onOpenPrivacy: () -> Unit
 ) {
     val ext = LocalExtendedColors.current
+    val headerHorizontalPadding = horizontalPadding + 4.dp
 
     Column(
         modifier = modifier
             .verticalScroll(scrollState)
-            .padding(vertical = 14.dp)
+            .padding(top = 14.dp)
     ) {
-        SectionHeader("RELEASES & TIMETABLE DATA")
+        SectionHeader("RELEASES & TIMETABLE DATA", horizontalPadding = headerHorizontalPadding)
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp),
+                .padding(horizontal = horizontalPadding),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = ext.surfaceCard),
             border = BorderStroke(1.dp, ext.borderSubtle),
@@ -152,7 +160,7 @@ internal fun AboutAndLegalSettingsView(
 
                 HorizontalDivider(
                     modifier = Modifier.padding(vertical = 12.dp),
-                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                    color = ext.borderSubtle
                 )
 
                 val isFinalRelease = uiState.isFinal || uiState.timetableVersion.contains("Final", ignoreCase = true)
@@ -210,11 +218,11 @@ internal fun AboutAndLegalSettingsView(
         }
 
         Spacer(modifier = Modifier.height(22.dp))
-        SectionHeader("DEVELOPER & SUPPORT")
+        SectionHeader("DEVELOPER & SUPPORT", horizontalPadding = headerHorizontalPadding)
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp),
+                .padding(horizontal = horizontalPadding),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = ext.surfaceCard),
             border = BorderStroke(1.dp, ext.borderSubtle),
@@ -254,7 +262,7 @@ internal fun AboutAndLegalSettingsView(
 
                 HorizontalDivider(
                     modifier = Modifier.padding(vertical = 10.dp),
-                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                    color = ext.borderSubtle
                 )
 
                 Row(
@@ -268,11 +276,19 @@ internal fun AboutAndLegalSettingsView(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("Anonymous Feedback & Bugs", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                            Spacer(modifier = Modifier.width(6.dp))
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = "Anonymous Feedback & Bugs",
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 13.sp,
+                                modifier = Modifier.align(Alignment.CenterVertically)
+                            )
                             Box(
                                 modifier = Modifier
+                                    .align(Alignment.CenterVertically)
                                     .clip(RoundedCornerShape(4.dp))
                                     .background(ext.successBg)
                                     .padding(horizontal = 5.dp, vertical = 1.dp)
@@ -309,11 +325,11 @@ internal fun AboutAndLegalSettingsView(
         }
 
         Spacer(modifier = Modifier.height(22.dp))
-        SectionHeader("LEGAL & PRIVACY")
+        SectionHeader("LEGAL & PRIVACY", horizontalPadding = headerHorizontalPadding)
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp),
+                .padding(horizontal = horizontalPadding),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = ext.surfaceCard),
             border = BorderStroke(1.dp, ext.borderSubtle),
@@ -355,7 +371,7 @@ internal fun AboutAndLegalSettingsView(
 
                 HorizontalDivider(
                     modifier = Modifier.padding(vertical = 8.dp),
-                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                    color = ext.borderSubtle
                 )
 
                 Row(
@@ -393,7 +409,7 @@ internal fun AboutAndLegalSettingsView(
 
                 HorizontalDivider(
                     modifier = Modifier.padding(vertical = 8.dp),
-                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                    color = ext.borderSubtle
                 )
 
                 Row(
@@ -431,6 +447,6 @@ internal fun AboutAndLegalSettingsView(
             }
         }
 
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(bottomContentPadding))
     }
 }

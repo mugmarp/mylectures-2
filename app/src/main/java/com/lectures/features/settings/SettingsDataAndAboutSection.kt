@@ -35,6 +35,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lectures.BuildConfig
@@ -48,23 +49,26 @@ import com.lectures.ui.components.desktopHoverable
 @Composable
 internal fun SettingsAppearanceSection(
     appTheme: AppThemeState,
+    isTightFont: Boolean = false,
+    horizontalPadding: Dp = 20.dp,
     onOpenAppearance: () -> Unit
 ) {
-    SectionHeader("APPEARANCE & THEME")
+    val ext = LocalExtendedColors.current
+    SectionHeader("APPEARANCE & THEME", horizontalPadding = horizontalPadding + 4.dp)
     val activeAccentIdx = appTheme.accentIndex.coerceIn(0, AccentColorNames.lastIndex)
     val activeAccentName = AccentColorNames[activeAccentIdx]
     val displaySwatch = accentDisplayColors(appTheme.isDark)[activeAccentIdx]
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp)
+            .padding(horizontal = horizontalPadding)
             .clip(RoundedCornerShape(16.dp))
             .desktopHoverable()
             .clickable(onClick = onOpenAppearance)
             .testTag("settings_appearance_card"),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        colors = CardDefaults.cardColors(containerColor = ext.surfaceCard),
+        border = BorderStroke(1.dp, ext.borderSubtle),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
@@ -94,7 +98,9 @@ internal fun SettingsAppearanceSection(
                     text = "Appearance & Theme",
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 15.sp,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
@@ -105,7 +111,7 @@ internal fun SettingsAppearanceSection(
                     },
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
+                    maxLines = if (isTightFont) 2 else 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
@@ -140,21 +146,23 @@ internal fun SettingsAppearanceSection(
 @Composable
 internal fun SettingsDataSummaryCard(
     uiState: SettingsUiState,
+    isTightFont: Boolean = false,
+    horizontalPadding: Dp = 20.dp,
     onOpenDataAndBackup: () -> Unit
 ) {
     val ext = LocalExtendedColors.current
-    SectionHeader("DATA & CLOUD BACKUP")
+    SectionHeader("DATA & CLOUD BACKUP", horizontalPadding = horizontalPadding + 4.dp)
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp)
+            .padding(horizontal = horizontalPadding)
             .clip(RoundedCornerShape(16.dp))
             .desktopHoverable()
             .clickable(onClick = onOpenDataAndBackup)
             .testTag("settings_data_sync_card"),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        colors = CardDefaults.cardColors(containerColor = ext.surfaceCard),
+        border = BorderStroke(1.dp, ext.borderSubtle),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
@@ -183,7 +191,9 @@ internal fun SettingsDataSummaryCard(
                     text = "Data, Cloud Sync & Reset",
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 15.sp,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 val modePrefix = if (uiState.isCloudSyncActive) "Cloud synced" else "Guest mode"
@@ -191,7 +201,7 @@ internal fun SettingsDataSummaryCard(
                     text = "$modePrefix · ${uiState.userNotesCount} notes · ${uiState.userAssignmentsCount} tasks",
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
+                    maxLines = if (isTightFont) 2 else 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
@@ -222,21 +232,24 @@ internal fun SettingsDataSummaryCard(
 @Composable
 internal fun SettingsAboutSummaryCard(
     uiState: SettingsUiState,
+    isTightFont: Boolean = false,
+    horizontalPadding: Dp = 20.dp,
     onOpenAboutAndLegal: () -> Unit
 ) {
+    val ext = LocalExtendedColors.current
     val availableUpdate = uiState.availableUpdateInfo
-    SectionHeader("ABOUT & UPDATES")
+    SectionHeader("ABOUT & UPDATES", horizontalPadding = horizontalPadding + 4.dp)
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp)
+            .padding(horizontal = horizontalPadding)
             .clip(RoundedCornerShape(16.dp))
             .desktopHoverable()
             .clickable(onClick = onOpenAboutAndLegal)
             .testTag("settings_about_legal_card"),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        colors = CardDefaults.cardColors(containerColor = ext.surfaceCard),
+        border = BorderStroke(1.dp, ext.borderSubtle),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
@@ -265,7 +278,9 @@ internal fun SettingsAboutSummaryCard(
                     text = "About, Updates & Legal",
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 15.sp,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
@@ -276,7 +291,7 @@ internal fun SettingsAboutSummaryCard(
                     },
                     fontSize = 12.sp,
                     color = if (availableUpdate != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
+                    maxLines = if (isTightFont) 2 else 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }

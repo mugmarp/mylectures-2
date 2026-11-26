@@ -13,13 +13,17 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -62,6 +66,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lectures.core.util.NotificationPermissionHelper
@@ -87,6 +92,7 @@ private fun NotificationHealthWarningBanner(
     canScheduleExactAlarms: Boolean,
     blockedChannels: List<String>,
     isPermissionBannerDismissed: Boolean,
+    horizontalPadding: Dp = 20.dp,
     onDismissPermissionBanner: () -> Unit
 ) {
     val ext = LocalExtendedColors.current
@@ -105,7 +111,7 @@ private fun NotificationHealthWarningBanner(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 6.dp),
+                        .padding(horizontal = horizontalPadding, vertical = 6.dp),
                     shape = RoundedCornerShape(14.dp),
                     colors = CardDefaults.cardColors(containerColor = ext.warningBg),
                     border = BorderStroke(1.dp, ext.warningBorder.copy(alpha = 0.55f))
@@ -182,7 +188,7 @@ private fun NotificationHealthWarningBanner(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 6.dp),
+                        .padding(horizontal = horizontalPadding, vertical = 6.dp),
                     shape = RoundedCornerShape(14.dp),
                     colors = CardDefaults.cardColors(containerColor = ext.warningBg),
                     border = BorderStroke(1.dp, ext.warningBorder.copy(alpha = 0.55f))
@@ -207,8 +213,13 @@ private fun NotificationHealthWarningBanner(
                                 fontSize = 13.sp,
                                 color = ext.warningText
                             )
+                            val mutedCount = blockedChannels.size
                             Text(
-                                text = "${blockedChannels.size} reminder category is turned off in Android Settings.",
+                                text = if (mutedCount == 1) {
+                                    "1 reminder category is turned off in Android Settings."
+                                } else {
+                                    "$mutedCount reminder categories are turned off in Android Settings."
+                                },
                                 fontSize = 12.sp,
                                 color = ext.warningText.copy(alpha = 0.9f)
                             )
@@ -232,7 +243,7 @@ private fun NotificationHealthWarningBanner(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 6.dp)
+                        .padding(horizontal = horizontalPadding, vertical = 6.dp)
                         .clip(RoundedCornerShape(14.dp))
                         .desktopHoverable()
                         .clickable { NotificationPermissionHelper.openExactAlarmSettings(context) },
@@ -243,6 +254,7 @@ private fun NotificationHealthWarningBanner(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .heightIn(min = 48.dp)
                             .padding(14.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -266,12 +278,19 @@ private fun NotificationHealthWarningBanner(
                                 color = ext.warningText.copy(alpha = 0.9f)
                             )
                         }
-                        Text(
-                            text = "Fix",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = ext.warningText
-                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = ext.warningBorder.copy(alpha = 0.25f)
+                        ) {
+                            Text(
+                                text = "Fix",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = ext.warningText,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                            )
+                        }
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
@@ -289,11 +308,14 @@ internal fun SettingsNotificationsSection(
     canScheduleExactAlarms: Boolean,
     blockedChannels: List<String>,
     isPermissionBannerDismissed: Boolean,
+    isTightFont: Boolean = false,
+    horizontalPadding: Dp = 20.dp,
     onDismissPermissionBanner: () -> Unit,
     onToggleNotifications: (Boolean) -> Unit,
     onOpenNotificationPreferences: () -> Unit
 ) {
-    SectionHeader("NOTIFICATIONS & ALARMS")
+    val ext = LocalExtendedColors.current
+    SectionHeader("NOTIFICATIONS & ALARMS", horizontalPadding = horizontalPadding + 4.dp)
 
     NotificationHealthWarningBanner(
         context = context,
@@ -302,16 +324,17 @@ internal fun SettingsNotificationsSection(
         canScheduleExactAlarms = canScheduleExactAlarms,
         blockedChannels = blockedChannels,
         isPermissionBannerDismissed = isPermissionBannerDismissed,
+        horizontalPadding = horizontalPadding,
         onDismissPermissionBanner = onDismissPermissionBanner
     )
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp),
+            .padding(horizontal = horizontalPadding),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        colors = CardDefaults.cardColors(containerColor = ext.surfaceCard),
+        border = BorderStroke(1.dp, ext.borderSubtle),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column {
@@ -354,7 +377,7 @@ internal fun SettingsNotificationsSection(
                         },
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
+                        maxLines = if (isTightFont) 2 else 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
@@ -370,7 +393,7 @@ internal fun SettingsNotificationsSection(
 
             HorizontalDivider(
                 modifier = Modifier.padding(horizontal = 18.dp),
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)
+                color = ext.borderSubtle
             )
 
             val taskLeadShort = formatTaskLeadShort(uiState.taskReminderLeadHours)
@@ -410,7 +433,7 @@ internal fun SettingsNotificationsSection(
                         text = "Classes: ${uiState.classAlarmLeadMinutes}m · Tasks: $taskLeadShort · Digest ${if (uiState.dailyDigestEnabled) "on" else "off"}",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
+                        maxLines = if (isTightFont) 2 else 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
@@ -426,6 +449,7 @@ internal fun SettingsNotificationsSection(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun NotificationSettingsView(
     modifier: Modifier = Modifier,
@@ -437,6 +461,9 @@ internal fun NotificationSettingsView(
     canScheduleExactAlarms: Boolean,
     blockedChannels: List<String>,
     isPermissionBannerDismissed: Boolean,
+    isTightFont: Boolean = false,
+    horizontalPadding: Dp = 20.dp,
+    bottomContentPadding: Dp = 32.dp,
     onDismissPermissionBanner: () -> Unit,
     onToggleNotifications: (Boolean) -> Unit,
     onSelectClassLeadMinutes: (Int) -> Unit,
@@ -444,10 +471,13 @@ internal fun NotificationSettingsView(
     onSelectTaskLeadHours: (Int) -> Unit,
     onToggleDailyDigest: (Boolean) -> Unit
 ) {
+    val ext = LocalExtendedColors.current
+    val headerHorizontalPadding = horizontalPadding + 4.dp
+
     Column(
         modifier = modifier
             .verticalScroll(scrollState)
-            .padding(vertical = 14.dp)
+            .padding(top = 14.dp)
     ) {
         NotificationHealthWarningBanner(
             context = context,
@@ -456,6 +486,7 @@ internal fun NotificationSettingsView(
             canScheduleExactAlarms = canScheduleExactAlarms,
             blockedChannels = blockedChannels,
             isPermissionBannerDismissed = isPermissionBannerDismissed,
+            horizontalPadding = horizontalPadding,
             onDismissPermissionBanner = onDismissPermissionBanner
         )
 
@@ -463,10 +494,10 @@ internal fun NotificationSettingsView(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp),
+                .padding(horizontal = horizontalPadding),
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            colors = CardDefaults.cardColors(containerColor = ext.surfaceCard),
+            border = BorderStroke(1.dp, ext.borderSubtle),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             Row(
@@ -522,7 +553,7 @@ internal fun NotificationSettingsView(
         }
 
         Spacer(modifier = Modifier.height(22.dp))
-        SectionHeader("REMINDER TIMING")
+        SectionHeader("REMINDER TIMING", horizontalPadding = headerHorizontalPadding)
 
         val reducedMotion = rememberPrefersReducedMotion()
         val timingAlpha by animateFloatAsState(
@@ -534,11 +565,11 @@ internal fun NotificationSettingsView(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp)
+                .padding(horizontal = horizontalPadding)
                 .alpha(timingAlpha),
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            colors = CardDefaults.cardColors(containerColor = ext.surfaceCard),
+            border = BorderStroke(1.dp, ext.borderSubtle),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             Column(modifier = Modifier.padding(18.dp)) {
@@ -578,43 +609,39 @@ internal fun NotificationSettingsView(
                 val classLeadOptions = listOf(10 to "10m", 15 to "15m", 30 to "30m", 45 to "45m", 60 to "60m")
                 val isCustomActive = uiState.classAlarmLeadMinutes !in listOf(10, 15, 30, 45, 60)
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    classLeadOptions.forEach { (mins, label) ->
-                        val isSelected = uiState.classAlarmLeadMinutes == mins
-                        val chipBg by animateColorAsState(
-                            targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
-                            animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
-                            label = "class_lead_bg"
+                val renderClassLeadChip: @Composable (Int, String, Modifier) -> Unit = { mins, label, chipMod ->
+                    val isSelected = uiState.classAlarmLeadMinutes == mins
+                    val chipBg by animateColorAsState(
+                        targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                        animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+                        label = "class_lead_bg_$mins"
+                    )
+                    val chipText by animateColorAsState(
+                        targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+                        label = "class_lead_text_$mins"
+                    )
+                    Box(
+                        modifier = chipMod
+                            .defaultMinSize(minHeight = 48.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .desktopHandCursor()
+                            .background(chipBg)
+                            .clickable { onSelectClassLeadMinutes(mins) }
+                            .padding(horizontal = 6.dp, vertical = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = label,
+                            fontSize = 12.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                            color = chipText,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
-                        val chipText by animateColorAsState(
-                            targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
-                            label = "class_lead_text"
-                        )
-
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .defaultMinSize(minHeight = 48.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .desktopHandCursor()
-                                .background(chipBg)
-                                .clickable { onSelectClassLeadMinutes(mins) }
-                                .padding(vertical = 8.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = label,
-                                fontSize = 12.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                color = chipText
-                            )
-                        }
                     }
-
+                }
+                val renderCustomLeadChip: @Composable (Modifier) -> Unit = { chipMod ->
                     val customChipBg by animateColorAsState(
                         targetValue = if (isCustomActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
                         animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
@@ -626,28 +653,56 @@ internal fun NotificationSettingsView(
                         label = "class_custom_lead_text"
                     )
                     Box(
-                        modifier = Modifier
-                            .weight(1.3f)
+                        modifier = chipMod
                             .defaultMinSize(minHeight = 48.dp)
                             .clip(RoundedCornerShape(10.dp))
                             .desktopHandCursor()
                             .background(customChipBg)
                             .clickable(onClick = onOpenCustomLeadDialog)
-                            .padding(vertical = 8.dp),
+                            .padding(horizontal = 6.dp, vertical = 8.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = if (isCustomActive) "${uiState.classAlarmLeadMinutes}m" else "Custom",
                             fontSize = 12.sp,
                             fontWeight = if (isCustomActive) FontWeight.Bold else FontWeight.Medium,
-                            color = customChipText
+                            color = customChipText,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
+                    }
+                }
+
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                    val wrapClassChips = maxWidth < 315.dp || (isTightFont && maxWidth < 400.dp)
+                    if (wrapClassChips) {
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            maxItemsInEachRow = 3
+                        ) {
+                            classLeadOptions.forEach { (mins, label) ->
+                                renderClassLeadChip(mins, label, Modifier.weight(1f))
+                            }
+                            renderCustomLeadChip(Modifier.weight(1f))
+                        }
+                    } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            classLeadOptions.forEach { (mins, label) ->
+                                renderClassLeadChip(mins, label, Modifier.weight(1f))
+                            }
+                            renderCustomLeadChip(Modifier.weight(1.3f))
+                        }
                     }
                 }
 
                 HorizontalDivider(
                     modifier = Modifier.padding(vertical = 16.dp),
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)
+                    color = ext.borderSubtle
                 )
 
                 // 2. Task & Deadline Lead Time
@@ -684,46 +739,67 @@ internal fun NotificationSettingsView(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 val taskLeadOptions = listOf(1 to "1h", 2 to "2h", 6 to "6h", 12 to "12h", 24 to "1d")
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    taskLeadOptions.forEach { (hours, label) ->
-                        val isSelected = uiState.taskReminderLeadHours == hours
-                        val taskChipBg by animateColorAsState(
-                            targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
-                            animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
-                            label = "task_lead_bg"
+                val renderTaskLeadChip: @Composable (Int, String, Modifier) -> Unit = { hours, label, chipMod ->
+                    val isSelected = uiState.taskReminderLeadHours == hours
+                    val taskChipBg by animateColorAsState(
+                        targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                        animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+                        label = "task_lead_bg_$hours"
+                    )
+                    val taskChipText by animateColorAsState(
+                        targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
+                        label = "task_lead_text_$hours"
+                    )
+                    Box(
+                        modifier = chipMod
+                            .defaultMinSize(minHeight = 48.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .desktopHandCursor()
+                            .background(taskChipBg)
+                            .clickable { onSelectTaskLeadHours(hours) }
+                            .padding(horizontal = 6.dp, vertical = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = label,
+                            fontSize = 12.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                            color = taskChipText,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
-                        val taskChipText by animateColorAsState(
-                            targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
-                            label = "task_lead_text"
-                        )
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .defaultMinSize(minHeight = 48.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .desktopHandCursor()
-                                .background(taskChipBg)
-                                .clickable { onSelectTaskLeadHours(hours) }
-                                .padding(vertical = 8.dp),
-                            contentAlignment = Alignment.Center
+                    }
+                }
+
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                    val wrapTaskChips = maxWidth < 290.dp || (isTightFont && maxWidth < 360.dp)
+                    if (wrapTaskChips) {
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            maxItemsInEachRow = 3
                         ) {
-                            Text(
-                                text = label,
-                                fontSize = 12.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                color = taskChipText
-                            )
+                            taskLeadOptions.forEach { (hours, label) ->
+                                renderTaskLeadChip(hours, label, Modifier.weight(1f))
+                            }
+                        }
+                    } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            taskLeadOptions.forEach { (hours, label) ->
+                                renderTaskLeadChip(hours, label, Modifier.weight(1f))
+                            }
                         }
                     }
                 }
 
                 HorizontalDivider(
                     modifier = Modifier.padding(vertical = 16.dp),
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)
+                    color = ext.borderSubtle
                 )
 
                 // 3. Morning Schedule Digest Toggle
@@ -771,21 +847,22 @@ internal fun NotificationSettingsView(
         }
 
         Spacer(modifier = Modifier.height(22.dp))
-        SectionHeader("SOUND & SYSTEM DELIVERY")
+        SectionHeader("SOUND & SYSTEM DELIVERY", horizontalPadding = headerHorizontalPadding)
 
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp),
+                .padding(horizontal = horizontalPadding),
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            colors = CardDefaults.cardColors(containerColor = ext.surfaceCard),
+            border = BorderStroke(1.dp, ext.borderSubtle),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             Column {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .heightIn(min = 48.dp)
                         .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
                         .desktopHoverable()
                         .clickable { NotificationPermissionHelper.openAppNotificationSettings(context) }
@@ -831,13 +908,13 @@ internal fun NotificationSettingsView(
 
                 HorizontalDivider(
                     modifier = Modifier.padding(horizontal = 18.dp),
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)
+                    color = ext.borderSubtle
                 )
 
-                val ext = com.lectures.ui.LocalExtendedColors.current
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .heightIn(min = 48.dp)
                         .clip(RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp))
                         .desktopHoverable()
                         .clickable { NotificationPermissionHelper.openExactAlarmSettings(context) }
@@ -895,6 +972,6 @@ internal fun NotificationSettingsView(
             }
         }
 
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(bottomContentPadding))
     }
 }

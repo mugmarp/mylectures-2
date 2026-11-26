@@ -547,13 +547,6 @@ fun MainScaffold(
                                     onOpenAccount = {
                                         currentDestination = MainScreenDestination.ACCOUNT
                                     },
-                                    onResetOnboarding = {
-                                        scope.launch {
-                                            repository.setOnboardingCompleted(false)
-                                            currentDestination = MainScreenDestination.TABS
-                                            navState = AppNavState.Welcome
-                                        }
-                                    },
                                     onBack = if (windowInfo.useNavigationRail) null else {
                                         { currentDestination = MainScreenDestination.TABS }
                                     }

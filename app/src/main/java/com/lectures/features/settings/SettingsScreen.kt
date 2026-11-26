@@ -10,13 +10,16 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -67,6 +70,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
@@ -121,7 +125,6 @@ enum class SettingsCategory(
 fun SettingsScreen(
     currentProgramme: String = "",
     onReconfigureAcademicProfile: () -> Unit = {},
-    onResetOnboarding: (() -> Unit)? = null,
     onOpenAccount: (() -> Unit)? = null,
     onBack: (() -> Unit)? = null
 ) {
@@ -273,7 +276,6 @@ fun SettingsScreen(
     if (showVersionDetailsDialog) {
         VersionDetailsDialog(
             uiState = uiState,
-            isDark = isDark,
             onDismiss = { showVersionDetailsDialog = false }
         )
     }
@@ -310,6 +312,7 @@ fun SettingsScreen(
         } else {
             Scaffold(
                 containerColor = ext.surfaceBase,
+                contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             FloatingIslandTopBar {
                 Row(
@@ -401,6 +404,8 @@ fun SettingsScreen(
         }
         var isPermissionBannerDismissed by rememberSaveable { mutableStateOf(false) }
 
+        val bottomContentPadding = windowInfo.navBarBottom + 32.dp
+
         if (windowInfo.isDualPane) {
             Box(
                 modifier = Modifier
@@ -412,18 +417,19 @@ fun SettingsScreen(
                     modifier = Modifier
                         .widthIn(max = windowInfo.maxReadingWidth)
                         .fillMaxSize()
-                        .padding(horizontal = 24.dp, vertical = 14.dp),
+                        .padding(start = 24.dp, end = 24.dp, top = 14.dp),
                     horizontalArrangement = Arrangement.spacedBy(24.dp)
                 ) {
                     // Left Category Rail
                     val categoryRailWidth = if (windowInfo.isTightFont) 316.dp else 272.dp
                     Surface(
                         shape = RoundedCornerShape(20.dp),
-                        color = MaterialTheme.colorScheme.surface,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        color = ext.surfaceCard,
+                        border = BorderStroke(1.dp, ext.borderSubtle),
                         modifier = Modifier
                             .width(categoryRailWidth)
                             .fillMaxHeight()
+                            .padding(bottom = windowInfo.navBarBottom + 14.dp)
                             .testTag("settings_category_rail")
                     ) {
                         Column(
@@ -515,7 +521,7 @@ fun SettingsScreen(
                         SettingsFeedbackBanners(
                             errorMessage = uiState.errorMessage,
                             successMessage = uiState.successMessage,
-                            isDark = isDark,
+                            horizontalPadding = 0.dp,
                             onDismiss = { viewModel.clearFeedbackMessages() }
                         )
 
@@ -528,60 +534,43 @@ fun SettingsScreen(
                         ) { activeCategory ->
                         when (activeCategory) {
                             SettingsCategory.OVERVIEW -> {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .verticalScroll(overviewScrollState)
-                                        .padding(bottom = 32.dp)
-                                ) {
-                                    SettingsAcademicProfileCard(
-                                        programmeDisplayName = programmeDisplayName,
-                                        activeProgramme = activeProgramme,
-                                        facultyDisplayName = facultyDisplayName,
-                                        isTightFont = windowInfo.isTightFont,
-                                        onReconfigureAcademicProfile = onReconfigureAcademicProfile
-                                    )
-                                    Spacer(modifier = Modifier.height(22.dp))
-                                    SettingsNotificationsSection(
-                                        context = context,
-                                        uiState = uiState,
-                                        isDark = isDark,
-                                        areNotificationsAllowed = areNotificationsAllowed,
-                                        canScheduleExactAlarms = canScheduleExactAlarms,
-                                        blockedChannels = blockedChannels,
-                                        isPermissionBannerDismissed = isPermissionBannerDismissed,
-                                        onDismissPermissionBanner = { isPermissionBannerDismissed = true },
-                                        onToggleNotifications = { viewModel.setNotificationsEnabled(it) },
-                                        onOpenNotificationPreferences = {
-                                            selectedCategory = SettingsCategory.NOTIFICATIONS
-                                            currentSubScreen = SettingsSubScreen.NOTIFICATIONS
-                                        }
-                                    )
-                                    Spacer(modifier = Modifier.height(22.dp))
-                                    SettingsAppearanceSection(
-                                        appTheme = appTheme,
-                                        onOpenAppearance = {
-                                            selectedCategory = SettingsCategory.APPEARANCE
-                                            currentSubScreen = SettingsSubScreen.APPEARANCE
-                                        }
-                                    )
-                                    Spacer(modifier = Modifier.height(22.dp))
-                                    SettingsDataSummaryCard(
-                                        uiState = uiState,
-                                        onOpenDataAndBackup = {
-                                            selectedCategory = SettingsCategory.DATA_SYNC
-                                            currentSubScreen = SettingsSubScreen.DATA_BACKUP
-                                        }
-                                    )
-                                    Spacer(modifier = Modifier.height(22.dp))
-                                    SettingsAboutSummaryCard(
-                                        uiState = uiState,
-                                        onOpenAboutAndLegal = {
-                                            selectedCategory = SettingsCategory.ABOUT_DANGER
-                                            currentSubScreen = SettingsSubScreen.ABOUT_LEGAL
-                                        }
-                                    )
-                                }
+                                SettingsOverviewContent(
+                                    modifier = Modifier.fillMaxSize(),
+                                    scrollState = overviewScrollState,
+                                    context = context,
+                                    uiState = uiState,
+                                    appTheme = appTheme,
+                                    isDark = isDark,
+                                    isTightFont = windowInfo.isTightFont,
+                                    horizontalPadding = 0.dp,
+                                    bottomContentPadding = bottomContentPadding,
+                                    programmeDisplayName = programmeDisplayName,
+                                    activeProgramme = activeProgramme,
+                                    facultyDisplayName = facultyDisplayName,
+                                    areNotificationsAllowed = areNotificationsAllowed,
+                                    canScheduleExactAlarms = canScheduleExactAlarms,
+                                    blockedChannels = blockedChannels,
+                                    isPermissionBannerDismissed = isPermissionBannerDismissed,
+                                    onDismissPermissionBanner = { isPermissionBannerDismissed = true },
+                                    onReconfigureAcademicProfile = onReconfigureAcademicProfile,
+                                    onToggleNotifications = { viewModel.setNotificationsEnabled(it) },
+                                    onOpenNotificationPreferences = {
+                                        selectedCategory = SettingsCategory.NOTIFICATIONS
+                                        currentSubScreen = SettingsSubScreen.NOTIFICATIONS
+                                    },
+                                    onOpenAppearance = {
+                                        selectedCategory = SettingsCategory.APPEARANCE
+                                        currentSubScreen = SettingsSubScreen.APPEARANCE
+                                    },
+                                    onOpenDataAndBackup = {
+                                        selectedCategory = SettingsCategory.DATA_SYNC
+                                        currentSubScreen = SettingsSubScreen.DATA_BACKUP
+                                    },
+                                    onOpenAboutAndLegal = {
+                                        selectedCategory = SettingsCategory.ABOUT_DANGER
+                                        currentSubScreen = SettingsSubScreen.ABOUT_LEGAL
+                                    }
+                                )
                             }
 
                             SettingsCategory.NOTIFICATIONS -> {
@@ -595,6 +584,9 @@ fun SettingsScreen(
                                     canScheduleExactAlarms = canScheduleExactAlarms,
                                     blockedChannels = blockedChannels,
                                     isPermissionBannerDismissed = isPermissionBannerDismissed,
+                                    isTightFont = windowInfo.isTightFont,
+                                    horizontalPadding = 0.dp,
+                                    bottomContentPadding = bottomContentPadding,
                                     onDismissPermissionBanner = { isPermissionBannerDismissed = true },
                                     onToggleNotifications = { viewModel.setNotificationsEnabled(it) },
                                     onSelectClassLeadMinutes = { viewModel.setClassAlarmLeadMinutes(it) },
@@ -612,6 +604,9 @@ fun SettingsScreen(
                                     modifier = Modifier.fillMaxSize(),
                                     scrollState = appearanceScrollState,
                                     appTheme = appTheme,
+                                    isTightFont = windowInfo.isTightFont,
+                                    horizontalPadding = 0.dp,
+                                    bottomContentPadding = bottomContentPadding,
                                     onSelectThemeMode = onSelectThemeMode,
                                     onSelectAccent = onSelectAccent
                                 )
@@ -622,6 +617,9 @@ fun SettingsScreen(
                                     modifier = Modifier.fillMaxSize(),
                                     scrollState = dataSyncScrollState,
                                     uiState = uiState,
+                                    isTightFont = windowInfo.isTightFont,
+                                    horizontalPadding = 0.dp,
+                                    bottomContentPadding = bottomContentPadding,
                                     onSyncTimetable = { viewModel.syncTimetable() },
                                     onOpenAccount = handleOpenAccount,
                                     onSyncUserData = { viewModel.syncUserData() },
@@ -636,6 +634,8 @@ fun SettingsScreen(
                                     modifier = Modifier.fillMaxSize(),
                                     scrollState = aboutDangerScrollState,
                                     uiState = uiState,
+                                    horizontalPadding = 0.dp,
+                                    bottomContentPadding = bottomContentPadding,
                                     onCheckOrOpenUpdate = {
                                         if (uiState.availableUpdateInfo != null) {
                                             viewModel.openUpdateDialog()
@@ -657,147 +657,69 @@ fun SettingsScreen(
                 }
             }
         } else {
-            AnimatedContent(
-                targetState = currentSubScreen,
-                transitionSpec = {
-                    MotionSpec.directionalSlideTransform(
-                        forward = targetState != SettingsSubScreen.MAIN,
-                        reducedMotion = reducedMotion,
-                        useFadeOnly = windowInfo.useNavigationRail
-                    )
-                },
-                contentKey = { it },
+            Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(padding),
-                label = "settings_phone_subscreen"
-            ) { activeSubScreen ->
-                when (activeSubScreen) {
-                    SettingsSubScreen.APPEARANCE -> {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.TopCenter
-                        ) {
-                            AppearanceSettingsView(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .widthIn(max = 760.dp),
-                                scrollState = appearanceScrollState,
-                                appTheme = appTheme,
-                                onSelectThemeMode = onSelectThemeMode,
-                                onSelectAccent = onSelectAccent
-                            )
-                        }
-                    }
-                    SettingsSubScreen.NOTIFICATIONS -> {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.TopCenter
-                        ) {
-                            NotificationSettingsView(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .widthIn(max = 760.dp),
-                                scrollState = notificationsScrollState,
-                                context = context,
-                                uiState = uiState,
-                                isDark = isDark,
-                                areNotificationsAllowed = areNotificationsAllowed,
-                                canScheduleExactAlarms = canScheduleExactAlarms,
-                                blockedChannels = blockedChannels,
-                                isPermissionBannerDismissed = isPermissionBannerDismissed,
-                                onDismissPermissionBanner = { isPermissionBannerDismissed = true },
-                                onToggleNotifications = { viewModel.setNotificationsEnabled(it) },
-                                onSelectClassLeadMinutes = { viewModel.setClassAlarmLeadMinutes(it) },
-                                onOpenCustomLeadDialog = {
-                                    customLeadInput = uiState.classAlarmLeadMinutes.toString()
-                                    showCustomLeadDialog = true
-                                },
-                                onSelectTaskLeadHours = { viewModel.setTaskReminderLeadHours(it) },
-                                onToggleDailyDigest = { viewModel.setDailyDigestEnabled(it) }
-                            )
-                        }
-                    }
-                    SettingsSubScreen.DATA_BACKUP -> {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.TopCenter
-                        ) {
-                            DataAndBackupSettingsView(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .widthIn(max = 760.dp),
-                                scrollState = dataSyncScrollState,
-                                uiState = uiState,
-                                onSyncTimetable = { viewModel.syncTimetable() },
-                                onOpenAccount = handleOpenAccount,
-                                onSyncUserData = { viewModel.syncUserData() },
-                                onExportBackup = { filename -> exportBackupLauncher.launch(filename) },
-                                onRequestResetNotes = { showResetNotesDialog = true },
-                                onRequestResetTasks = { showResetTasksDialog = true }
-                            )
-                        }
-                    }
-                    SettingsSubScreen.ABOUT_LEGAL -> {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.TopCenter
-                        ) {
-                            AboutAndLegalSettingsView(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .widthIn(max = 760.dp),
-                                scrollState = aboutDangerScrollState,
-                                uiState = uiState,
-                                onCheckOrOpenUpdate = {
-                                    if (uiState.availableUpdateInfo != null) {
-                                        viewModel.openUpdateDialog()
-                                    } else {
-                                        viewModel.checkForAppUpdate()
-                                    }
-                                },
-                                onShowVersionDetails = { showVersionDetailsDialog = true },
-                                onOpenDeveloper = { showDeveloperModal = true },
-                                onOpenFeedback = { showFeedbackModal = true },
-                                onOpenDisclaimer = { showDisclaimerDialog = true },
-                                onOpenTerms = { showTermsDialog = true },
-                                onOpenPrivacy = { showPrivacyDialog = true }
-                            )
-                        }
-                    }
-                    SettingsSubScreen.MAIN -> {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.TopCenter
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .widthIn(max = 760.dp)
-                                    .verticalScroll(scrollState)
+                    .padding(padding)
+            ) {
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.TopCenter
+                ) {
+                    SettingsFeedbackBanners(
+                        modifier = Modifier.widthIn(max = 760.dp),
+                        errorMessage = uiState.errorMessage,
+                        successMessage = uiState.successMessage,
+                        horizontalPadding = 20.dp,
+                        onDismiss = { viewModel.clearFeedbackMessages() }
+                    )
+                }
+
+                AnimatedContent(
+                    targetState = currentSubScreen,
+                    transitionSpec = {
+                        MotionSpec.directionalSlideTransform(
+                            forward = targetState != SettingsSubScreen.MAIN,
+                            reducedMotion = reducedMotion,
+                            useFadeOnly = windowInfo.useNavigationRail
+                        )
+                    },
+                    contentKey = { it },
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    label = "settings_phone_subscreen"
+                ) { activeSubScreen ->
+                    when (activeSubScreen) {
+                        SettingsSubScreen.APPEARANCE -> {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.TopCenter
                             ) {
-                                Spacer(modifier = Modifier.height(12.dp))
-
-                                SettingsFeedbackBanners(
-                                    errorMessage = uiState.errorMessage,
-                                    successMessage = uiState.successMessage,
-                                    isDark = isDark,
-                                    onDismiss = { viewModel.clearFeedbackMessages() }
-                                )
-
-                                Spacer(modifier = Modifier.height(12.dp))
-
-                                SettingsAcademicProfileCard(
-                                    programmeDisplayName = programmeDisplayName,
-                                    activeProgramme = activeProgramme,
-                                    facultyDisplayName = facultyDisplayName,
+                                AppearanceSettingsView(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .widthIn(max = 760.dp),
+                                    scrollState = appearanceScrollState,
+                                    appTheme = appTheme,
                                     isTightFont = windowInfo.isTightFont,
-                                    onReconfigureAcademicProfile = onReconfigureAcademicProfile
+                                    horizontalPadding = 20.dp,
+                                    bottomContentPadding = bottomContentPadding,
+                                    onSelectThemeMode = onSelectThemeMode,
+                                    onSelectAccent = onSelectAccent
                                 )
-
-                                Spacer(modifier = Modifier.height(22.dp))
-
-                                SettingsNotificationsSection(
+                            }
+                        }
+                        SettingsSubScreen.NOTIFICATIONS -> {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.TopCenter
+                            ) {
+                                NotificationSettingsView(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .widthIn(max = 760.dp),
+                                    scrollState = notificationsScrollState,
                                     context = context,
                                     uiState = uiState,
                                     isDark = isDark,
@@ -805,45 +727,117 @@ fun SettingsScreen(
                                     canScheduleExactAlarms = canScheduleExactAlarms,
                                     blockedChannels = blockedChannels,
                                     isPermissionBannerDismissed = isPermissionBannerDismissed,
+                                    isTightFont = windowInfo.isTightFont,
+                                    horizontalPadding = 20.dp,
+                                    bottomContentPadding = bottomContentPadding,
                                     onDismissPermissionBanner = { isPermissionBannerDismissed = true },
+                                    onToggleNotifications = { viewModel.setNotificationsEnabled(it) },
+                                    onSelectClassLeadMinutes = { viewModel.setClassAlarmLeadMinutes(it) },
+                                    onOpenCustomLeadDialog = {
+                                        customLeadInput = uiState.classAlarmLeadMinutes.toString()
+                                        showCustomLeadDialog = true
+                                    },
+                                    onSelectTaskLeadHours = { viewModel.setTaskReminderLeadHours(it) },
+                                    onToggleDailyDigest = { viewModel.setDailyDigestEnabled(it) }
+                                )
+                            }
+                        }
+                        SettingsSubScreen.DATA_BACKUP -> {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.TopCenter
+                            ) {
+                                DataAndBackupSettingsView(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .widthIn(max = 760.dp),
+                                    scrollState = dataSyncScrollState,
+                                    uiState = uiState,
+                                    isTightFont = windowInfo.isTightFont,
+                                    horizontalPadding = 20.dp,
+                                    bottomContentPadding = bottomContentPadding,
+                                    onSyncTimetable = { viewModel.syncTimetable() },
+                                    onOpenAccount = handleOpenAccount,
+                                    onSyncUserData = { viewModel.syncUserData() },
+                                    onExportBackup = { filename -> exportBackupLauncher.launch(filename) },
+                                    onRequestResetNotes = { showResetNotesDialog = true },
+                                    onRequestResetTasks = { showResetTasksDialog = true }
+                                )
+                            }
+                        }
+                        SettingsSubScreen.ABOUT_LEGAL -> {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.TopCenter
+                            ) {
+                                AboutAndLegalSettingsView(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .widthIn(max = 760.dp),
+                                    scrollState = aboutDangerScrollState,
+                                    uiState = uiState,
+                                    horizontalPadding = 20.dp,
+                                    bottomContentPadding = bottomContentPadding,
+                                    onCheckOrOpenUpdate = {
+                                        if (uiState.availableUpdateInfo != null) {
+                                            viewModel.openUpdateDialog()
+                                        } else {
+                                            viewModel.checkForAppUpdate()
+                                        }
+                                    },
+                                    onShowVersionDetails = { showVersionDetailsDialog = true },
+                                    onOpenDeveloper = { showDeveloperModal = true },
+                                    onOpenFeedback = { showFeedbackModal = true },
+                                    onOpenDisclaimer = { showDisclaimerDialog = true },
+                                    onOpenTerms = { showTermsDialog = true },
+                                    onOpenPrivacy = { showPrivacyDialog = true }
+                                )
+                            }
+                        }
+                        SettingsSubScreen.MAIN -> {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.TopCenter
+                            ) {
+                                SettingsOverviewContent(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .widthIn(max = 760.dp),
+                                    scrollState = scrollState,
+                                    context = context,
+                                    uiState = uiState,
+                                    appTheme = appTheme,
+                                    isDark = isDark,
+                                    isTightFont = windowInfo.isTightFont,
+                                    horizontalPadding = 20.dp,
+                                    bottomContentPadding = bottomContentPadding,
+                                    programmeDisplayName = programmeDisplayName,
+                                    activeProgramme = activeProgramme,
+                                    facultyDisplayName = facultyDisplayName,
+                                    areNotificationsAllowed = areNotificationsAllowed,
+                                    canScheduleExactAlarms = canScheduleExactAlarms,
+                                    blockedChannels = blockedChannels,
+                                    isPermissionBannerDismissed = isPermissionBannerDismissed,
+                                    onDismissPermissionBanner = { isPermissionBannerDismissed = true },
+                                    onReconfigureAcademicProfile = onReconfigureAcademicProfile,
                                     onToggleNotifications = { viewModel.setNotificationsEnabled(it) },
                                     onOpenNotificationPreferences = {
                                         currentSubScreen = SettingsSubScreen.NOTIFICATIONS
                                         selectedCategory = SettingsCategory.NOTIFICATIONS
-                                    }
-                                )
-
-                                Spacer(modifier = Modifier.height(22.dp))
-
-                                SettingsAppearanceSection(
-                                    appTheme = appTheme,
+                                    },
                                     onOpenAppearance = {
                                         currentSubScreen = SettingsSubScreen.APPEARANCE
                                         selectedCategory = SettingsCategory.APPEARANCE
-                                    }
-                                )
-
-                                Spacer(modifier = Modifier.height(22.dp))
-
-                                SettingsDataSummaryCard(
-                                    uiState = uiState,
+                                    },
                                     onOpenDataAndBackup = {
                                         currentSubScreen = SettingsSubScreen.DATA_BACKUP
                                         selectedCategory = SettingsCategory.DATA_SYNC
-                                    }
-                                )
-
-                                Spacer(modifier = Modifier.height(22.dp))
-
-                                SettingsAboutSummaryCard(
-                                    uiState = uiState,
+                                    },
                                     onOpenAboutAndLegal = {
                                         currentSubScreen = SettingsSubScreen.ABOUT_LEGAL
                                         selectedCategory = SettingsCategory.ABOUT_DANGER
                                     }
                                 )
-
-                                Spacer(modifier = Modifier.height(48.dp))
                             }
                         }
                     }
@@ -856,65 +850,156 @@ fun SettingsScreen(
 }
 
 @Composable
+private fun SettingsOverviewContent(
+    modifier: Modifier = Modifier,
+    scrollState: ScrollState,
+    context: android.content.Context,
+    uiState: SettingsUiState,
+    appTheme: com.lectures.ui.AppThemeState,
+    isDark: Boolean,
+    isTightFont: Boolean,
+    horizontalPadding: Dp,
+    bottomContentPadding: Dp,
+    programmeDisplayName: String,
+    activeProgramme: String,
+    facultyDisplayName: String,
+    areNotificationsAllowed: Boolean,
+    canScheduleExactAlarms: Boolean,
+    blockedChannels: List<String>,
+    isPermissionBannerDismissed: Boolean,
+    onDismissPermissionBanner: () -> Unit,
+    onReconfigureAcademicProfile: () -> Unit,
+    onToggleNotifications: (Boolean) -> Unit,
+    onOpenNotificationPreferences: () -> Unit,
+    onOpenAppearance: () -> Unit,
+    onOpenDataAndBackup: () -> Unit,
+    onOpenAboutAndLegal: () -> Unit
+) {
+    Column(
+        modifier = modifier
+            .verticalScroll(scrollState)
+            .padding(top = 14.dp)
+    ) {
+        SettingsAcademicProfileCard(
+            programmeDisplayName = programmeDisplayName,
+            activeProgramme = activeProgramme,
+            facultyDisplayName = facultyDisplayName,
+            isTightFont = isTightFont,
+            horizontalPadding = horizontalPadding,
+            onReconfigureAcademicProfile = onReconfigureAcademicProfile
+        )
+
+        Spacer(modifier = Modifier.height(22.dp))
+
+        SettingsNotificationsSection(
+            context = context,
+            uiState = uiState,
+            isDark = isDark,
+            areNotificationsAllowed = areNotificationsAllowed,
+            canScheduleExactAlarms = canScheduleExactAlarms,
+            blockedChannels = blockedChannels,
+            isPermissionBannerDismissed = isPermissionBannerDismissed,
+            isTightFont = isTightFont,
+            horizontalPadding = horizontalPadding,
+            onDismissPermissionBanner = onDismissPermissionBanner,
+            onToggleNotifications = onToggleNotifications,
+            onOpenNotificationPreferences = onOpenNotificationPreferences
+        )
+
+        Spacer(modifier = Modifier.height(22.dp))
+
+        SettingsAppearanceSection(
+            appTheme = appTheme,
+            isTightFont = isTightFont,
+            horizontalPadding = horizontalPadding,
+            onOpenAppearance = onOpenAppearance
+        )
+
+        Spacer(modifier = Modifier.height(22.dp))
+
+        SettingsDataSummaryCard(
+            uiState = uiState,
+            isTightFont = isTightFont,
+            horizontalPadding = horizontalPadding,
+            onOpenDataAndBackup = onOpenDataAndBackup
+        )
+
+        Spacer(modifier = Modifier.height(22.dp))
+
+        SettingsAboutSummaryCard(
+            uiState = uiState,
+            isTightFont = isTightFont,
+            horizontalPadding = horizontalPadding,
+            onOpenAboutAndLegal = onOpenAboutAndLegal
+        )
+
+        Spacer(modifier = Modifier.height(bottomContentPadding))
+    }
+}
+
+@Composable
 private fun SettingsFeedbackBanners(
+    modifier: Modifier = Modifier,
     errorMessage: String?,
     successMessage: String?,
-    isDark: Boolean,
+    horizontalPadding: Dp = 20.dp,
     onDismiss: () -> Unit
 ) {
-    AnimatedVisibility(
-        visible = errorMessage != null,
-        enter = fadeIn(),
-        exit = fadeOut()
-    ) {
-        errorMessage?.let { error ->
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 8.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.45f))
-            ) {
-                Row(
-                    modifier = Modifier.padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically
+    Column(modifier = modifier) {
+        AnimatedVisibility(
+            visible = errorMessage != null,
+            enter = fadeIn(),
+            exit = fadeOut()
+        ) {
+            errorMessage?.let { error ->
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = horizontalPadding, vertical = 8.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.45f))
                 ) {
-                    Icon(Icons.Outlined.ErrorOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error)
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(error, color = MaterialTheme.colorScheme.onErrorContainer, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                    IconButton(onClick = onDismiss, modifier = Modifier.size(48.dp).desktopHandCursor()) {
-                        Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.size(16.dp))
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Outlined.ErrorOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(error, color = MaterialTheme.colorScheme.onErrorContainer, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                        IconButton(onClick = onDismiss, modifier = Modifier.size(48.dp).desktopHandCursor()) {
+                            Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.size(16.dp))
+                        }
                     }
                 }
             }
         }
-    }
 
-    AnimatedVisibility(
-        visible = successMessage != null,
-        enter = fadeIn(),
-        exit = fadeOut()
-    ) {
-        successMessage?.let { success ->
-            val ext = LocalExtendedColors.current
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 8.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = ext.successBg),
-                border = BorderStroke(1.dp, ext.successBorder)
-            ) {
-                Row(
-                    modifier = Modifier.padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically
+        AnimatedVisibility(
+            visible = successMessage != null,
+            enter = fadeIn(),
+            exit = fadeOut()
+        ) {
+            successMessage?.let { success ->
+                val ext = LocalExtendedColors.current
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = horizontalPadding, vertical = 8.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = ext.successBg),
+                    border = BorderStroke(1.dp, ext.successBorder)
                 ) {
-                    Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = ext.successIcon)
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(success, color = ext.successText, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                    IconButton(onClick = onDismiss, modifier = Modifier.size(48.dp).desktopHandCursor()) {
-                        Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = ext.successIcon, modifier = Modifier.size(16.dp))
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = ext.successIcon)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(success, color = ext.successText, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                        IconButton(onClick = onDismiss, modifier = Modifier.size(48.dp).desktopHandCursor()) {
+                            Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = ext.successIcon, modifier = Modifier.size(16.dp))
+                        }
                     }
                 }
             }
@@ -928,22 +1013,24 @@ private fun SettingsAcademicProfileCard(
     activeProgramme: String,
     facultyDisplayName: String,
     isTightFont: Boolean = false,
+    horizontalPadding: Dp = 20.dp,
     onReconfigureAcademicProfile: () -> Unit
 ) {
-    SectionHeader("ACADEMIC PROFILE")
+    val ext = LocalExtendedColors.current
+    SectionHeader("ACADEMIC PROFILE", horizontalPadding = horizontalPadding + 4.dp)
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp)
+            .padding(horizontal = horizontalPadding)
             .clip(RoundedCornerShape(16.dp))
             .desktopHoverable()
             .clickable(onClick = onReconfigureAcademicProfile),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        colors = CardDefaults.cardColors(containerColor = ext.surfaceCard),
+        border = BorderStroke(1.dp, ext.borderSubtle),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        androidx.compose.foundation.layout.BoxWithConstraints(
+        BoxWithConstraints(
             modifier = Modifier
                 .padding(18.dp)
                 .fillMaxWidth()

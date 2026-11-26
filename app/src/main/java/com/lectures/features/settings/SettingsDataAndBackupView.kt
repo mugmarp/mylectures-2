@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -46,6 +47,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lectures.ui.LocalExtendedColors
@@ -60,6 +62,9 @@ internal fun DataAndBackupSettingsView(
     modifier: Modifier = Modifier,
     scrollState: ScrollState = rememberScrollState(),
     uiState: SettingsUiState,
+    isTightFont: Boolean = false,
+    horizontalPadding: Dp = 20.dp,
+    bottomContentPadding: Dp = 32.dp,
     onSyncTimetable: () -> Unit,
     onOpenAccount: () -> Unit,
     onSyncUserData: () -> Unit,
@@ -68,17 +73,18 @@ internal fun DataAndBackupSettingsView(
     onRequestResetTasks: () -> Unit
 ) {
     val ext = LocalExtendedColors.current
+    val headerHorizontalPadding = horizontalPadding + 4.dp
 
     Column(
         modifier = modifier
             .verticalScroll(scrollState)
-            .padding(vertical = 14.dp)
+            .padding(top = 14.dp)
     ) {
-        SectionHeader("ACCOUNT & CLOUD SYNC")
+        SectionHeader("ACCOUNT & CLOUD SYNC", horizontalPadding = headerHorizontalPadding)
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp),
+                .padding(horizontal = horizontalPadding),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = ext.surfaceCard),
             border = BorderStroke(1.dp, ext.borderSubtle),
@@ -86,82 +92,86 @@ internal fun DataAndBackupSettingsView(
         ) {
             Column(modifier = Modifier.padding(18.dp)) {
                 if (uiState.isCloudSyncActive && uiState.userAccountEmail != null) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 48.dp)
-                            .clip(RoundedCornerShape(14.dp))
-                            .desktopHoverable()
-                            .clickable(onClick = onOpenAccount)
-                            .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                        val stackActions = maxWidth < 370.dp || isTightFont
                         val initial = uiState.userAccountEmail.firstOrNull()?.uppercaseChar() ?: 'U'
-                        Box(
-                            modifier = Modifier
-                                .size(42.dp)
-                                .background(MaterialTheme.colorScheme.primary, CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = initial.toString(),
-                                color = MaterialTheme.colorScheme.onPrimary,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(14.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                "Signed in as",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                uiState.userAccountEmail,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                        val identityRow: @Composable (Modifier) -> Unit = { rowMod ->
+                            Row(
+                                modifier = rowMod,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(6.dp)
-                                        .background(ext.successIcon, CircleShape)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    uiState.userDataBackupStatus,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = ext.successText,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
+                                        .size(42.dp)
+                                        .background(MaterialTheme.colorScheme.primary, CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = initial.toString(),
+                                        color = MaterialTheme.colorScheme.onPrimary,
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(14.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        "Signed in as",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        uiState.userAccountEmail,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(6.dp)
+                                                .background(ext.successIcon, CircleShape)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            uiState.userDataBackupStatus,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = ext.successText,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
                             }
                         }
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                        val syncCloudButton: @Composable (Modifier) -> Unit = { btnMod ->
                             FilledTonalButton(
                                 onClick = onSyncUserData,
                                 enabled = !uiState.isBackingUpUserData,
                                 shape = RoundedCornerShape(10.dp),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                                modifier = Modifier
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                modifier = btnMod
                                     .defaultMinSize(minHeight = 48.dp)
                                     .desktopHandCursor(enabled = !uiState.isBackingUpUserData)
                             ) {
                                 if (uiState.isBackingUpUserData) {
                                     CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
                                 } else {
-                                    Text("Sync Cloud", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Text(
+                                        "Sync Cloud",
+                                        fontSize = 11.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
                                 }
                             }
+                        }
+                        val manageButton: @Composable (Modifier) -> Unit = { btnMod ->
                             Button(
                                 onClick = onOpenAccount,
                                 shape = RoundedCornerShape(10.dp),
@@ -169,70 +179,154 @@ internal fun DataAndBackupSettingsView(
                                     containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                                     contentColor = MaterialTheme.colorScheme.primary
                                 ),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                                modifier = Modifier
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                modifier = btnMod
                                     .defaultMinSize(minHeight = 48.dp)
                                     .desktopHandCursor()
                             ) {
-                                Text("Manage", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text(
+                                    "Manage",
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+
+                        if (stackActions) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                identityRow(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 48.dp)
+                                        .clip(RoundedCornerShape(14.dp))
+                                        .desktopHoverable()
+                                        .clickable(onClick = onOpenAccount)
+                                        .padding(vertical = 4.dp)
+                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    syncCloudButton(Modifier.weight(1f))
+                                    manageButton(Modifier.weight(1f))
+                                }
+                            }
+                        } else {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 48.dp)
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .desktopHoverable()
+                                    .clickable(onClick = onOpenAccount)
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                identityRow(Modifier.weight(1f))
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    syncCloudButton(Modifier)
+                                    manageButton(Modifier)
+                                }
                             }
                         }
                     }
                 } else {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 48.dp)
-                            .clip(RoundedCornerShape(14.dp))
-                            .desktopHoverable()
-                            .clickable(onClick = onOpenAccount)
-                            .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(42.dp)
-                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                Icons.Default.CloudSync,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(24.dp)
-                            )
+                    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                        val stackSignIn = maxWidth < 290.dp || (isTightFont && maxWidth < 360.dp)
+                        val guestInfoRow: @Composable (Modifier) -> Unit = { rowMod ->
+                            Row(
+                                modifier = rowMod,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(42.dp)
+                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Default.CloudSync,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(14.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        "Google Account & Cloud Backup",
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 14.sp,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        "Guest mode · Link account to sync across devices",
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
                         }
-                        Spacer(modifier = Modifier.width(14.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                "Google Account & Cloud Backup",
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 14.sp,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                "Guest mode · Link account to sync across devices",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                        val signInBtn: @Composable (Modifier) -> Unit = { btnMod ->
+                            Button(
+                                onClick = onOpenAccount,
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = MaterialTheme.colorScheme.onPrimary
+                                ),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                modifier = btnMod
+                                    .defaultMinSize(minHeight = 48.dp)
+                                    .desktopHandCursor()
+                                    .testTag("settings_google_signin_btn")
+                            ) {
+                                Icon(Icons.Default.AccountCircle, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Sign In", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
                         }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Button(
-                            onClick = onOpenAccount,
-                            shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary
-                            ),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                            modifier = Modifier
-                                .defaultMinSize(minHeight = 48.dp)
-                                .desktopHandCursor()
-                                .testTag("settings_google_signin_btn")
-                        ) {
-                            Icon(Icons.Default.AccountCircle, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Sign In", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+
+                        if (stackSignIn) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                guestInfoRow(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 48.dp)
+                                        .clip(RoundedCornerShape(14.dp))
+                                        .desktopHoverable()
+                                        .clickable(onClick = onOpenAccount)
+                                        .padding(vertical = 4.dp)
+                                )
+                                signInBtn(Modifier.fillMaxWidth())
+                            }
+                        } else {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 48.dp)
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .desktopHoverable()
+                                    .clickable(onClick = onOpenAccount)
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                guestInfoRow(Modifier.weight(1f))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                signInBtn(Modifier)
+                            }
                         }
                     }
                 }
@@ -278,81 +372,106 @@ internal fun DataAndBackupSettingsView(
         }
 
         Spacer(modifier = Modifier.height(22.dp))
-        SectionHeader("TIMETABLE & LOCAL BACKUP")
+        SectionHeader("TIMETABLE & LOCAL BACKUP", horizontalPadding = headerHorizontalPadding)
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp),
+                .padding(horizontal = horizontalPadding),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = ext.surfaceCard),
             border = BorderStroke(1.dp, ext.borderSubtle),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             Column(modifier = Modifier.padding(18.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (uiState.isSyncing) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.5.dp,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        } else {
-                            Icon(
-                                Icons.Default.Sync,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(22.dp)
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                    val stackSyncBtn = maxWidth < 280.dp || (isTightFont && maxWidth < 350.dp)
+                    val syncInfoRow: @Composable (Modifier) -> Unit = { rowMod ->
+                        Row(
+                            modifier = rowMod,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (uiState.isSyncing) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(20.dp),
+                                        strokeWidth = 2.5.dp,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                } else {
+                                    Icon(
+                                        Icons.Default.Sync,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(14.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    "Synchronize Timetable",
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 15.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    uiState.lastSyncTime,
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                    val syncNowButton: @Composable (Modifier) -> Unit = { btnMod ->
+                        Button(
+                            onClick = onSyncTimetable,
+                            enabled = !uiState.isSyncing,
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                                contentColor = MaterialTheme.colorScheme.primary
+                            ),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                            modifier = btnMod
+                                .defaultMinSize(minHeight = 48.dp)
+                                .desktopHandCursor(enabled = !uiState.isSyncing)
+                        ) {
+                            Text(
+                                if (uiState.isSyncing) "Syncing..." else "Sync Now",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
                             )
                         }
                     }
-                    Spacer(modifier = Modifier.width(14.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            "Synchronize Timetable",
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 15.sp,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            uiState.lastSyncTime,
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Button(
-                        onClick = onSyncTimetable,
-                        enabled = !uiState.isSyncing,
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                            contentColor = MaterialTheme.colorScheme.primary
-                        ),
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-                        modifier = Modifier
-                            .defaultMinSize(minHeight = 48.dp)
-                            .desktopHandCursor(enabled = !uiState.isSyncing)
-                    ) {
-                        Text(
-                            if (uiState.isSyncing) "Syncing..." else "Sync Now",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+
+                    if (stackSyncBtn) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            syncInfoRow(Modifier.fillMaxWidth())
+                            syncNowButton(Modifier.fillMaxWidth())
+                        }
+                    } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            syncInfoRow(Modifier.weight(1f))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            syncNowButton(Modifier)
+                        }
                     }
                 }
 
                 HorizontalDivider(
                     modifier = Modifier.padding(vertical = 14.dp),
-                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                    color = ext.borderSubtle
                 )
 
                 Row(
@@ -413,11 +532,11 @@ internal fun DataAndBackupSettingsView(
         }
 
         Spacer(modifier = Modifier.height(22.dp))
-        SectionHeader("DANGER ZONE", color = MaterialTheme.colorScheme.error)
+        SectionHeader("DANGER ZONE", color = MaterialTheme.colorScheme.error, horizontalPadding = headerHorizontalPadding)
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp),
+                .padding(horizontal = horizontalPadding),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = ext.surfaceCard),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.45f)),
@@ -521,6 +640,6 @@ internal fun DataAndBackupSettingsView(
             }
         }
 
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(bottomContentPadding))
     }
 }
