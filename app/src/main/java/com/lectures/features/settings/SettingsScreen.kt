@@ -284,6 +284,12 @@ fun SettingsScreen(
     }
 
     val scrollState = rememberScrollState()
+    val railScrollState = rememberScrollState()
+    val overviewScrollState = rememberScrollState()
+    val notificationsScrollState = rememberScrollState()
+    val appearanceScrollState = rememberScrollState()
+    val dataSyncScrollState = rememberScrollState()
+    val aboutDangerScrollState = rememberScrollState()
 
     AnimatedContent(
         targetState = isAccountScreenOpen,
@@ -418,7 +424,7 @@ fun SettingsScreen(
                         Column(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .verticalScroll(rememberScrollState())
+                                .verticalScroll(railScrollState)
                                 .padding(14.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
@@ -523,7 +529,7 @@ fun SettingsScreen(
                                 Column(
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .verticalScroll(rememberScrollState())
+                                        .verticalScroll(overviewScrollState)
                                         .padding(bottom = 32.dp)
                                 ) {
                                     SettingsAcademicProfileCard(
@@ -563,6 +569,7 @@ fun SettingsScreen(
                             SettingsCategory.NOTIFICATIONS -> {
                                 NotificationSettingsView(
                                     modifier = Modifier.fillMaxSize(),
+                                    scrollState = notificationsScrollState,
                                     context = context,
                                     uiState = uiState,
                                     isDark = isDark,
@@ -585,6 +592,7 @@ fun SettingsScreen(
                             SettingsCategory.APPEARANCE -> {
                                 AppearanceSettingsView(
                                     modifier = Modifier.fillMaxSize(),
+                                    scrollState = appearanceScrollState,
                                     appTheme = appTheme,
                                     onSelectThemeMode = onSelectThemeMode,
                                     onSelectAccent = onSelectAccent
@@ -595,7 +603,7 @@ fun SettingsScreen(
                                 Column(
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .verticalScroll(rememberScrollState())
+                                        .verticalScroll(dataSyncScrollState)
                                         .padding(vertical = 8.dp)
                                 ) {
                                     SettingsDataAndSyncSection(
@@ -622,7 +630,7 @@ fun SettingsScreen(
                                 Column(
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .verticalScroll(rememberScrollState())
+                                        .verticalScroll(aboutDangerScrollState)
                                         .padding(vertical = 8.dp)
                                 ) {
                                     SettingsAboutAndDangerSection(
@@ -667,6 +675,7 @@ fun SettingsScreen(
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .widthIn(max = 760.dp),
+                                scrollState = appearanceScrollState,
                                 appTheme = appTheme,
                                 onSelectThemeMode = onSelectThemeMode,
                                 onSelectAccent = onSelectAccent
@@ -682,6 +691,7 @@ fun SettingsScreen(
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .widthIn(max = 760.dp),
+                                scrollState = notificationsScrollState,
                                 context = context,
                                 uiState = uiState,
                                 isDark = isDark,

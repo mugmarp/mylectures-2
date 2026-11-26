@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -303,6 +304,7 @@ internal fun ThemeSelectionCard(
 @Composable
 internal fun AppearanceSettingsView(
     modifier: Modifier = Modifier,
+    scrollState: ScrollState = rememberScrollState(),
     appTheme: AppThemeState,
     onSelectThemeMode: (ThemeMode) -> Unit,
     onSelectAccent: (Int) -> Unit
@@ -314,7 +316,7 @@ internal fun AppearanceSettingsView(
 
     Column(
         modifier = modifier
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
             .padding(vertical = 16.dp)
     ) {
         SectionHeader("THEME MODE")

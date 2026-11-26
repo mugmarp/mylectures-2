@@ -462,14 +462,9 @@ fun DedicatedCalendarDatePickerDialog(
                 Spacer(modifier = Modifier.height(6.dp))
 
                 // Calendar Days Grid (Centerpiece, using equal weight(1f) per column)
-                val todayStartCal = remember {
-                    (Calendar.getInstance().clone() as Calendar).apply {
-                        set(Calendar.HOUR_OF_DAY, 0)
-                        set(Calendar.MINUTE, 0)
-                        set(Calendar.SECOND, 0)
-                        set(Calendar.MILLISECOND, 0)
-                    }
-                }
+                val todayYear = todayCal.get(Calendar.YEAR)
+                val todayMonth = todayCal.get(Calendar.MONTH)
+                val todayDayOfMonth = todayCal.get(Calendar.DAY_OF_MONTH)
 
                 AnimatedContent(
                     targetState = monthKey,
@@ -484,18 +479,20 @@ fun DedicatedCalendarDatePickerDialog(
                 ) { targetKey ->
                     val gridYear = targetKey / 12
                     val gridMonth = targetKey % 12
-                    val gridMonthCal = remember(targetKey) {
-                        Calendar.getInstance().apply {
+                    val (gridDaysInMonth, gridFirstDayOffset) = remember(targetKey) {
+                        val cal = Calendar.getInstance().apply {
                             set(Calendar.YEAR, gridYear)
                             set(Calendar.MONTH, gridMonth)
                             set(Calendar.DAY_OF_MONTH, 1)
                         }
+                        cal.getActualMaximum(Calendar.DAY_OF_MONTH) to ((cal.get(Calendar.DAY_OF_WEEK) + 5) % 7)
                     }
-                    val gridDaysInMonth = remember(gridMonthCal) {
-                        gridMonthCal.getActualMaximum(Calendar.DAY_OF_MONTH)
-                    }
-                    val gridFirstDayOffset = remember(gridMonthCal) {
-                        (gridMonthCal.get(Calendar.DAY_OF_WEEK) + 5) % 7
+                    val onSelectPickerDay: (Int) -> Unit = remember(gridYear, gridMonth) {
+                        { day ->
+                            selectedYear = gridYear
+                            selectedMonth = gridMonth
+                            selectedDayOfMonth = day
+                        }
                     }
 
                     Column(
@@ -517,66 +514,19 @@ fun DedicatedCalendarDatePickerDialog(
                                         if (cellIndex >= gridFirstDayOffset && dayCounter <= gridDaysInMonth) {
                                             val currentDay = dayCounter
                                             val isCellSelected = (gridYear == selectedYear && gridMonth == selectedMonth && currentDay == selectedDayOfMonth)
-                                            val isCellToday = (gridYear == todayCal.get(Calendar.YEAR) && gridMonth == todayCal.get(Calendar.MONTH) && currentDay == todayCal.get(Calendar.DAY_OF_MONTH))
+                                            val isCellToday = (gridYear == todayYear && gridMonth == todayMonth && currentDay == todayDayOfMonth)
+                                            val isPast = gridYear < todayYear ||
+                                                (gridYear == todayYear && (gridMonth < todayMonth || (gridMonth == todayMonth && currentDay < todayDayOfMonth)))
 
-                                            val cellCal = Calendar.getInstance().apply {
-                                                set(gridYear, gridMonth, currentDay, 23, 59, 59)
-                                            }
-                                            val isPast = cellCal.before(todayStartCal)
-
-                                            val cellBg by animateColorAsState(
-                                                targetValue = when {
-                                                    isCellSelected -> primaryColor
-                                                    isCellToday -> primaryColor.copy(alpha = 0.14f)
-                                                    else -> Color.Transparent
-                                                },
-                                                animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
-                                                label = "picker_day_bg"
+                                            PickerCalendarDayCell(
+                                                day = currentDay,
+                                                isSelected = isCellSelected,
+                                                isToday = isCellToday,
+                                                isPast = isPast,
+                                                primaryColor = primaryColor,
+                                                reducedMotion = reducedMotion,
+                                                onSelectDay = onSelectPickerDay
                                             )
-                                            val cellTextColor by animateColorAsState(
-                                                targetValue = when {
-                                                    isCellSelected -> MaterialTheme.colorScheme.onPrimary
-                                                    isCellToday -> primaryColor
-                                                    isPast -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                                                    else -> MaterialTheme.colorScheme.onSurface
-                                                },
-                                                animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
-                                                label = "picker_day_text"
-                                            )
-
-                                            Box(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .defaultMinSize(minHeight = 48.dp)
-                                                    .clip(RoundedCornerShape(12.dp))
-                                                    .desktopHandCursor()
-                                                    .clickable {
-                                                        selectedYear = gridYear
-                                                        selectedMonth = gridMonth
-                                                        selectedDayOfMonth = currentDay
-                                                    },
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .size(38.dp)
-                                                        .clip(RoundedCornerShape(10.dp))
-                                                        .background(cellBg)
-                                                        .then(
-                                                            if (isCellToday && !isCellSelected) {
-                                                                Modifier.border(1.5.dp, primaryColor, RoundedCornerShape(10.dp))
-                                                            } else Modifier
-                                                        ),
-                                                    contentAlignment = Alignment.Center
-                                                ) {
-                                                    Text(
-                                                        text = "$currentDay",
-                                                        fontSize = 13.sp,
-                                                        fontWeight = if (isCellSelected || isCellToday) FontWeight.Bold else FontWeight.Medium,
-                                                        color = cellTextColor
-                                                    )
-                                                }
-                                            }
                                             dayCounter++
                                         } else {
                                             Spacer(modifier = Modifier.height(48.dp))
@@ -650,6 +600,71 @@ fun DedicatedCalendarDatePickerDialog(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun PickerCalendarDayCell(
+    day: Int,
+    isSelected: Boolean,
+    isToday: Boolean,
+    isPast: Boolean,
+    primaryColor: Color,
+    reducedMotion: Boolean,
+    onSelectDay: (Int) -> Unit
+) {
+    val cellBg by animateColorAsState(
+        targetValue = when {
+            isSelected -> primaryColor
+            isToday -> primaryColor.copy(alpha = 0.14f)
+            else -> Color.Transparent
+        },
+        animationSpec = MotionSpec.stateTween(MotionSpec.STATE_COLOR_MS, reducedMotion),
+        label = "picker_day_bg_$day"
+    )
+    val cellTextColor by animateColorAsState(
+        targetValue = when {
+            isSelected -> MaterialTheme.colorScheme.onPrimary
+            isToday -> primaryColor
+            isPast -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+            else -> MaterialTheme.colorScheme.onSurface
+        },
+        animationSpec = MotionSpec.stateTween(MotionSpec.STATE_COLOR_MS, reducedMotion),
+        label = "picker_day_text_$day"
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .defaultMinSize(minHeight = 48.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .desktopHandCursor()
+            .desktopHoverable(
+                enabled = !isSelected,
+                hoverContainerColor = primaryColor.copy(alpha = 0.08f)
+            )
+            .clickable { onSelectDay(day) },
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(38.dp)
+                .clip(CircleShape)
+                .background(cellBg)
+                .then(
+                    if (isToday && !isSelected) {
+                        Modifier.border(1.5.dp, primaryColor, CircleShape)
+                    } else Modifier
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "$day",
+                fontSize = 13.5.sp,
+                fontWeight = if (isSelected || isToday) FontWeight.Bold else FontWeight.Medium,
+                color = cellTextColor
+            )
         }
     }
 }

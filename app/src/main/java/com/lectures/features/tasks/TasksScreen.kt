@@ -264,6 +264,7 @@ fun TasksScreen(
     val listBottomPadding = Chrome.listBottomPadding(navBarBottom, windowInfo.useNavigationRail)
     val listState = rememberLazyListState()
     val gridState = rememberLazyGridState()
+    val dashboardScrollState = rememberScrollState()
     val searchFocusRequester = remember { FocusRequester() }
     val primaryInk = contrastOnColor(primaryColor)
 
@@ -519,7 +520,7 @@ fun TasksScreen(
                                 .widthIn(max = 380.dp)
                                 .weight(1f)
                                 .fillMaxHeight()
-                                .verticalScroll(rememberScrollState())
+                                .verticalScroll(dashboardScrollState)
                                 .padding(top = 4.dp, bottom = listBottomPadding),
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {

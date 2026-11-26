@@ -3,12 +3,15 @@ package com.lectures.features.timetable.ui
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -104,6 +107,10 @@ fun TimetableDesktopWorkspace(
     var viewMode by rememberSaveable(windowInfo.isWideWorkspace) {
         mutableStateOf(if (windowInfo.isWideWorkspace) "Week" else "Day")
     }
+    val weekGridScrollState = rememberScrollState()
+    val dayTimelineListState = rememberLazyListState()
+    val overviewInspectorScrollState = rememberScrollState()
+    var hasAutoScrolledWeek by rememberSaveable { mutableStateOf(false) }
 
     val filteredEntriesAllDays = remember(entries, selectedFilter) {
         when (selectedFilter) {
@@ -191,6 +198,9 @@ fun TimetableDesktopWorkspace(
                             todayName = todayName,
                             selectedEntryKey = selectedEntryForDetail?.naturalKey,
                             bottomPadding = bottomContentPadding,
+                            verticalScroll = weekGridScrollState,
+                            hasAutoScrolled = hasAutoScrolledWeek,
+                            onAutoScrolled = { hasAutoScrolledWeek = true },
                             onSelectDay = onDaySelected,
                             onSelectEntry = { entry ->
                                 onDaySelected(entry.dayOfWeek)
@@ -214,6 +224,7 @@ fun TimetableDesktopWorkspace(
                             notes = notes,
                             selectedEntryKey = selectedEntryForDetail?.naturalKey,
                             bottomPadding = bottomContentPadding,
+                            listState = dayTimelineListState,
                             onDaySelected = onDaySelected,
                             onInspectEntry = onInspectEntry,
                             onOpenAlarmPicker = onOpenAlarmPicker,
@@ -288,6 +299,7 @@ fun TimetableDesktopWorkspace(
                             dayCustomEvents = dayCustomEvents,
                             notes = notes,
                             globalNextUp = globalNextUp,
+                            scrollState = overviewInspectorScrollState,
                             onInspectEntry = onInspectEntry,
                             onOpenQuickAdd = onOpenQuickAdd
                         )
@@ -517,6 +529,9 @@ private fun WeeklyTimetableMatrix(
     todayName: String,
     selectedEntryKey: String?,
     bottomPadding: Dp,
+    verticalScroll: ScrollState = rememberScrollState(),
+    hasAutoScrolled: Boolean = true,
+    onAutoScrolled: () -> Unit = {},
     onSelectDay: (String) -> Unit,
     onSelectEntry: (TimetableEntry) -> Unit,
     onSelectActivity: (CustomEvent) -> Unit
@@ -553,16 +568,18 @@ private fun WeeklyTimetableMatrix(
         }
     }
 
-    val verticalScroll = rememberScrollState()
     val density = LocalDensity.current
-    LaunchedEffect(startHour, endHour) {
-        val nowCal = Calendar.getInstance()
-        val curHour = nowCal.get(Calendar.HOUR_OF_DAY)
-        val targetHour = (curHour - 1).coerceIn(startHour, max(startHour, endHour - 4))
-        val offsetPx = with(density) { (hourHeightDp * (targetHour - startHour)).toPx().toInt() }
-        if (offsetPx > 0) {
-            if (reducedMotion) verticalScroll.scrollTo(offsetPx)
-            else verticalScroll.animateScrollTo(offsetPx)
+    LaunchedEffect(startHour, endHour, hasAutoScrolled) {
+        if (!hasAutoScrolled) {
+            val nowCal = Calendar.getInstance()
+            val curHour = nowCal.get(Calendar.HOUR_OF_DAY)
+            val targetHour = (curHour - 1).coerceIn(startHour, max(startHour, endHour - 4))
+            val offsetPx = with(density) { (hourHeightDp * (targetHour - startHour)).toPx().toInt() }
+            if (offsetPx > 0) {
+                if (reducedMotion) verticalScroll.scrollTo(offsetPx)
+                else verticalScroll.animateScrollTo(offsetPx)
+            }
+            onAutoScrolled()
         }
     }
 
@@ -927,6 +944,7 @@ private fun DesktopDayTimelinePane(
     notes: Map<String, LectureNote>,
     selectedEntryKey: String?,
     bottomPadding: Dp,
+    listState: LazyListState = rememberLazyListState(),
     onDaySelected: (String) -> Unit,
     onInspectEntry: (String) -> Unit,
     onOpenAlarmPicker: (String) -> Unit,
@@ -943,6 +961,7 @@ private fun DesktopDayTimelinePane(
     }
 
     LazyColumn(
+        state = listState,
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = bottomPadding)
     ) {
@@ -1117,6 +1136,7 @@ private fun TimetableOverviewInspector(
     dayCustomEvents: List<CustomEvent>,
     notes: Map<String, LectureNote>,
     globalNextUp: GlobalNextUp?,
+    scrollState: ScrollState = rememberScrollState(),
     onInspectEntry: (String) -> Unit,
     onOpenQuickAdd: () -> Unit
 ) {
@@ -1132,7 +1152,7 @@ private fun TimetableOverviewInspector(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
             .padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {

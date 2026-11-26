@@ -27,8 +27,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.lectures.ui.AccentColors
-import com.lectures.ui.AccentDarkColors
 import com.lectures.ui.LocalAppTheme
 import com.lectures.ui.LocalExtendedColors
 import com.lectures.ui.components.RoomFloorBadge
@@ -42,39 +40,11 @@ fun NextUpHeroCard(
     onClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val appTheme = LocalAppTheme.current
-    val isDark = appTheme.isDark
+    val isDark = LocalAppTheme.current.isDark
     val ext = LocalExtendedColors.current
-    val safeAccentIdx = appTheme.accentIndex.coerceIn(0, AccentColors.lastIndex)
-    val heroStart = if (isDark) {
-        when (safeAccentIdx) {
-            0 -> Color(0xFF15223B)
-            1 -> Color(0xFF0A2E25)
-            2 -> Color(0xFF22163B)
-            3 -> Color(0xFF2E1B08)
-            else -> Color(0xFF0D283A)
-        }
-    } else {
-        AccentColors[safeAccentIdx]
-    }
-    val heroEnd = if (isDark) {
-        when (safeAccentIdx) {
-            0 -> Color(0xFF1B1938)
-            1 -> Color(0xFF0B221D)
-            2 -> Color(0xFF1A1430)
-            3 -> Color(0xFF22160A)
-            else -> Color(0xFF0C1E2E)
-        }
-    } else {
-        when (safeAccentIdx) {
-            0 -> Color(0xFF4F46E5)
-            1 -> Color(0xFF047857)
-            2 -> Color(0xFF5B21B6)
-            3 -> Color(0xFFB45309)
-            else -> Color(0xFF0369A1)
-        }
-    }
-    val darkAccentGlow = AccentDarkColors[safeAccentIdx]
+    val palette = rememberHeroCardPalette()
+    val heroStart = palette.start
+    val darkAccentGlow = palette.accentGlow
 
     Box(
         modifier = modifier
@@ -96,7 +66,7 @@ fun NextUpHeroCard(
                 }
             )
             .background(
-                brush = Brush.verticalGradient(listOf(heroStart, heroEnd)),
+                brush = palette.verticalBrush(),
                 shape = HeroCardShape
             )
             .clip(HeroCardShape)

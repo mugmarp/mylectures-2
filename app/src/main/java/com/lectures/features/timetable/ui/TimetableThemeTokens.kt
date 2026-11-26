@@ -1,8 +1,88 @@
 package com.lectures.features.timetable.ui
 
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.lectures.ui.AccentColors
+import com.lectures.ui.AccentDarkColors
+import com.lectures.ui.LocalAppTheme
+
+@Immutable
+internal data class HeroCardPalette(
+    val start: Color,
+    val end: Color,
+    val liveMid: Color,
+    val accentGlow: Color
+) {
+    fun verticalBrush(): Brush = Brush.verticalGradient(listOf(start, end))
+
+    fun horizontalBrush(isDark: Boolean, isLive: Boolean): Brush = when {
+        isDark && isLive -> Brush.horizontalGradient(listOf(start, end, accentGlow.copy(alpha = 0.35f)))
+        isLive -> Brush.horizontalGradient(listOf(liveMid, start, end))
+        else -> Brush.horizontalGradient(listOf(start, end))
+    }
+}
+
+internal fun resolveHeroCardPalette(isDark: Boolean, accentIndex: Int): HeroCardPalette {
+    val safeAccentIdx = accentIndex.coerceIn(0, AccentColors.lastIndex)
+    val start = if (isDark) {
+        when (safeAccentIdx) {
+            0 -> Color(0xFF15223B)
+            1 -> Color(0xFF0A2E25)
+            2 -> Color(0xFF22163B)
+            3 -> Color(0xFF2E1B08)
+            else -> Color(0xFF0D283A)
+        }
+    } else {
+        AccentColors[safeAccentIdx]
+    }
+    val end = if (isDark) {
+        when (safeAccentIdx) {
+            0 -> Color(0xFF1B1938)
+            1 -> Color(0xFF0B221D)
+            2 -> Color(0xFF1A1430)
+            3 -> Color(0xFF22160A)
+            else -> Color(0xFF0C1E2E)
+        }
+    } else {
+        when (safeAccentIdx) {
+            0 -> Color(0xFF4F46E5)
+            1 -> Color(0xFF047857)
+            2 -> Color(0xFF5B21B6)
+            3 -> Color(0xFFB45309)
+            else -> Color(0xFF0369A1)
+        }
+    }
+    val liveMid = if (isDark) {
+        start
+    } else {
+        when (safeAccentIdx) {
+            0 -> Color(0xFF1E40AF)
+            1 -> Color(0xFF059669)
+            2 -> Color(0xFF6D28D9)
+            3 -> Color(0xFFD97706)
+            else -> Color(0xFF0284C7)
+        }
+    }
+    return HeroCardPalette(
+        start = start,
+        end = end,
+        liveMid = liveMid,
+        accentGlow = AccentDarkColors[safeAccentIdx]
+    )
+}
+
+@Composable
+internal fun rememberHeroCardPalette(): HeroCardPalette {
+    val appTheme = LocalAppTheme.current
+    return remember(appTheme.isDark, appTheme.accentIndex) {
+        resolveHeroCardPalette(isDark = appTheme.isDark, accentIndex = appTheme.accentIndex)
+    }
+}
 
 // Design Tokens & Theme Colors from Specification
 val SurfaceBaseLight = Color(0xFFFAF8FF)

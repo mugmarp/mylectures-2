@@ -17,6 +17,7 @@ import androidx.compose.material.icons.outlined.School
 import androidx.compose.material.icons.outlined.TaskAlt
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -34,6 +35,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lectures.core.alarm.TaskDateTimeParser
 import com.lectures.ui.MotionSpec
 import com.lectures.ui.components.desktopHandCursor
 import com.lectures.ui.components.desktopHoverable
@@ -42,6 +44,28 @@ import com.lectures.ui.rememberPrefersReducedMotion
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
+
+private val CALENDAR_WEEKDAY_HEADERS = listOf("Mo", "Tu", "We", "Th", "Fr", "Sa", "Su")
+private val CALENDAR_WEEKDAY_NAMES_LOWER = listOf(
+    "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"
+)
+
+@Immutable
+private data class CalendarDayCellData(
+    val dayNum: Int,
+    val isToday: Boolean,
+    val hasClasses: Boolean,
+    val hasActivities: Boolean,
+    val hasDeadlines: Boolean,
+    val hasMilestone: Boolean
+)
+
+@Immutable
+private data class CalendarMonthGridSnapshot(
+    val monthEpoch: Int,
+    val firstDayOfWeekOffset: Int,
+    val cells: List<CalendarDayCellData>
+)
 
 @Composable
 internal fun CalendarMonthSection(
@@ -125,14 +149,13 @@ internal fun CalendarMonthGridCard(
         Spacer(modifier = Modifier.height(8.dp))
 
         // Days of week header
-        val dayNames = listOf("Mo", "Tu", "We", "Th", "Fr", "Sa", "Su")
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            dayNames.forEach { name ->
+            CALENDAR_WEEKDAY_HEADERS.forEach { name ->
                 Text(
                     text = name,
                     fontSize = 12.sp,
@@ -148,9 +171,15 @@ internal fun CalendarMonthGridCard(
 
         val taskDaysWithDue = remember(uiState.assignments, uiState.currentMonth, uiState.currentYear) {
             val days = mutableSetOf<Int>()
-            for (day in 1..uiState.daysInMonth) {
-                if (uiState.assignments.any { !it.completed && viewModel.isTaskDueOnDay(it, day) }) {
-                    days.add(day)
+            val cal = Calendar.getInstance()
+            for (assignment in uiState.assignments) {
+                if (assignment.completed) continue
+                val dueMillis = TaskDateTimeParser.calculateDueMillis(assignment.dueDate) ?: continue
+                cal.timeInMillis = dueMillis
+                if (cal.get(Calendar.YEAR) == uiState.currentYear &&
+                    cal.get(Calendar.MONTH) == uiState.currentMonth
+                ) {
+                    days.add(cal.get(Calendar.DAY_OF_MONTH))
                 }
             }
             days
@@ -164,6 +193,47 @@ internal fun CalendarMonthGridCard(
             uiState.customEvents.map { it.dayOfWeek.lowercase(Locale.ROOT) }.toSet()
         }
 
+        val monthSnapshot = remember(
+            monthEpoch,
+            uiState.currentYear,
+            uiState.currentMonth,
+            uiState.daysInMonth,
+            uiState.firstDayOfWeekOffset,
+            uiState.todayDay,
+            uiState.monthAcademicContexts,
+            classDaysWithSchedule,
+            activityDaysWithSchedule,
+            taskDaysWithDue
+        ) {
+            val cells = List(uiState.daysInMonth) { index ->
+                val dayNum = index + 1
+                val weekdayLower = CALENDAR_WEEKDAY_NAMES_LOWER[(uiState.firstDayOfWeekOffset + index) % 7]
+                val cellAcademic = uiState.monthAcademicContexts[dayNum]
+                    ?: AcademicCalendarEngine.getAcademicContextForDate(
+                        uiState.currentYear,
+                        uiState.currentMonth,
+                        dayNum
+                    )
+                CalendarDayCellData(
+                    dayNum = dayNum,
+                    isToday = uiState.todayDay == dayNum,
+                    hasClasses = cellAcademic.isInstructionalDay && (weekdayLower in classDaysWithSchedule),
+                    hasActivities = weekdayLower in activityDaysWithSchedule,
+                    hasDeadlines = dayNum in taskDaysWithDue,
+                    hasMilestone = cellAcademic.primaryMilestone != null
+                )
+            }
+            CalendarMonthGridSnapshot(
+                monthEpoch = monthEpoch,
+                firstDayOfWeekOffset = uiState.firstDayOfWeekOffset,
+                cells = cells
+            )
+        }
+
+        val onSelectDay: (Int) -> Unit = remember(viewModel) {
+            { day -> viewModel.selectDay(day) }
+        }
+
         val cellHeightDp = when {
             windowInfo.isWideWorkspace -> 54.dp
             useCompactDesktopCells -> 50.dp
@@ -172,7 +242,7 @@ internal fun CalendarMonthGridCard(
 
         // Calendar Grid with directional month transition
         AnimatedContent(
-            targetState = monthEpoch,
+            targetState = monthSnapshot,
             transitionSpec = {
                 MotionSpec.directionalSlideTransform(
                     forward = isMonthForward,
@@ -180,8 +250,11 @@ internal fun CalendarMonthGridCard(
                     useFadeOnly = windowInfo.useNavigationRail
                 )
             },
+            contentKey = { it.monthEpoch },
             label = "calendar_month_grid_slide"
-        ) { _ ->
+        ) { snapshot ->
+            val snapshotDays = snapshot.cells.size
+            val snapshotOffset = snapshot.firstDayOfWeekOffset
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -190,118 +263,119 @@ internal fun CalendarMonthGridCard(
             ) {
                 var currentDay = 1
                 for (row in 0..5) {
-                    if (currentDay > uiState.daysInMonth) break
+                    if (currentDay > snapshotDays) break
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         for (col in 0..6) {
                             val cellIndex = row * 7 + col
-                            if (cellIndex < uiState.firstDayOfWeekOffset || currentDay > uiState.daysInMonth) {
+                            if (cellIndex < snapshotOffset || currentDay > snapshotDays) {
                                 Box(
                                     modifier = Modifier
                                         .weight(1f)
                                         .height(cellHeightDp)
                                 )
                             } else {
-                                val dayNum = currentDay
-                                val isSelected = dayNum == uiState.selectedDay
-                                val isToday = viewModel.isToday(dayNum)
-                                val cellDayName = viewModel.getDayOfWeekNameForDay(dayNum)
-                                val cellDayLower = cellDayName.lowercase(Locale.ROOT)
-
-                                val cellAcademic = uiState.monthAcademicContexts[dayNum]
-                                    ?: AcademicCalendarEngine.getAcademicContextForDate(
-                                        uiState.currentYear,
-                                        uiState.currentMonth,
-                                        dayNum
-                                    )
-
-                                val hasClassesThisDay = cellAcademic.isInstructionalDay && (cellDayLower in classDaysWithSchedule)
-                                val hasActivitiesThisDay = cellDayLower in activityDaysWithSchedule
-                                val hasDeadlinesThisDay = dayNum in taskDaysWithDue
-                                val hasMilestoneThisDay = cellAcademic.primaryMilestone != null
-
-                                val cellBg by animateColorAsState(
-                                    targetValue = when {
-                                        isSelected -> MaterialTheme.colorScheme.primary
-                                        isToday -> MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
-                                        else -> MaterialTheme.colorScheme.surfaceVariant
-                                    },
-                                    animationSpec = MotionSpec.stateTween(MotionSpec.STATE_COLOR_MS, reducedMotion),
-                                    label = "cal_day_bg_$dayNum"
+                                val cell = snapshot.cells[currentDay - 1]
+                                CalendarDayCell(
+                                    cell = cell,
+                                    isSelected = cell.dayNum == uiState.selectedDay,
+                                    cellHeightDp = cellHeightDp,
+                                    reducedMotion = reducedMotion,
+                                    onSelectDay = onSelectDay,
+                                    modifier = Modifier.weight(1f)
                                 )
-                                val cellTextColor by animateColorAsState(
-                                    targetValue = when {
-                                        isSelected -> MaterialTheme.colorScheme.onPrimary
-                                        isToday -> MaterialTheme.colorScheme.primary
-                                        else -> MaterialTheme.colorScheme.onSurface
-                                    },
-                                    animationSpec = MotionSpec.stateTween(MotionSpec.STATE_COLOR_MS, reducedMotion),
-                                    label = "cal_day_text_$dayNum"
-                                )
-
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .heightIn(min = 48.dp)
-                                        .height(cellHeightDp)
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .background(cellBg)
-                                        .then(
-                                            if (isToday && !isSelected) {
-                                                Modifier.border(
-                                                    1.5.dp,
-                                                    MaterialTheme.colorScheme.primary,
-                                                    RoundedCornerShape(10.dp)
-                                                )
-                                            } else Modifier
-                                        )
-                                        .desktopHandCursor()
-                                        .desktopHoverable(
-                                            enabled = !isSelected,
-                                            hoverContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
-                                        )
-                                        .clickable { viewModel.selectDay(dayNum) },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Column(
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-                                        verticalArrangement = Arrangement.Center
-                                    ) {
-                                        Text(
-                                            text = "$dayNum",
-                                            fontSize = 13.sp,
-                                            fontWeight = if (isSelected || isToday) FontWeight.Bold else FontWeight.Medium,
-                                            color = cellTextColor
-                                        )
-
-                                        if (hasClassesThisDay || hasActivitiesThisDay || hasDeadlinesThisDay || hasMilestoneThisDay) {
-                                            Spacer(modifier = Modifier.height(2.dp))
-                                            Row(
-                                                horizontalArrangement = Arrangement.spacedBy(2.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                val selectedDotColor = MaterialTheme.colorScheme.onPrimary
-                                                if (hasDeadlinesThisDay) {
-                                                    CalendarDot(color = if (isSelected) selectedDotColor else Color(0xFFEF4444))
-                                                }
-                                                if (hasClassesThisDay) {
-                                                    CalendarDot(color = if (isSelected) selectedDotColor else MaterialTheme.colorScheme.primary)
-                                                }
-                                                if (hasActivitiesThisDay) {
-                                                    CalendarDot(color = if (isSelected) selectedDotColor else Color(0xFF10B981))
-                                                }
-                                                if (hasMilestoneThisDay && !hasClassesThisDay && !hasDeadlinesThisDay) {
-                                                    CalendarDot(color = if (isSelected) selectedDotColor else Color(0xFF8B5CF6))
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
                                 currentDay++
                             }
                         }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CalendarDayCell(
+    cell: CalendarDayCellData,
+    isSelected: Boolean,
+    cellHeightDp: Dp,
+    reducedMotion: Boolean,
+    onSelectDay: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val cellBg by animateColorAsState(
+        targetValue = when {
+            isSelected -> MaterialTheme.colorScheme.primary
+            cell.isToday -> MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+            else -> MaterialTheme.colorScheme.surfaceVariant
+        },
+        animationSpec = MotionSpec.stateTween(MotionSpec.STATE_COLOR_MS, reducedMotion),
+        label = "cal_day_bg_${cell.dayNum}"
+    )
+    val cellTextColor by animateColorAsState(
+        targetValue = when {
+            isSelected -> MaterialTheme.colorScheme.onPrimary
+            cell.isToday -> MaterialTheme.colorScheme.primary
+            else -> MaterialTheme.colorScheme.onSurface
+        },
+        animationSpec = MotionSpec.stateTween(MotionSpec.STATE_COLOR_MS, reducedMotion),
+        label = "cal_day_text_${cell.dayNum}"
+    )
+
+    Box(
+        modifier = modifier
+            .heightIn(min = 48.dp)
+            .height(cellHeightDp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(cellBg)
+            .then(
+                if (cell.isToday && !isSelected) {
+                    Modifier.border(
+                        1.5.dp,
+                        MaterialTheme.colorScheme.primary,
+                        RoundedCornerShape(10.dp)
+                    )
+                } else Modifier
+            )
+            .desktopHandCursor()
+            .desktopHoverable(
+                enabled = !isSelected,
+                hoverContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+            )
+            .clickable { onSelectDay(cell.dayNum) },
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = "${cell.dayNum}",
+                fontSize = 13.sp,
+                fontWeight = if (isSelected || cell.isToday) FontWeight.Bold else FontWeight.Medium,
+                color = cellTextColor
+            )
+
+            if (cell.hasClasses || cell.hasActivities || cell.hasDeadlines || cell.hasMilestone) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val selectedDotColor = MaterialTheme.colorScheme.onPrimary
+                    if (cell.hasDeadlines) {
+                        CalendarDot(color = if (isSelected) selectedDotColor else Color(0xFFEF4444))
+                    }
+                    if (cell.hasClasses) {
+                        CalendarDot(color = if (isSelected) selectedDotColor else MaterialTheme.colorScheme.primary)
+                    }
+                    if (cell.hasActivities) {
+                        CalendarDot(color = if (isSelected) selectedDotColor else Color(0xFF10B981))
+                    }
+                    if (cell.hasMilestone && !cell.hasClasses && !cell.hasDeadlines) {
+                        CalendarDot(color = if (isSelected) selectedDotColor else Color(0xFF8B5CF6))
                     }
                 }
             }

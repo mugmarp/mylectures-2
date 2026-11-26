@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -428,6 +429,7 @@ internal fun SettingsNotificationsSection(
 @Composable
 internal fun NotificationSettingsView(
     modifier: Modifier = Modifier,
+    scrollState: ScrollState = rememberScrollState(),
     context: Context,
     uiState: SettingsUiState,
     isDark: Boolean,
@@ -444,7 +446,7 @@ internal fun NotificationSettingsView(
 ) {
     Column(
         modifier = modifier
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
             .padding(vertical = 14.dp)
     ) {
         NotificationHealthWarningBanner(

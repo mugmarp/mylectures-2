@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -259,6 +260,9 @@ fun VacantRoomsScreen(
     val selectedRoomForSchedule = remember(selectedRoomIdForSchedule, vacancyStatuses) {
         selectedRoomIdForSchedule?.let { id -> vacancyStatuses.firstOrNull { it.room.id == id } }
     }
+    val filterRailScrollState = rememberScrollState()
+    val desktopGridState = rememberLazyGridState()
+    val mobileGridState = rememberLazyGridState()
 
     val resetAllFilters: () -> Unit = {
         val now = Calendar.getInstance()
@@ -460,7 +464,7 @@ fun VacantRoomsScreen(
                         Column(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .verticalScroll(rememberScrollState())
+                                .verticalScroll(filterRailScrollState)
                                 .padding(16.dp)
                         ) {
                             VacantRoomsFilterOptionsContent(
@@ -560,6 +564,7 @@ fun VacantRoomsScreen(
                         Spacer(modifier = Modifier.height(8.dp))
 
                         LazyVerticalGrid(
+                            state = desktopGridState,
                             columns = GridCells.Adaptive(minSize = 250.dp),
                             modifier = Modifier
                                 .weight(1f)
@@ -659,6 +664,7 @@ fun VacantRoomsScreen(
                 contentAlignment = Alignment.TopCenter
             ) {
                 LazyVerticalGrid(
+                    state = mobileGridState,
                     columns = if (windowInfo.isTablet) GridCells.Adaptive(minSize = 265.dp) else GridCells.Fixed(1),
                     modifier = Modifier
                         .widthIn(max = windowInfo.maxReadingWidth)

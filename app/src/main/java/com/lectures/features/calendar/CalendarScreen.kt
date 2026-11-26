@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
@@ -221,6 +222,9 @@ fun CalendarScreen(
     val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val listBottomPadding = Chrome.listBottomPadding(navBarBottom, windowInfo.useNavigationRail)
     val listState = rememberLazyListState()
+    val monthPaneScrollState = rememberScrollState()
+    val milestonesListState = rememberLazyListState()
+    val milestonesGridState = rememberLazyGridState()
 
     val hasOverlayOpen = showAddActivitySheet || editingActivityId != null || editingTaskId != null ||
         showProfileSheet || detailActivityId != null || detailLectureKey != null ||
@@ -416,7 +420,7 @@ fun CalendarScreen(
                                 .weight(1.02f)
                                 .widthIn(max = 540.dp)
                                 .fillMaxHeight()
-                                .verticalScroll(rememberScrollState())
+                                .verticalScroll(monthPaneScrollState)
                                 .padding(bottom = listBottomPadding)
                                 .testTag("calendar_month_pane"),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -557,6 +561,7 @@ fun CalendarScreen(
             } else if (isTablet && tabMode == CalendarTabMode.SEMESTER_MILESTONES) {
                 // Multi-column Adaptive Milestones Grid on Medium / Expanded / Desktop screens
                 LazyVerticalGrid(
+                    state = milestonesGridState,
                     columns = GridCells.Adaptive(minSize = 300.dp),
                     modifier = Modifier
                         .widthIn(max = windowInfo.maxReadingWidth)
@@ -623,7 +628,7 @@ fun CalendarScreen(
             } else {
                 // Compact Phones & Medium Portrait Tablets (< 840dp)
                 LazyColumn(
-                    state = listState,
+                    state = if (tabMode == CalendarTabMode.SEMESTER_MILESTONES) milestonesListState else listState,
                     modifier = Modifier
                         .widthIn(max = if (windowInfo.isTablet) 760.dp else windowInfo.maxReadingWidth)
                         .fillMaxWidth()

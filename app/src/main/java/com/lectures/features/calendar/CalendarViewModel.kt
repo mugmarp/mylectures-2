@@ -1,5 +1,6 @@
 package com.lectures.features.calendar
 
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -33,6 +34,7 @@ enum class CalendarFilter(val label: String) {
     TASKS("Deadlines")
 }
 
+@Immutable
 data class DayWorkload(
     val totalLectureMinutes: Int = 0,
     val lectureCount: Int = 0,
@@ -53,6 +55,7 @@ data class DayWorkload(
         }
 }
 
+@Immutable
 data class CalendarUiState(
     val isLoading: Boolean = true,
     val currentProgramme: String = "",
