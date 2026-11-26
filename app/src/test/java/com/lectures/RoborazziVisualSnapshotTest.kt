@@ -141,4 +141,21 @@ class RoborazziVisualSnapshotTest {
         composeRule.waitForIdle()
         composeRule.onRoot().captureRoboImage()
     }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp")
+    fun snapshotPhoneLightSettings() {
+        composeRule.setContent {
+            CompositionLocalProvider(LocalConfiguration provides configuredCopy(360, 800)) {
+                AppTheme(themeMode = ThemeMode.LIGHT) {
+                    SettingsScreen(currentProgramme = "BCS I")
+                }
+            }
+        }
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithTag("settings_data_sync_card").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.waitForIdle()
+        composeRule.onRoot().captureRoboImage()
+    }
 }

@@ -42,6 +42,8 @@ class SettingsAndErrorHandlingTest {
         context = ApplicationProvider.getApplicationContext<Context>().applicationContext
         db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
             .allowMainThreadQueries()
+            .setQueryExecutor { it.run() }
+            .setTransactionExecutor { it.run() }
             .build()
         etagStore = ETagStore(context)
         dataLoader = DataLoader(context, db)
@@ -63,6 +65,7 @@ class SettingsAndErrorHandlingTest {
 
     @After
     fun tearDown() {
+        testDispatcher.scheduler.advanceUntilIdle()
         Dispatchers.resetMain()
         db.close()
     }
@@ -91,12 +94,29 @@ class SettingsAndErrorHandlingTest {
     @Test
     fun testNotificationsToggle() = runTest(testDispatcher) {
         settingsViewModel.setNotificationsEnabled(false)
-        testScheduler.advanceUntilIdle()
+        for (i in 0 until 50) {
+            testScheduler.advanceUntilIdle()
+            if (!settingsViewModel.uiState.value.notificationsEnabled &&
+                settingsViewModel.uiState.value.successMessage?.contains("paused", ignoreCase = true) == true
+            ) {
+                break
+            }
+            Thread.sleep(20)
+        }
         val enabled = repository.notificationsEnabledPref.first()
         assertFalse("Notifications should be saved as disabled", enabled)
 
+        settingsViewModel.clearFeedbackMessages()
         settingsViewModel.setNotificationsEnabled(true)
-        testScheduler.advanceUntilIdle()
+        for (i in 0 until 50) {
+            testScheduler.advanceUntilIdle()
+            if (settingsViewModel.uiState.value.notificationsEnabled &&
+                settingsViewModel.uiState.value.successMessage?.contains("active", ignoreCase = true) == true
+            ) {
+                break
+            }
+            Thread.sleep(20)
+        }
         val reEnabled = repository.notificationsEnabledPref.first()
         assertTrue("Notifications should be saved as enabled", reEnabled)
     }
