@@ -35,13 +35,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.VolumeUp
-import androidx.compose.material.icons.filled.Alarm
-import androidx.compose.material.icons.filled.AssignmentTurnedIn
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.outlined.Alarm
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material.icons.outlined.NotificationsOff
+import androidx.compose.material.icons.outlined.TaskAlt
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material3.Button
@@ -243,10 +243,7 @@ private fun NotificationHealthWarningBanner(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = horizontalPadding, vertical = 6.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .desktopHoverable()
-                        .clickable { NotificationPermissionHelper.openExactAlarmSettings(context) },
+                        .padding(horizontal = horizontalPadding, vertical = 6.dp),
                     shape = RoundedCornerShape(14.dp),
                     colors = CardDefaults.cardColors(containerColor = ext.warningBg),
                     border = BorderStroke(1.dp, ext.warningBorder.copy(alpha = 0.55f))
@@ -279,16 +276,17 @@ private fun NotificationHealthWarningBanner(
                             )
                         }
                         Spacer(modifier = Modifier.width(8.dp))
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = ext.warningBorder.copy(alpha = 0.25f)
+                        TextButton(
+                            onClick = { NotificationPermissionHelper.openExactAlarmSettings(context) },
+                            modifier = Modifier
+                                .defaultMinSize(minHeight = 48.dp)
+                                .desktopHandCursor()
+                                .testTag("settings_exact_alarm_fix_btn")
                         ) {
                             Text(
                                 text = "Fix",
-                                fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = ext.warningText,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                                color = ext.warningIcon
                             )
                         }
                     }
@@ -341,7 +339,12 @@ internal fun SettingsNotificationsSection(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 18.dp, vertical = 14.dp),
+                    .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+                    .desktopHoverable()
+                    .desktopHandCursor()
+                    .clickable { onToggleNotifications(!uiState.notificationsEnabled) }
+                    .padding(horizontal = 18.dp, vertical = 14.dp)
+                    .testTag("settings_notifications_toggle_row"),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
@@ -403,6 +406,7 @@ internal fun SettingsNotificationsSection(
                     .defaultMinSize(minHeight = 48.dp)
                     .clip(RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp))
                     .desktopHoverable()
+                    .desktopHandCursor()
                     .clickable(onClick = onOpenNotificationPreferences)
                     .padding(horizontal = 18.dp, vertical = 15.dp)
                     .testTag("settings_notifications_configure_row"),
@@ -599,7 +603,7 @@ internal fun NotificationSettingsView(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            Icons.Default.Alarm,
+                            Icons.Outlined.Alarm,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(18.dp)
@@ -645,7 +649,8 @@ internal fun NotificationSettingsView(
                             .desktopHandCursor(enabled = timingEnabled)
                             .background(chipBg)
                             .clickable(enabled = timingEnabled) { onSelectClassLeadMinutes(mins) }
-                            .padding(horizontal = 6.dp, vertical = 8.dp),
+                            .padding(horizontal = 6.dp, vertical = 8.dp)
+                            .testTag("settings_class_lead_$mins"),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
@@ -676,7 +681,8 @@ internal fun NotificationSettingsView(
                             .desktopHandCursor(enabled = timingEnabled)
                             .background(customChipBg)
                             .clickable(enabled = timingEnabled, onClick = onOpenCustomLeadDialog)
-                            .padding(horizontal = 6.dp, vertical = 8.dp),
+                            .padding(horizontal = 6.dp, vertical = 8.dp)
+                            .testTag("settings_class_lead_custom"),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
@@ -731,7 +737,7 @@ internal fun NotificationSettingsView(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            Icons.Default.AssignmentTurnedIn,
+                            Icons.Outlined.TaskAlt,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.secondary,
                             modifier = Modifier.size(18.dp)
@@ -775,7 +781,8 @@ internal fun NotificationSettingsView(
                             .desktopHandCursor(enabled = timingEnabled)
                             .background(taskChipBg)
                             .clickable(enabled = timingEnabled) { onSelectTaskLeadHours(hours) }
-                            .padding(horizontal = 6.dp, vertical = 8.dp),
+                            .padding(horizontal = 6.dp, vertical = 8.dp)
+                            .testTag("settings_task_lead_$hours"),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
@@ -883,6 +890,7 @@ internal fun NotificationSettingsView(
                         .heightIn(min = 48.dp)
                         .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
                         .desktopHoverable()
+                        .desktopHandCursor()
                         .clickable { NotificationPermissionHelper.openAppNotificationSettings(context) }
                         .padding(18.dp)
                         .testTag("settings_system_sound_row"),
@@ -935,8 +943,10 @@ internal fun NotificationSettingsView(
                         .heightIn(min = 48.dp)
                         .clip(RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp))
                         .desktopHoverable()
+                        .desktopHandCursor()
                         .clickable { NotificationPermissionHelper.openExactAlarmSettings(context) }
-                        .padding(18.dp),
+                        .padding(18.dp)
+                        .testTag("settings_exact_alarm_row"),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(
@@ -974,18 +984,11 @@ internal fun NotificationSettingsView(
                         )
                     }
                     Spacer(modifier = Modifier.width(8.dp))
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = if (canScheduleExactAlarms) ext.successBg else ext.warningBg
-                    ) {
-                        Text(
-                            text = if (canScheduleExactAlarms) "Active" else "Fix",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (canScheduleExactAlarms) ext.successText else ext.warningText,
-                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
-                        )
-                    }
+                    SettingsStatusPill(
+                        text = if (canScheduleExactAlarms) "Active" else "Fix",
+                        containerColor = if (canScheduleExactAlarms) ext.successBg else ext.warningBg,
+                        contentColor = if (canScheduleExactAlarms) ext.successText else ext.warningText
+                    )
                 }
             }
         }

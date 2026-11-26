@@ -20,10 +20,10 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Alarm
-import androidx.compose.material.icons.filled.AlarmOff
-import androidx.compose.material.icons.filled.DeleteOutline
-import androidx.compose.material.icons.filled.Verified
+import androidx.compose.material.icons.outlined.Alarm
+import androidx.compose.material.icons.outlined.AlarmOff
+import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.Verified
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -36,6 +36,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -73,7 +74,7 @@ internal fun CustomLeadMinutesDialog(
             .then(if (windowInfo.preferDesktopDialogs) Modifier.widthIn(min = 360.dp, max = 480.dp) else Modifier)
             .onEscapeKey(onDismiss),
         containerColor = ext.surfaceCard,
-        icon = { Icon(Icons.Default.Alarm, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+        icon = { Icon(Icons.Outlined.Alarm, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
         title = { Text("Custom Lecture Reminder", fontWeight = FontWeight.Bold, fontSize = 18.sp) },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
@@ -111,6 +112,7 @@ internal fun CustomLeadMinutesDialog(
                 modifier = Modifier
                     .defaultMinSize(minHeight = 48.dp)
                     .desktopHandCursor()
+                    .testTag("dialog_custom_lead_save_btn")
             ) {
                 Text("Save")
             }
@@ -203,6 +205,7 @@ internal fun DisclaimerDialog(onDismiss: () -> Unit) {
                 modifier = Modifier
                     .defaultMinSize(minHeight = 48.dp)
                     .desktopHandCursor()
+                    .testTag("dialog_disclaimer_confirm_btn")
             ) {
                 Text("I Understand")
             }
@@ -297,6 +300,7 @@ internal fun TermsDialog(onDismiss: () -> Unit) {
                 modifier = Modifier
                     .defaultMinSize(minHeight = 48.dp)
                     .desktopHandCursor()
+                    .testTag("dialog_terms_confirm_btn")
             ) {
                 Text("I Understand")
             }
@@ -367,6 +371,7 @@ internal fun PrivacyDialog(onDismiss: () -> Unit) {
                 modifier = Modifier
                     .defaultMinSize(minHeight = 48.dp)
                     .desktopHandCursor()
+                    .testTag("dialog_privacy_confirm_btn")
             ) {
                 Text("Done")
             }
@@ -388,7 +393,7 @@ internal fun ResetNotesConfirmDialog(
             .then(if (windowInfo.preferDesktopDialogs) Modifier.widthIn(min = 360.dp, max = 480.dp) else Modifier)
             .onEscapeKey(onDismiss),
         containerColor = ext.surfaceCard,
-        icon = { Icon(Icons.Default.DeleteOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+        icon = { Icon(Icons.Outlined.DeleteOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
         title = { Text("Reset All Notes?", fontWeight = FontWeight.Bold) },
         text = { Text("This will permanently delete all your lecture notes and attached class alarm intervals. This action cannot be undone.") },
         confirmButton = {
@@ -401,6 +406,7 @@ internal fun ResetNotesConfirmDialog(
                 modifier = Modifier
                     .defaultMinSize(minHeight = 48.dp)
                     .desktopHandCursor()
+                    .testTag("dialog_reset_notes_confirm_btn")
             ) {
                 Text("Delete Notes")
             }
@@ -432,7 +438,7 @@ internal fun ResetTasksConfirmDialog(
             .then(if (windowInfo.preferDesktopDialogs) Modifier.widthIn(min = 360.dp, max = 480.dp) else Modifier)
             .onEscapeKey(onDismiss),
         containerColor = ext.surfaceCard,
-        icon = { Icon(Icons.Default.AlarmOff, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+        icon = { Icon(Icons.Outlined.AlarmOff, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
         title = { Text("Reset Academic Tasks?", fontWeight = FontWeight.Bold) },
         text = { Text("This will remove all saved assignments and cancel any scheduled reminder notifications.") },
         confirmButton = {
@@ -445,6 +451,7 @@ internal fun ResetTasksConfirmDialog(
                 modifier = Modifier
                     .defaultMinSize(minHeight = 48.dp)
                     .desktopHandCursor()
+                    .testTag("dialog_reset_tasks_confirm_btn")
             ) {
                 Text("Clear Tasks & Alarms")
             }
@@ -490,7 +497,7 @@ internal fun VersionDetailsDialog(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    Icons.Default.Verified,
+                    Icons.Outlined.Verified,
                     contentDescription = null,
                     tint = badgeColor,
                     modifier = Modifier.size(26.dp)
@@ -505,19 +512,12 @@ internal fun VersionDetailsDialog(
                     fontSize = 18.sp,
                     textAlign = TextAlign.Center
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-                Box(
-                    modifier = Modifier
-                        .background(badgeBg, RoundedCornerShape(8.dp))
-                        .padding(horizontal = 8.dp, vertical = 3.dp)
-                ) {
-                    Text(
-                        text = stageLabel.uppercase(Locale.ROOT),
-                        color = badgeColor,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+                Spacer(modifier = Modifier.height(6.dp))
+                SettingsStatusPill(
+                    text = stageLabel,
+                    containerColor = badgeBg,
+                    contentColor = badgeColor
+                )
             }
         },
         text = {
@@ -536,7 +536,7 @@ internal fun VersionDetailsDialog(
                     fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                HorizontalDivider(color = ext.borderSubtle)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
@@ -602,6 +602,7 @@ internal fun VersionDetailsDialog(
                 modifier = Modifier
                     .defaultMinSize(minHeight = 48.dp)
                     .desktopHandCursor()
+                    .testTag("dialog_version_close_btn")
             ) {
                 Text("Close")
             }

@@ -23,12 +23,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.AlarmOff
-import androidx.compose.material.icons.filled.CloudSync
-import androidx.compose.material.icons.filled.DeleteOutline
-import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.outlined.AccountCircle
+import androidx.compose.material.icons.outlined.AlarmOff
+import androidx.compose.material.icons.outlined.CloudSync
+import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -157,6 +157,7 @@ internal fun DataAndBackupSettingsView(
                                 modifier = btnMod
                                     .defaultMinSize(minHeight = 48.dp)
                                     .desktopHandCursor(enabled = !uiState.isBackingUpUserData)
+                                    .testTag("settings_sync_cloud_btn")
                             ) {
                                 if (uiState.isBackingUpUserData) {
                                     CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
@@ -183,6 +184,7 @@ internal fun DataAndBackupSettingsView(
                                 modifier = btnMod
                                     .defaultMinSize(minHeight = 48.dp)
                                     .desktopHandCursor()
+                                    .testTag("settings_manage_account_btn")
                             ) {
                                 Text(
                                     "Manage",
@@ -205,6 +207,7 @@ internal fun DataAndBackupSettingsView(
                                         .heightIn(min = 48.dp)
                                         .clip(RoundedCornerShape(14.dp))
                                         .desktopHoverable()
+                                        .desktopHandCursor()
                                         .clickable(onClick = onOpenAccount)
                                         .padding(vertical = 4.dp)
                                 )
@@ -223,6 +226,7 @@ internal fun DataAndBackupSettingsView(
                                     .heightIn(min = 48.dp)
                                     .clip(RoundedCornerShape(14.dp))
                                     .desktopHoverable()
+                                    .desktopHandCursor()
                                     .clickable(onClick = onOpenAccount)
                                     .padding(vertical = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically
@@ -241,7 +245,7 @@ internal fun DataAndBackupSettingsView(
                     }
                 } else {
                     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                        val stackSignIn = maxWidth < 290.dp || (isTightFont && maxWidth < 360.dp)
+                        val stackSignIn = maxWidth < 260.dp || (isTightFont && maxWidth < 340.dp)
                         val guestInfoRow: @Composable (Modifier) -> Unit = { rowMod ->
                             Row(
                                 modifier = rowMod,
@@ -254,7 +258,7 @@ internal fun DataAndBackupSettingsView(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
-                                        Icons.Default.CloudSync,
+                                        Icons.Outlined.CloudSync,
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(24.dp)
@@ -290,7 +294,7 @@ internal fun DataAndBackupSettingsView(
                                     .desktopHandCursor()
                                     .testTag("settings_google_signin_btn")
                             ) {
-                                Icon(Icons.Default.AccountCircle, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Icon(Icons.Outlined.AccountCircle, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text("Sign In", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
@@ -307,6 +311,7 @@ internal fun DataAndBackupSettingsView(
                                         .heightIn(min = 48.dp)
                                         .clip(RoundedCornerShape(14.dp))
                                         .desktopHoverable()
+                                        .desktopHandCursor()
                                         .clickable(onClick = onOpenAccount)
                                         .padding(vertical = 4.dp)
                                 )
@@ -319,6 +324,7 @@ internal fun DataAndBackupSettingsView(
                                     .heightIn(min = 48.dp)
                                     .clip(RoundedCornerShape(14.dp))
                                     .desktopHoverable()
+                                    .desktopHandCursor()
                                     .clickable(onClick = onOpenAccount)
                                     .padding(vertical = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically
@@ -333,39 +339,59 @@ internal fun DataAndBackupSettingsView(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                Row(
-                    modifier = Modifier
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                    val stackPreserved = maxWidth < 260.dp || (isTightFont && maxWidth < 340.dp)
+                    val preservedModifier = Modifier
                         .fillMaxWidth()
                         .defaultMinSize(minHeight = 48.dp)
                         .clip(RoundedCornerShape(10.dp))
+                        .desktopHoverable()
                         .desktopHandCursor()
                         .clickable(onClick = onOpenAccount)
                         .background(
                             MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
                             RoundedCornerShape(10.dp)
                         )
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Preserved: ${uiState.userNotesCount} Notes · ${uiState.userEventsCount} Events · ${uiState.userAssignmentsCount} Tasks",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Box(
-                        modifier = Modifier
-                            .background(ext.successBg, RoundedCornerShape(6.dp))
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = if (uiState.isCloudSyncActive) "SYNCED" else "OFFLINE-SAFE",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = ext.successText
-                        )
+                        .padding(horizontal = 12.dp, vertical = 10.dp)
+                    val preservedLabel = "Preserved: ${uiState.userNotesCount} Notes · ${uiState.userEventsCount} Events · ${uiState.userAssignmentsCount} Tasks"
+                    val statusLabel = if (uiState.isCloudSyncActive) "Synced" else "Offline-Safe"
+
+                    if (stackPreserved) {
+                        Column(
+                            modifier = preservedModifier,
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = preservedLabel,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            SettingsStatusPill(
+                                text = statusLabel,
+                                containerColor = ext.successBg,
+                                contentColor = ext.successText
+                            )
+                        }
+                    } else {
+                        Row(
+                            modifier = preservedModifier,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = preservedLabel,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f)
+                            )
+                            SettingsStatusPill(
+                                text = statusLabel,
+                                containerColor = ext.successBg,
+                                contentColor = ext.successText
+                            )
+                        }
                     }
                 }
             }
@@ -384,7 +410,7 @@ internal fun DataAndBackupSettingsView(
         ) {
             Column(modifier = Modifier.padding(18.dp)) {
                 BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                    val stackSyncBtn = maxWidth < 280.dp || (isTightFont && maxWidth < 350.dp)
+                    val stackSyncBtn = maxWidth < 260.dp || (isTightFont && maxWidth < 340.dp)
                     val syncInfoRow: @Composable (Modifier) -> Unit = { rowMod ->
                         Row(
                             modifier = rowMod,
@@ -404,7 +430,7 @@ internal fun DataAndBackupSettingsView(
                                     )
                                 } else {
                                     Icon(
-                                        Icons.Default.Sync,
+                                        Icons.Outlined.Sync,
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(22.dp)
@@ -440,6 +466,7 @@ internal fun DataAndBackupSettingsView(
                             modifier = btnMod
                                 .defaultMinSize(minHeight = 48.dp)
                                 .desktopHandCursor(enabled = !uiState.isSyncing)
+                                .testTag("settings_sync_timetable_btn")
                         ) {
                             Text(
                                 if (uiState.isSyncing) "Syncing..." else "Sync Now",
@@ -474,58 +501,88 @@ internal fun DataAndBackupSettingsView(
                     color = ext.borderSubtle
                 )
 
-                Row(
-                    modifier = Modifier
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                    val stackExport = maxWidth < 260.dp || (isTightFont && maxWidth < 340.dp)
+                    val exportAction: () -> Unit = {
+                        val stamp = SimpleDateFormat("yyyyMMdd", Locale.US).format(Date())
+                        onExportBackup("lectures_backup_$stamp.json")
+                    }
+                    val exportModifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = 48.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .desktopHoverable()
-                        .clickable {
-                            val stamp = SimpleDateFormat("yyyyMMdd", Locale.US).format(Date())
-                            onExportBackup("lectures_backup_$stamp.json")
+                        .desktopHandCursor()
+                        .clickable(onClick = exportAction)
+                        .testTag("settings_export_backup_row")
+                        .padding(vertical = 6.dp, horizontal = 4.dp)
+
+                    val exportLeading: @Composable () -> Unit = {
+                        Box(
+                            modifier = Modifier
+                                .size(38.dp)
+                                .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Outlined.Download,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.size(20.dp)
+                            )
                         }
-                        .padding(vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(38.dp)
-                            .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Outlined.Download,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                            modifier = Modifier.size(20.dp)
+                    }
+                    val exportText: @Composable (Modifier) -> Unit = { textMod ->
+                        Column(modifier = textMod) {
+                            Text(
+                                "Export Data Backup (JSON)",
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                "Save notes, coursework & custom events offline",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    val exportPill: @Composable () -> Unit = {
+                        SettingsStatusPill(
+                            text = "Export",
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            "Export Data Backup (JSON)",
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            "Save notes, coursework & custom events offline",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant
-                    ) {
-                        Text(
-                            text = "EXPORT",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                        )
+
+                    if (stackExport) {
+                        Column(
+                            modifier = exportModifier,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                exportLeading()
+                                Spacer(modifier = Modifier.width(12.dp))
+                                exportText(Modifier.weight(1f))
+                            }
+                            Box(modifier = Modifier.padding(start = 50.dp)) {
+                                exportPill()
+                            }
+                        }
+                    } else {
+                        Row(
+                            modifier = exportModifier,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            exportLeading()
+                            Spacer(modifier = Modifier.width(12.dp))
+                            exportText(Modifier.weight(1f))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            exportPill()
+                        }
                     }
                 }
             }
@@ -543,103 +600,125 @@ internal fun DataAndBackupSettingsView(
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 48.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .desktopHoverable()
-                        .clickable(onClick = onRequestResetNotes)
-                        .padding(vertical = 8.dp, horizontal = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        Icons.Default.DeleteOutline,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(modifier = Modifier.width(14.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            "Reset All Lecture Notes",
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                        Text(
-                            "Permanently delete saved notes and attachments",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.error.copy(alpha = 0.12f)
-                    ) {
-                        Text(
-                            text = "Reset",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
-                        )
-                    }
-                }
+                DangerResetRow(
+                    icon = Icons.Outlined.DeleteOutline,
+                    title = "Reset All Lecture Notes",
+                    subtitle = "Permanently delete saved notes and attachments",
+                    isTightFont = isTightFont,
+                    testTag = "settings_reset_notes_row",
+                    onClick = onRequestResetNotes
+                )
 
                 HorizontalDivider(
                     modifier = Modifier.padding(vertical = 10.dp),
-                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                    color = ext.borderSubtle
                 )
 
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 48.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .desktopHoverable()
-                        .clickable(onClick = onRequestResetTasks)
-                        .padding(vertical = 8.dp, horizontal = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        Icons.Default.AlarmOff,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(modifier = Modifier.width(14.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            "Reset Academic Tasks & Alarms",
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                        Text(
-                            "Cancel all scheduled alarms and clear coursework",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.error.copy(alpha = 0.12f)
-                    ) {
-                        Text(
-                            text = "Reset",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
-                        )
-                    }
-                }
+                DangerResetRow(
+                    icon = Icons.Outlined.AlarmOff,
+                    title = "Reset Academic Tasks & Alarms",
+                    subtitle = "Cancel all scheduled alarms and clear coursework",
+                    isTightFont = isTightFont,
+                    testTag = "settings_reset_tasks_row",
+                    onClick = onRequestResetTasks
+                )
             }
         }
 
         Spacer(modifier = Modifier.height(bottomContentPadding))
+    }
+}
+
+@Composable
+private fun DangerResetRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    subtitle: String,
+    isTightFont: Boolean,
+    testTag: String,
+    onClick: () -> Unit
+) {
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val stackPill = maxWidth < 260.dp || (isTightFont && maxWidth < 340.dp)
+        val rowModifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .desktopHoverable()
+            .desktopHandCursor()
+            .clickable(onClick = onClick)
+            .testTag(testTag)
+            .padding(vertical = 8.dp, horizontal = 6.dp)
+        val resetPill: @Composable () -> Unit = {
+            SettingsStatusPill(
+                text = "Reset",
+                containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.12f),
+                contentColor = MaterialTheme.colorScheme.error
+            )
+        }
+
+        if (stackPill) {
+            Column(
+                modifier = rowModifier,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        icon,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(14.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            title,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                        Text(
+                            subtitle,
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                Box(modifier = Modifier.padding(start = 38.dp)) {
+                    resetPill()
+                }
+            }
+        } else {
+            Row(
+                modifier = rowModifier,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(14.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        title,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                    Text(
+                        subtitle,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                resetPill()
+            }
+        }
     }
 }

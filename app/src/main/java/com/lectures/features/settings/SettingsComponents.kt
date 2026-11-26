@@ -90,6 +90,30 @@ internal fun SectionHeader(
 }
 
 @Composable
+internal fun SettingsStatusPill(
+    text: String,
+    containerColor: Color,
+    contentColor: Color,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = containerColor,
+        modifier = modifier
+    ) {
+        Text(
+            text = text,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            color = contentColor,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
+        )
+    }
+}
+
+@Composable
 internal fun ThemeSelectionCard(
     title: String,
     subtitle: String,
@@ -141,6 +165,7 @@ internal fun ThemeSelectionCard(
             }
             .clip(RoundedCornerShape(14.dp))
             .desktopHoverable()
+            .desktopHandCursor()
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(14.dp),
         border = BorderStroke(borderWidth, borderColor),
@@ -516,7 +541,7 @@ internal fun AppearanceSettingsView(
                 .fillMaxWidth()
                 .padding(horizontal = horizontalPadding)
                 .testTag("appearance_live_preview_card"),
-            shape = RoundedCornerShape(18.dp),
+            shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = ext.surfaceCard),
             border = BorderStroke(1.dp, ext.borderSubtle),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)

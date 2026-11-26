@@ -16,9 +16,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.automirrored.outlined.Notes
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -123,7 +123,7 @@ fun AccountScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = Icons.Default.CloudSync,
+                                imageVector = Icons.Outlined.CloudSync,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onPrimary,
                                 modifier = Modifier.size(18.dp)
@@ -168,7 +168,7 @@ fun AccountScreen(
                             modifier = Modifier.padding(14.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Default.ErrorOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                            Icon(Icons.Outlined.ErrorOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error)
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(msg, color = MaterialTheme.colorScheme.onErrorContainer, fontSize = 13.sp, modifier = Modifier.weight(1f))
                             IconButton(
@@ -196,7 +196,7 @@ fun AccountScreen(
                             modifier = Modifier.padding(14.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = ext.successIcon)
+                            Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = ext.successIcon)
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(msg, color = ext.successText, fontSize = 13.sp, modifier = Modifier.weight(1f))
                             IconButton(
@@ -272,27 +272,59 @@ fun AccountScreen(
                                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(Icons.Outlined.Folder, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text(
-                                                "Local Unsynced Data",
-                                                fontSize = 12.sp,
-                                                fontWeight = FontWeight.SemiBold,
-                                                color = MaterialTheme.colorScheme.onSurface
-                                            )
+                                    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                                        val stackGuestData = maxWidth < 260.dp || (windowInfo.isTightFont && maxWidth < 340.dp)
+                                        val labelRow: @Composable () -> Unit = {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(
+                                                    Icons.Outlined.Folder,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Text(
+                                                    "Local Unsynced Data",
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = MaterialTheme.colorScheme.onSurface
+                                                )
+                                            }
                                         }
-                                        Text(
-                                            "${notesCount.size} Notes · ${tasksCount.size} Tasks · ${eventsCount.size} Events",
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.Medium,
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
+                                        val countsText = "${notesCount.size} Notes · ${tasksCount.size} Tasks · ${eventsCount.size} Events"
+                                        if (stackGuestData) {
+                                            Column(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                                            ) {
+                                                labelRow()
+                                                Text(
+                                                    countsText,
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.Medium,
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
+                                            }
+                                        } else {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                labelRow()
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Text(
+                                                    countsText,
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.Medium,
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -356,7 +388,7 @@ fun AccountScreen(
                                     Spacer(modifier = Modifier.width(10.dp))
                                     Text("Connecting to Google...", fontWeight = FontWeight.Bold, fontSize = 15.sp)
                                 } else {
-                                    Icon(Icons.Default.AccountCircle, contentDescription = null, modifier = Modifier.size(20.dp))
+                                    Icon(Icons.Outlined.AccountCircle, contentDescription = null, modifier = Modifier.size(20.dp))
                                     Spacer(modifier = Modifier.width(10.dp))
                                     Text("Sign in with Google", fontWeight = FontWeight.Bold, fontSize = 15.sp)
                                 }
@@ -398,29 +430,12 @@ fun AccountScreen(
                                     color = textMuted,
                                     lineHeight = 17.sp
                                 )
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    DashboardStatItem(
-                                        title = "Notes",
-                                        count = notesCount.size,
-                                        icon = Icons.AutoMirrored.Outlined.Notes,
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                    DashboardStatItem(
-                                        title = "Tasks",
-                                        count = tasksCount.size,
-                                        icon = Icons.Outlined.TaskAlt,
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                    DashboardStatItem(
-                                        title = "Events",
-                                        count = eventsCount.size,
-                                        icon = Icons.Outlined.CalendarMonth,
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                }
+                                ResponsiveDashboardStatsGrid(
+                                    notesCount = notesCount.size,
+                                    tasksCount = tasksCount.size,
+                                    eventsCount = eventsCount.size,
+                                    isTightFont = windowInfo.isTightFont
+                                )
                             }
                         }
                     }
@@ -519,37 +534,17 @@ fun AccountScreen(
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            DashboardStatItem(
-                                title = "Notes",
-                                count = notesCount.size,
-                                icon = Icons.AutoMirrored.Outlined.Notes,
-                                modifier = Modifier.weight(1f)
-                            )
-                            DashboardStatItem(
-                                title = "Tasks",
-                                count = tasksCount.size,
-                                icon = Icons.Outlined.TaskAlt,
-                                modifier = Modifier.weight(1f)
-                            )
-                            DashboardStatItem(
-                                title = "Events",
-                                count = eventsCount.size,
-                                icon = Icons.Outlined.CalendarMonth,
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
+                        ResponsiveDashboardStatsGrid(
+                            notesCount = notesCount.size,
+                            tasksCount = tasksCount.size,
+                            eventsCount = eventsCount.size,
+                            isTightFont = windowInfo.isTightFont
+                        )
                     }
                 }
 
                 val actionButtonsSection: @Composable () -> Unit = {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
+                    val syncNowButton: @Composable (Modifier) -> Unit = { btnMod ->
                         Button(
                             onClick = onSyncNowClick,
                             enabled = !isSyncing,
@@ -558,9 +553,8 @@ fun AccountScreen(
                                 containerColor = MaterialTheme.colorScheme.primary,
                                 contentColor = MaterialTheme.colorScheme.onPrimary
                             ),
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(48.dp)
+                            modifier = btnMod
+                                .defaultMinSize(minHeight = 48.dp)
                                 .desktopHandCursor(enabled = !isSyncing)
                                 .testTag("sync_now_button")
                         ) {
@@ -573,12 +567,13 @@ fun AccountScreen(
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text("Syncing...", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                             } else {
-                                Icon(Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Icon(Icons.Outlined.Sync, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text("Sync Now", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                             }
                         }
-
+                    }
+                    val signOutButton: @Composable (Modifier) -> Unit = { btnMod ->
                         OutlinedButton(
                             onClick = { showSignOutDialog = true },
                             shape = RoundedCornerShape(12.dp),
@@ -586,15 +581,35 @@ fun AccountScreen(
                                 contentColor = ext.dangerText
                             ),
                             border = BorderStroke(1.dp, ext.dangerBorder),
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(48.dp)
+                            modifier = btnMod
+                                .defaultMinSize(minHeight = 48.dp)
                                 .desktopHandCursor()
                                 .testTag("sign_out_button")
                         ) {
-                            Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Icon(Icons.AutoMirrored.Outlined.Logout, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Sign Out", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                        val stackButtons = maxWidth < 260.dp || (windowInfo.isTightFont && maxWidth < 340.dp)
+                        if (stackButtons) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                syncNowButton(Modifier.fillMaxWidth())
+                                signOutButton(Modifier.fillMaxWidth())
+                            }
+                        } else {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                syncNowButton(Modifier.weight(1f))
+                                signOutButton(Modifier.weight(1f))
+                            }
                         }
                     }
                 }
@@ -650,6 +665,7 @@ fun AccountScreen(
                 }
                 }
             }
+            Spacer(modifier = Modifier.height(windowInfo.navBarBottom + 32.dp))
         }
     }
 }
@@ -671,7 +687,7 @@ fun AccountScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        Icons.AutoMirrored.Filled.Logout,
+                        Icons.AutoMirrored.Outlined.Logout,
                         contentDescription = null,
                         tint = ext.dangerIcon,
                         modifier = Modifier.size(24.dp)
@@ -722,6 +738,67 @@ fun AccountScreen(
                 }
             }
         )
+    }
+}
+
+@Composable
+private fun ResponsiveDashboardStatsGrid(
+    notesCount: Int,
+    tasksCount: Int,
+    eventsCount: Int,
+    isTightFont: Boolean
+) {
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val stackStats = maxWidth < 270.dp || (isTightFont && maxWidth < 350.dp)
+        if (stackStats) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                DashboardStatItem(
+                    title = "Notes",
+                    count = notesCount,
+                    icon = Icons.AutoMirrored.Outlined.Notes,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                DashboardStatItem(
+                    title = "Tasks",
+                    count = tasksCount,
+                    icon = Icons.Outlined.TaskAlt,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                DashboardStatItem(
+                    title = "Events",
+                    count = eventsCount,
+                    icon = Icons.Outlined.CalendarMonth,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                DashboardStatItem(
+                    title = "Notes",
+                    count = notesCount,
+                    icon = Icons.AutoMirrored.Outlined.Notes,
+                    modifier = Modifier.weight(1f)
+                )
+                DashboardStatItem(
+                    title = "Tasks",
+                    count = tasksCount,
+                    icon = Icons.Outlined.TaskAlt,
+                    modifier = Modifier.weight(1f)
+                )
+                DashboardStatItem(
+                    title = "Events",
+                    count = eventsCount,
+                    icon = Icons.Outlined.CalendarMonth,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
     }
 }
 

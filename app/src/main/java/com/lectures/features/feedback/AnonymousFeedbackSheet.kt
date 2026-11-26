@@ -27,14 +27,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.BugReport
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Security
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
@@ -81,6 +79,7 @@ fun AnonymousFeedbackSheet(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
+    val ext = LocalExtendedColors.current
     val scope = rememberCoroutineScope()
 
     var selectedCategory by remember { mutableStateOf(FeedbackCategory.BUG_REPORT) }
@@ -112,7 +111,7 @@ fun AnonymousFeedbackSheet(
 
     AdaptiveSheetOrDialog(
         onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surface,
+        containerColor = ext.surfaceCard,
         desktopMaxWidth = 600.dp
     ) {
         Column(
@@ -141,7 +140,7 @@ fun AnonymousFeedbackSheet(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            Icons.Default.Security,
+                            Icons.Outlined.Security,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(22.dp)
@@ -183,18 +182,17 @@ fun AnonymousFeedbackSheet(
                         .padding(vertical = 24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    val feedbackExt = LocalExtendedColors.current
                     Box(
                         modifier = Modifier
                             .size(64.dp)
                             .clip(CircleShape)
-                            .background(feedbackExt.successBg),
+                            .background(ext.successBg),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            Icons.Default.CheckCircle,
+                            Icons.Outlined.CheckCircle,
                             contentDescription = null,
-                            tint = feedbackExt.successIcon,
+                            tint = ext.successIcon,
                             modifier = Modifier.size(36.dp)
                         )
                     }
@@ -231,12 +229,13 @@ fun AnonymousFeedbackSheet(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                        .background(ext.surfaceElevated)
+                        .border(1.dp, ext.borderSubtle, RoundedCornerShape(12.dp))
                         .padding(12.dp)
                 ) {
                     Row(verticalAlignment = Alignment.Top) {
                         Icon(
-                            Icons.Default.Info,
+                            Icons.Outlined.Info,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(18.dp)
@@ -307,7 +306,7 @@ fun AnonymousFeedbackSheet(
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                        unfocusedBorderColor = ext.borderSubtle
                     )
                 )
                 Row(
@@ -362,7 +361,8 @@ fun AnonymousFeedbackSheet(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(8.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+                        .background(ext.surfaceElevated)
+                        .border(1.dp, ext.borderSubtle, RoundedCornerShape(8.dp))
                         .padding(horizontal = 10.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
@@ -385,7 +385,7 @@ fun AnonymousFeedbackSheet(
                             .size(48.dp)
                             .desktopHandCursor()
                     ) {
-                        Icon(Icons.Default.ContentCopy, contentDescription = "Copy", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Outlined.ContentCopy, contentDescription = "Copy", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                     }
                 }
 
@@ -410,7 +410,7 @@ fun AnonymousFeedbackSheet(
                         )
                     } else {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Icon(Icons.AutoMirrored.Outlined.Send, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Submit Anonymously", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                         }

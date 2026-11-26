@@ -57,6 +57,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lectures.ui.LocalExtendedColors
 import com.lectures.ui.components.AdaptiveSheetOrDialog
 import com.lectures.ui.components.desktopHandCursor
 import com.lectures.ui.components.desktopHoverable
@@ -67,6 +68,7 @@ fun DeveloperProfileSheet(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
+    val ext = LocalExtendedColors.current
 
     val devName = "MUGENDAWALA MARK PAUL"
     val studentRole = "Software Developer and Creator"
@@ -75,7 +77,7 @@ fun DeveloperProfileSheet(
 
     AdaptiveSheetOrDialog(
         onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surface,
+        containerColor = ext.surfaceCard,
         desktopMaxWidth = 560.dp
     ) {
         Column(
@@ -171,7 +173,7 @@ fun DeveloperProfileSheet(
                 }
             )
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = ext.borderSubtle)
 
             // 3. Mailto for Contributions & Collaboration
             DeveloperLinkRow(
@@ -182,8 +184,8 @@ fun DeveloperProfileSheet(
                 onClick = {
                     val emailIntent = Intent(Intent.ACTION_SENDTO).apply {
                         data = Uri.parse("mailto:$emailContact")
-                        putExtra(Intent.EXTRA_SUBJECT, "[Lectures: The Campus Companion] Project Contribution & Collaboration")
-                        putExtra(Intent.EXTRA_TEXT, "Hello Mark Paul,\n\nI am reaching out regarding Lectures (The Campus Companion):\n")
+                        putExtra(Intent.EXTRA_SUBJECT, "[Lectures App] Project Contribution & Collaboration")
+                        putExtra(Intent.EXTRA_TEXT, "Hello Mark Paul,\n\nI am reaching out regarding Lectures App:\n")
                     }
                     try {
                         context.startActivity(Intent.createChooser(emailIntent, "Send Email via"))
@@ -228,6 +230,7 @@ private fun DeveloperLinkRow(
             .defaultMinSize(minHeight = 48.dp)
             .clip(RoundedCornerShape(12.dp))
             .desktopHoverable()
+            .desktopHandCursor()
             .clickable(onClick = onClick)
             .padding(vertical = 10.dp, horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -242,13 +245,17 @@ private fun DeveloperLinkRow(
                 )
                 if (badge != null) {
                     Spacer(modifier = Modifier.width(6.dp))
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
                     ) {
-                        Text(badge, fontSize = 10.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = badge,
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
+                        )
                     }
                 }
             }
@@ -269,7 +276,7 @@ private fun DeveloperLinkRow(
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
             )
         }
     }

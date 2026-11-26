@@ -654,6 +654,7 @@ fun SettingsScreen(
                                     modifier = Modifier.fillMaxSize(),
                                     scrollState = aboutDangerScrollState,
                                     uiState = uiState,
+                                    isTightFont = windowInfo.isTightFont,
                                     horizontalPadding = 0.dp,
                                     bottomContentPadding = bottomContentPadding,
                                     onCheckOrOpenUpdate = {
@@ -796,6 +797,7 @@ fun SettingsScreen(
                                         .widthIn(max = 760.dp),
                                     scrollState = aboutDangerScrollState,
                                     uiState = uiState,
+                                    isTightFont = windowInfo.isTightFont,
                                     horizontalPadding = 20.dp,
                                     bottomContentPadding = bottomContentPadding,
                                     onCheckOrOpenUpdate = {
@@ -976,7 +978,7 @@ private fun SettingsFeedbackBanners(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = horizontalPadding, vertical = 8.dp),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(14.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.45f))
                 ) {
@@ -1006,7 +1008,7 @@ private fun SettingsFeedbackBanners(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = horizontalPadding, vertical = 8.dp),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(14.dp),
                     colors = CardDefaults.cardColors(containerColor = ext.successBg),
                     border = BorderStroke(1.dp, ext.successBorder)
                 ) {
@@ -1044,7 +1046,9 @@ private fun SettingsAcademicProfileCard(
             .padding(horizontal = horizontalPadding)
             .clip(RoundedCornerShape(16.dp))
             .desktopHoverable()
-            .clickable(onClick = onReconfigureAcademicProfile),
+            .desktopHandCursor()
+            .clickable(onClick = onReconfigureAcademicProfile)
+            .testTag("settings_academic_profile_card"),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = ext.surfaceCard),
         border = BorderStroke(1.dp, ext.borderSubtle),
@@ -1081,18 +1085,11 @@ private fun SettingsAcademicProfileCard(
                 }
             }
             val switchPill: @Composable () -> Unit = {
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                ) {
-                    Text(
-                        text = if (activeProgramme.isNotBlank()) "Switch" else "Select",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
-                    )
-                }
+                SettingsStatusPill(
+                    text = if (activeProgramme.isNotBlank()) "Switch" else "Select",
+                    containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                    contentColor = MaterialTheme.colorScheme.primary
+                )
             }
 
             if (stackSwitch) {
