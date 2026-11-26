@@ -241,12 +241,18 @@ fun SettingsScreen(
     val activeProgramme = if (uiState.currentProgramme.isNotBlank()) uiState.currentProgramme else currentProgramme
     val progCode = activeProgramme.substringBefore(" ").trim()
     val faculty = remember(progCode) {
-        FacultyCatalog.faculties.find { f -> f.programmes.any { it.code.equals(progCode, ignoreCase = true) } }
+        if (progCode.isBlank()) null
+        else FacultyCatalog.faculties.find { f -> f.programmes.any { it.code.equals(progCode, ignoreCase = true) } }
     }
     val programme = remember(progCode, faculty) {
-        faculty?.programmes?.find { it.code.equals(progCode, ignoreCase = true) }
+        if (progCode.isBlank()) null
+        else faculty?.programmes?.find { it.code.equals(progCode, ignoreCase = true) }
     }
-    val programmeDisplayName = programme?.name ?: "Academic Programme ($activeProgramme)"
+    val programmeDisplayName = when {
+        programme != null -> programme.name
+        activeProgramme.isNotBlank() -> "Academic Programme ($activeProgramme)"
+        else -> "No Programme Selected"
+    }
     val facultyDisplayName = faculty?.name ?: "Mbarara University of Science and Technology"
 
     if (showResetNotesDialog) {
@@ -395,12 +401,26 @@ fun SettingsScreen(
             mutableStateOf(NotificationPermissionHelper.canScheduleExactAlarms(context))
         }
         var blockedChannels by remember {
-            mutableStateOf(NotificationPermissionHelper.getBlockedReminderChannels(context))
+            mutableStateOf(
+                NotificationPermissionHelper.getBlockedReminderChannels(
+                    context = context,
+                    includeDailyDigest = uiState.dailyDigestEnabled
+                )
+            )
+        }
+        LaunchedEffect(uiState.dailyDigestEnabled, uiState.notificationsEnabled) {
+            blockedChannels = NotificationPermissionHelper.getBlockedReminderChannels(
+                context = context,
+                includeDailyDigest = uiState.dailyDigestEnabled
+            )
         }
         LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
             areNotificationsAllowed = NotificationPermissionHelper.areNotificationsEnabled(context)
             canScheduleExactAlarms = NotificationPermissionHelper.canScheduleExactAlarms(context)
-            blockedChannels = NotificationPermissionHelper.getBlockedReminderChannels(context)
+            blockedChannels = NotificationPermissionHelper.getBlockedReminderChannels(
+                context = context,
+                includeDailyDigest = uiState.dailyDigestEnabled
+            )
         }
         var isPermissionBannerDismissed by rememberSaveable { mutableStateOf(false) }
 
@@ -1048,7 +1068,11 @@ private fun SettingsAcademicProfileCard(
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "$activeProgramme • $facultyDisplayName",
+                        text = if (activeProgramme.isNotBlank()) {
+                            "$activeProgramme • $facultyDisplayName"
+                        } else {
+                            facultyDisplayName
+                        },
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = if (isTightFont) 3 else 2,
@@ -1062,7 +1086,7 @@ private fun SettingsAcademicProfileCard(
                     color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
                 ) {
                     Text(
-                        text = "Switch",
+                        text = if (activeProgramme.isNotBlank()) "Switch" else "Select",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,

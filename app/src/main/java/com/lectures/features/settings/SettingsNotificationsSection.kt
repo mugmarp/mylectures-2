@@ -99,7 +99,7 @@ private fun NotificationHealthWarningBanner(
     val reducedMotion = rememberPrefersReducedMotion()
     val hasBanner = (!areNotificationsAllowed && !isPermissionBannerDismissed) ||
         (areNotificationsAllowed && blockedChannels.isNotEmpty()) ||
-        !canScheduleExactAlarms
+        (areNotificationsAllowed && blockedChannels.isEmpty() && !canScheduleExactAlarms)
 
     AnimatedVisibility(
         visible = hasBanner,
@@ -239,7 +239,7 @@ private fun NotificationHealthWarningBanner(
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
-            } else if (!canScheduleExactAlarms) {
+            } else if (areNotificationsAllowed && !canScheduleExactAlarms) {
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -556,8 +556,9 @@ internal fun NotificationSettingsView(
         SectionHeader("REMINDER TIMING", horizontalPadding = headerHorizontalPadding)
 
         val reducedMotion = rememberPrefersReducedMotion()
+        val timingEnabled = uiState.notificationsEnabled
         val timingAlpha by animateFloatAsState(
-            targetValue = if (uiState.notificationsEnabled) 1f else 0.6f,
+            targetValue = if (timingEnabled) 1f else 0.6f,
             animationSpec = MotionSpec.stateTween(reducedMotion = reducedMotion),
             label = "notif_timing_alpha"
         )
@@ -573,6 +574,22 @@ internal fun NotificationSettingsView(
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             Column(modifier = Modifier.padding(18.dp)) {
+                if (!timingEnabled) {
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 14.dp)
+                    ) {
+                        Text(
+                            text = "Quiet Mode is active — turn on Class & Task Reminders above to adjust alert timing.",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                        )
+                    }
+                }
                 // 1. Lecture & Class Lead Time
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
@@ -625,9 +642,9 @@ internal fun NotificationSettingsView(
                         modifier = chipMod
                             .defaultMinSize(minHeight = 48.dp)
                             .clip(RoundedCornerShape(10.dp))
-                            .desktopHandCursor()
+                            .desktopHandCursor(enabled = timingEnabled)
                             .background(chipBg)
-                            .clickable { onSelectClassLeadMinutes(mins) }
+                            .clickable(enabled = timingEnabled) { onSelectClassLeadMinutes(mins) }
                             .padding(horizontal = 6.dp, vertical = 8.dp),
                         contentAlignment = Alignment.Center
                     ) {
@@ -656,9 +673,9 @@ internal fun NotificationSettingsView(
                         modifier = chipMod
                             .defaultMinSize(minHeight = 48.dp)
                             .clip(RoundedCornerShape(10.dp))
-                            .desktopHandCursor()
+                            .desktopHandCursor(enabled = timingEnabled)
                             .background(customChipBg)
-                            .clickable(onClick = onOpenCustomLeadDialog)
+                            .clickable(enabled = timingEnabled, onClick = onOpenCustomLeadDialog)
                             .padding(horizontal = 6.dp, vertical = 8.dp),
                         contentAlignment = Alignment.Center
                     ) {
@@ -755,9 +772,9 @@ internal fun NotificationSettingsView(
                         modifier = chipMod
                             .defaultMinSize(minHeight = 48.dp)
                             .clip(RoundedCornerShape(10.dp))
-                            .desktopHandCursor()
+                            .desktopHandCursor(enabled = timingEnabled)
                             .background(taskChipBg)
-                            .clickable { onSelectTaskLeadHours(hours) }
+                            .clickable(enabled = timingEnabled) { onSelectTaskLeadHours(hours) }
                             .padding(horizontal = 6.dp, vertical = 8.dp),
                         contentAlignment = Alignment.Center
                     ) {
@@ -838,8 +855,9 @@ internal fun NotificationSettingsView(
                     Switch(
                         checked = uiState.dailyDigestEnabled,
                         onCheckedChange = onToggleDailyDigest,
+                        enabled = timingEnabled,
                         modifier = Modifier
-                            .desktopHandCursor()
+                            .desktopHandCursor(enabled = timingEnabled)
                             .testTag("settings_daily_digest_switch")
                     )
                 }

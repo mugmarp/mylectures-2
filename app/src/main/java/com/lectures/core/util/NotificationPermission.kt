@@ -50,7 +50,10 @@ object NotificationPermissionHelper {
         return channel.importance == NotificationManager.IMPORTANCE_NONE
     }
 
-    fun getBlockedReminderChannels(context: Context): List<String> {
+    fun getBlockedReminderChannels(
+        context: Context,
+        includeDailyDigest: Boolean = com.lectures.features.timetable.data.ETagStore(context).isDailyDigestEnabled()
+    ): List<String> {
         if (!areNotificationsEnabled(context) || Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
             return emptyList()
         }
@@ -58,7 +61,7 @@ object NotificationPermissionHelper {
             add(NotificationHelper.CHANNEL_CLASS_ALARMS)
             add(NotificationHelper.CHANNEL_CLASSES)
             add(NotificationHelper.CHANNEL_ACADEMIC_TASKS)
-            if (com.lectures.features.timetable.data.ETagStore(context).isDailyDigestEnabled()) {
+            if (includeDailyDigest) {
                 add(NotificationHelper.CHANNEL_DAILY_DIGEST)
             }
         }

@@ -380,7 +380,11 @@ class SettingsViewModel(
                 val label = if (hours >= 24) "${hours / 24} day before" else "${hours}h before"
                 _uiState.value = _uiState.value.copy(
                     taskReminderLeadHours = hours,
-                    successMessage = "Default task reminder set to $label for new tasks."
+                    successMessage = if (!_uiState.value.notificationsEnabled) {
+                        "Default task reminder set to $label (Quiet Mode active — alerts paused)."
+                    } else {
+                        "Default task reminder set to $label for new tasks."
+                    }
                 )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(errorMessage = "Failed to update task reminder: ${e.message}")
@@ -419,13 +423,6 @@ class SettingsViewModel(
                     dispatcher = ioDispatcher,
                     reason = "settings_daily_digest_$enabled"
                 )
-                if (reminderScheduler != null) {
-                    if (enabled && summary.notificationsEnabled) {
-                        reminderScheduler.scheduleDailyReminder()
-                    } else {
-                        reminderScheduler.cancelDailyReminder()
-                    }
-                }
                 _uiState.value = _uiState.value.copy(
                     successMessage = when {
                         !summary.notificationsEnabled -> "Morning digest preference saved (Quiet Mode active)."

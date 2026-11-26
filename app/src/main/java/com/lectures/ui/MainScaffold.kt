@@ -544,9 +544,6 @@ fun MainScaffold(
                                         currentDestination = MainScreenDestination.TABS
                                         navState = AppNavState.FacultySelection
                                     },
-                                    onOpenAccount = {
-                                        currentDestination = MainScreenDestination.ACCOUNT
-                                    },
                                     onBack = if (windowInfo.useNavigationRail) null else {
                                         { currentDestination = MainScreenDestination.TABS }
                                     }
