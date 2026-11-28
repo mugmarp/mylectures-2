@@ -47,7 +47,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lectures.TimetableApplication
+import com.lectures.core.alarm.AlarmSyncCoordinator
 import com.lectures.core.auth.AuthRepository
+import com.lectures.core.storage.AttachmentStore
 import com.lectures.core.sync.SyncState
 import com.lectures.core.sync.UserSettingsSyncManager
 import com.lectures.ui.LocalExtendedColors
@@ -56,6 +58,7 @@ import com.lectures.ui.components.FloatingIslandTopBar
 import com.lectures.ui.components.desktopHandCursor
 import com.lectures.ui.rememberLecturesWindow
 import com.lectures.ui.rememberPrefersReducedMotion
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
@@ -86,9 +89,12 @@ fun AccountScreen(
 
     var isAuthenticating by remember { mutableStateOf(false) }
     var isSyncing by remember { mutableStateOf(false) }
+    var isDeletingCloudData by remember { mutableStateOf(false) }
     var syncMessage by rememberSaveable { mutableStateOf<String?>(null) }
     var errorMessage by rememberSaveable { mutableStateOf<String?>(null) }
     var showSignOutDialog by rememberSaveable { mutableStateOf(false) }
+    var showDeleteCloudDataDialog by rememberSaveable { mutableStateOf(false) }
+    var alsoClearLocalOnCloudDelete by rememberSaveable { mutableStateOf(false) }
 
     val notesCount by (app?.database?.timetableDao()?.getAllNotes()?.collectAsState(initial = emptyList())
         ?: remember { mutableStateOf(emptyList()) })
@@ -305,8 +311,13 @@ fun AccountScreen(
                                         AccountActionButtonsSection(
                                             isSyncing = isSyncing,
                                             isTightFont = windowInfo.isTightFont,
+                                            isDeletingCloudData = isDeletingCloudData,
                                             onSyncNowClick = onSyncNowClick,
-                                            onSignOutClick = { showSignOutDialog = true }
+                                            onSignOutClick = { showSignOutDialog = true },
+                                            onDeleteCloudDataClick = {
+                                                alsoClearLocalOnCloudDelete = false
+                                                showDeleteCloudDataDialog = true
+                                            }
                                         )
                                     }
                                 }
@@ -349,8 +360,13 @@ fun AccountScreen(
                                     AccountActionButtonsSection(
                                         isSyncing = isSyncing,
                                         isTightFont = windowInfo.isTightFont,
+                                        isDeletingCloudData = isDeletingCloudData,
                                         onSyncNowClick = onSyncNowClick,
-                                        onSignOutClick = { showSignOutDialog = true }
+                                        onSignOutClick = { showSignOutDialog = true },
+                                        onDeleteCloudDataClick = {
+                                            alsoClearLocalOnCloudDelete = false
+                                            showDeleteCloudDataDialog = true
+                                        }
                                     )
                                 }
                             }
@@ -377,6 +393,74 @@ fun AccountScreen(
                 }
             },
             onDismiss = { showSignOutDialog = false }
+        )
+    }
+
+    if (showDeleteCloudDataDialog) {
+        AccountDeleteCloudDataDialog(
+            preferDesktopDialogs = windowInfo.preferDesktopDialogs,
+            isDeleting = isDeletingCloudData,
+            alsoClearLocal = alsoClearLocalOnCloudDelete,
+            onToggleClearLocal = { alsoClearLocalOnCloudDelete = it },
+            onConfirmDelete = {
+                val activeUid = currentUser?.uid
+                if (activeUid.isNullOrBlank()) {
+                    showDeleteCloudDataDialog = false
+                    return@AccountDeleteCloudDataDialog
+                }
+                scope.launch {
+                    isDeletingCloudData = true
+                    errorMessage = null
+                    syncMessage = null
+                    val application = app
+                    if (application == null) {
+                        isDeletingCloudData = false
+                        showDeleteCloudDataDialog = false
+                        errorMessage = "Cloud sync service is unavailable."
+                        return@launch
+                    }
+
+                    application.syncRepository.stopUserSync()
+                    val deleteResult = withContext(application.applicationScope.coroutineContext) {
+                        application.syncRepository.deleteAllCloudUserData(activeUid)
+                    }
+
+                    deleteResult.fold(
+                        onSuccess = { deletedDocsCount ->
+                            if (alsoClearLocalOnCloudDelete) {
+                                withContext(Dispatchers.IO) {
+                                    AttachmentStore.deleteAll(context)
+                                    application.syncRepository.purgeUserDataOnSignOut(activeUid)
+                                    application.database.timetableDao().deleteAllNotes()
+                                    application.database.customEventDao().deleteAll()
+                                    application.database.assignmentDao().deleteAll()
+                                }
+                                AlarmSyncCoordinator.resyncAll(
+                                    context = context,
+                                    repository = application.repository,
+                                    force = true,
+                                    dispatcher = Dispatchers.IO,
+                                    reason = "account_delete_cloud_and_local"
+                                )
+                                authRepo.signOut(context)
+                                syncMessage = "Cloud backup ($deletedDocsCount records) and local copies deleted. Switched to guest mode."
+                            } else {
+                                application.syncRepository.demoteUserToGuestOnCloudDelete(activeUid)
+                                authRepo.signOut(context)
+                                syncMessage = "Cloud backup ($deletedDocsCount records) deleted. Your local data remains saved in guest mode."
+                            }
+                            showDeleteCloudDataDialog = false
+                        },
+                        onFailure = { err ->
+                            application.syncRepository.startAllSync(activeUid, application.applicationScope)
+                            errorMessage = err.localizedMessage ?: "Failed to delete cloud backup data."
+                            showDeleteCloudDataDialog = false
+                        }
+                    )
+                    isDeletingCloudData = false
+                }
+            },
+            onDismiss = { showDeleteCloudDataDialog = false }
         )
     }
 }

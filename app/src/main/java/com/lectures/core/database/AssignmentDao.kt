@@ -56,6 +56,15 @@ interface AssignmentDao {
     @Query("DELETE FROM assignments WHERE isDeleted = 1 AND updatedAt < :cutoffTimestamp")
     suspend fun purgeTombstones(cutoffTimestamp: Long): Int
 
+    @Query("UPDATE assignments SET isDeleted = 1, updatedAt = :timestamp WHERE isDeleted = 0")
+    suspend fun softDeleteAll(timestamp: Long = System.currentTimeMillis())
+
+    @Query("UPDATE assignments SET ownerId = NULL WHERE ownerId = :userId AND isDeleted = 0")
+    suspend fun demoteUserDataToGuest(userId: String)
+
+    @Query("DELETE FROM assignments WHERE ownerId = :userId AND isDeleted = 1")
+    suspend fun purgeUserDeletedTombstones(userId: String)
+
     @Query("DELETE FROM assignments WHERE ownerId = :userId")
     suspend fun purgeUserData(userId: String)
 

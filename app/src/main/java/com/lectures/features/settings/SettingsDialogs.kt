@@ -23,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Alarm
 import androidx.compose.material.icons.outlined.AlarmOff
 import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.EventBusy
 import androidx.compose.material.icons.outlined.Verified
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -154,11 +155,17 @@ internal fun CustomLeadMinutesDialog(
 
 @Composable
 internal fun ResetNotesConfirmDialog(
+    isCloudSyncActive: Boolean = false,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val windowInfo = rememberLecturesWindow()
     val ext = LocalExtendedColors.current
+    val bodyText = if (isCloudSyncActive) {
+        "This will permanently delete all your lecture notes, attachments, and attached class alarm intervals on this device and across your synced Cloud account. This action cannot be undone."
+    } else {
+        "This will permanently delete all your lecture notes and attached class alarm intervals. This action cannot be undone."
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
@@ -174,7 +181,7 @@ internal fun ResetNotesConfirmDialog(
         containerColor = ext.surfaceCard,
         icon = { Icon(Icons.Outlined.DeleteOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
         title = { Text("Reset All Notes?", fontWeight = FontWeight.Bold) },
-        text = { Text("This will permanently delete all your lecture notes and attached class alarm intervals. This action cannot be undone.") },
+        text = { Text(bodyText) },
         confirmButton = {
             Button(
                 onClick = onConfirm,
@@ -205,11 +212,17 @@ internal fun ResetNotesConfirmDialog(
 
 @Composable
 internal fun ResetTasksConfirmDialog(
+    isCloudSyncActive: Boolean = false,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val windowInfo = rememberLecturesWindow()
     val ext = LocalExtendedColors.current
+    val bodyText = if (isCloudSyncActive) {
+        "This will remove all saved assignments and cancel scheduled task reminders on this device and across your synced Cloud account."
+    } else {
+        "This will remove all saved assignments and cancel any scheduled reminder notifications."
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
@@ -225,7 +238,7 @@ internal fun ResetTasksConfirmDialog(
         containerColor = ext.surfaceCard,
         icon = { Icon(Icons.Outlined.AlarmOff, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
         title = { Text("Reset Academic Tasks?", fontWeight = FontWeight.Bold) },
-        text = { Text("This will remove all saved assignments and cancel any scheduled reminder notifications.") },
+        text = { Text(bodyText) },
         confirmButton = {
             Button(
                 onClick = onConfirm,
@@ -239,6 +252,63 @@ internal fun ResetTasksConfirmDialog(
                     .testTag("dialog_reset_tasks_confirm_btn")
             ) {
                 Text("Clear Tasks & Alarms")
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .defaultMinSize(minHeight = 48.dp)
+                    .desktopHandCursor()
+            ) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
+internal fun ResetEventsConfirmDialog(
+    isCloudSyncActive: Boolean = false,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val windowInfo = rememberLecturesWindow()
+    val ext = LocalExtendedColors.current
+    val bodyText = if (isCloudSyncActive) {
+        "This will remove all personal timetable activities and cancel their weekly reminders on this device and across your synced Cloud account."
+    } else {
+        "This will remove all personal timetable activities and cancel any scheduled activity reminders."
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+        modifier = Modifier
+            .then(
+                if (windowInfo.preferDesktopDialogs) {
+                    Modifier.widthIn(min = 360.dp, max = 480.dp)
+                } else {
+                    Modifier.padding(horizontal = 16.dp).widthIn(max = 420.dp)
+                }
+            )
+            .onEscapeKey(onDismiss),
+        containerColor = ext.surfaceCard,
+        icon = { Icon(Icons.Outlined.EventBusy, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+        title = { Text("Reset Personal Activities?", fontWeight = FontWeight.Bold) },
+        text = { Text(bodyText) },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error,
+                    contentColor = MaterialTheme.colorScheme.onError
+                ),
+                modifier = Modifier
+                    .defaultMinSize(minHeight = 48.dp)
+                    .desktopHandCursor()
+                    .testTag("dialog_reset_events_confirm_btn")
+            ) {
+                Text("Clear Activities")
             }
         },
         dismissButton = {

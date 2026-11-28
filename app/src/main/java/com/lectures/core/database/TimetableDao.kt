@@ -145,6 +145,15 @@ interface TimetableDao {
     @Query("DELETE FROM lecture_notes WHERE isDeleted = 1 AND updatedAt < :cutoffTimestamp")
     suspend fun purgeNoteTombstones(cutoffTimestamp: Long): Int
 
+    @Query("UPDATE lecture_notes SET isDeleted = 1, updatedAt = :timestamp WHERE isDeleted = 0")
+    suspend fun softDeleteAllNotes(timestamp: Long = System.currentTimeMillis())
+
+    @Query("UPDATE lecture_notes SET ownerId = NULL WHERE ownerId = :userId AND isDeleted = 0")
+    suspend fun demoteUserNotesToGuest(userId: String)
+
+    @Query("DELETE FROM lecture_notes WHERE ownerId = :userId AND isDeleted = 1")
+    suspend fun purgeUserDeletedNotes(userId: String)
+
     @Query("DELETE FROM lecture_notes WHERE ownerId = :userId")
     suspend fun purgeUserNotes(userId: String)
 

@@ -498,25 +498,10 @@ class SyncRepository(
 
     suspend fun pushNoteToCloud(note: LectureNote, userId: String): Result<Unit> {
         val store = firestore ?: return Result.failure(IllegalStateException("Firestore unavailable"))
-        val noteMap = mapOf(
-            "natural_key" to note.naturalKey,
-            "title" to note.title,
-            "content" to note.content,
-            "colour_tag" to note.colourTag,
-            "alarm_minutes" to note.alarmMinutes,
-            "tag" to note.tag,
-            "attached_class" to note.attachedClass,
-            "attachment_name" to note.attachmentName,
-            "attachment_path" to note.attachmentPath,
-            "is_pinned" to note.isPinned,
-            "is_deleted" to note.isDeleted,
-            "owner_id" to (note.ownerId ?: userId),
-            "updated_at" to note.updatedAt
-        )
         return try {
             store.collection("users").document(userId)
                 .collection("notes").document(note.naturalKey)
-                .set(noteMap, SetOptions.merge())
+                .set(note.toFirestoreMap(userId), SetOptions.merge())
                 .await()
             Result.success(Unit)
         } catch (e: Exception) {
@@ -527,26 +512,10 @@ class SyncRepository(
 
     suspend fun pushEventToCloud(event: CustomEvent, userId: String): Result<Unit> {
         val store = firestore ?: return Result.failure(IllegalStateException("Firestore unavailable"))
-        val eventMap = mapOf(
-            "client_uuid" to event.clientUuid,
-            "title" to event.title,
-            "day_of_week" to event.dayOfWeek,
-            "start_time" to event.startTime,
-            "end_time" to event.endTime,
-            "location" to event.location,
-            "notes" to event.notes,
-            "repeat_weekly" to event.repeatWeekly,
-            "alarm_minutes" to event.alarmMinutes,
-            "category" to event.category,
-            "color_tag" to event.colorTag,
-            "owner_id" to (event.ownerId ?: userId),
-            "updated_at" to event.updatedAt,
-            "is_deleted" to event.isDeleted
-        )
         return try {
             store.collection("users").document(userId)
                 .collection("events").document(event.clientUuid)
-                .set(eventMap, SetOptions.merge())
+                .set(event.toFirestoreMap(userId), SetOptions.merge())
                 .await()
             Result.success(Unit)
         } catch (e: Exception) {
@@ -557,23 +526,10 @@ class SyncRepository(
 
     suspend fun pushAssignmentToCloud(assignment: Assignment, userId: String): Result<Unit> {
         val store = firestore ?: return Result.failure(IllegalStateException("Firestore unavailable"))
-        val assignmentMap = mapOf(
-            "client_uuid" to assignment.clientUuid,
-            "title" to assignment.title,
-            "course_code" to assignment.courseCode,
-            "due_date" to assignment.dueDate,
-            "reminder_minutes" to assignment.reminderMinutes,
-            "priority" to assignment.priority,
-            "notes" to assignment.notes,
-            "completed" to assignment.completed,
-            "owner_id" to (assignment.ownerId ?: userId),
-            "updated_at" to assignment.updatedAt,
-            "is_deleted" to assignment.isDeleted
-        )
         return try {
             store.collection("users").document(userId)
                 .collection("assignments").document(assignment.clientUuid)
-                .set(assignmentMap, SetOptions.merge())
+                .set(assignment.toFirestoreMap(userId), SetOptions.merge())
                 .await()
             Result.success(Unit)
         } catch (e: Exception) {
@@ -597,6 +553,202 @@ class SyncRepository(
     }
 
     /**
+     * Propagates a Danger Zone notes reset to Cloud Firestore by writing `is_deleted = true`
+     * tombstones onto all active remote note documents so they cannot resurrect on subsequent syncs.
+     */
+    suspend fun resetCloudNotes(
+        userId: String,
+        timestamp: Long = System.currentTimeMillis()
+    ): Result<Int> = withContext(Dispatchers.IO) {
+        if (userId.isBlank()) return@withContext Result.failure(IllegalArgumentException("Invalid user ID"))
+        val store = firestore ?: return@withContext Result.failure(IllegalStateException("Firestore unavailable"))
+        try {
+            val notesRef = store.collection("users").document(userId).collection("notes")
+            val remoteSnap = notesRef.get().await()
+            val pendingMaps = mutableListOf<Pair<String, Map<String, Any?>>>()
+            val pendingDeletes = mutableListOf<com.google.firebase.firestore.DocumentReference>()
+
+            remoteSnap.documents.forEach { doc ->
+                val remote = doc.toLectureNote(userId)
+                if (remote == null) {
+                    pendingDeletes.add(doc.reference)
+                } else if (!remote.isDeleted) {
+                    val tombstone = remote.copy(
+                        isDeleted = true,
+                        updatedAt = maxOf(timestamp, remote.updatedAt + 1L),
+                        ownerId = userId
+                    )
+                    pendingMaps.add(doc.id to tombstone.toFirestoreMap(userId))
+                }
+            }
+
+            pendingMaps.chunked(FIRESTORE_BATCH_LIMIT).forEach { chunk ->
+                val batch = store.batch()
+                chunk.forEach { (docId, data) ->
+                    batch.set(notesRef.document(docId), data, SetOptions.merge())
+                }
+                batch.commit().await()
+            }
+            pendingDeletes.chunked(FIRESTORE_BATCH_LIMIT).forEach { chunk ->
+                val batch = store.batch()
+                chunk.forEach { ref -> batch.delete(ref) }
+                batch.commit().await()
+            }
+
+            Result.success(pendingMaps.size + pendingDeletes.size)
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            _lastSyncError.value = e.localizedMessage ?: "Failed to reset cloud notes."
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Propagates a Danger Zone custom events reset to Cloud Firestore using tombstones.
+     */
+    suspend fun resetCloudEvents(
+        userId: String,
+        timestamp: Long = System.currentTimeMillis()
+    ): Result<Int> = withContext(Dispatchers.IO) {
+        if (userId.isBlank()) return@withContext Result.failure(IllegalArgumentException("Invalid user ID"))
+        val store = firestore ?: return@withContext Result.failure(IllegalStateException("Firestore unavailable"))
+        try {
+            val eventsRef = store.collection("users").document(userId).collection("events")
+            val remoteSnap = eventsRef.get().await()
+            val pendingMaps = mutableListOf<Pair<String, Map<String, Any?>>>()
+            val pendingDeletes = mutableListOf<com.google.firebase.firestore.DocumentReference>()
+
+            remoteSnap.documents.forEach { doc ->
+                val remote = doc.toCustomEvent(userId)
+                if (remote == null) {
+                    pendingDeletes.add(doc.reference)
+                } else if (!remote.isDeleted) {
+                    val tombstone = remote.copy(
+                        isDeleted = true,
+                        updatedAt = maxOf(timestamp, remote.updatedAt + 1L),
+                        ownerId = userId
+                    )
+                    pendingMaps.add(doc.id to tombstone.toFirestoreMap(userId))
+                }
+            }
+
+            pendingMaps.chunked(FIRESTORE_BATCH_LIMIT).forEach { chunk ->
+                val batch = store.batch()
+                chunk.forEach { (docId, data) ->
+                    batch.set(eventsRef.document(docId), data, SetOptions.merge())
+                }
+                batch.commit().await()
+            }
+            pendingDeletes.chunked(FIRESTORE_BATCH_LIMIT).forEach { chunk ->
+                val batch = store.batch()
+                chunk.forEach { ref -> batch.delete(ref) }
+                batch.commit().await()
+            }
+
+            Result.success(pendingMaps.size + pendingDeletes.size)
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            _lastSyncError.value = e.localizedMessage ?: "Failed to reset cloud events."
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Propagates a Danger Zone assignments/tasks reset to Cloud Firestore using tombstones.
+     */
+    suspend fun resetCloudAssignments(
+        userId: String,
+        timestamp: Long = System.currentTimeMillis()
+    ): Result<Int> = withContext(Dispatchers.IO) {
+        if (userId.isBlank()) return@withContext Result.failure(IllegalArgumentException("Invalid user ID"))
+        val store = firestore ?: return@withContext Result.failure(IllegalStateException("Firestore unavailable"))
+        try {
+            val tasksRef = store.collection("users").document(userId).collection("assignments")
+            val remoteSnap = tasksRef.get().await()
+            val pendingMaps = mutableListOf<Pair<String, Map<String, Any?>>>()
+            val pendingDeletes = mutableListOf<com.google.firebase.firestore.DocumentReference>()
+
+            remoteSnap.documents.forEach { doc ->
+                val remote = doc.toAssignment(userId)
+                if (remote == null) {
+                    pendingDeletes.add(doc.reference)
+                } else if (!remote.isDeleted) {
+                    val tombstone = remote.copy(
+                        isDeleted = true,
+                        updatedAt = maxOf(timestamp, remote.updatedAt + 1L),
+                        ownerId = userId
+                    )
+                    pendingMaps.add(doc.id to tombstone.toFirestoreMap(userId))
+                }
+            }
+
+            pendingMaps.chunked(FIRESTORE_BATCH_LIMIT).forEach { chunk ->
+                val batch = store.batch()
+                chunk.forEach { (docId, data) ->
+                    batch.set(tasksRef.document(docId), data, SetOptions.merge())
+                }
+                batch.commit().await()
+            }
+            pendingDeletes.chunked(FIRESTORE_BATCH_LIMIT).forEach { chunk ->
+                val batch = store.batch()
+                chunk.forEach { ref -> batch.delete(ref) }
+                batch.commit().await()
+            }
+
+            Result.success(pendingMaps.size + pendingDeletes.size)
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            _lastSyncError.value = e.localizedMessage ?: "Failed to reset cloud tasks."
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Permanently deletes all synced documents (notes, events, assignments, preferences, and root profile doc)
+     * stored in Cloud Firestore for [userId]. Returns the number of deleted cloud documents.
+     */
+    suspend fun deleteAllCloudUserData(userId: String): Result<Int> = withContext(NonCancellable + Dispatchers.IO) {
+        if (userId.isBlank()) return@withContext Result.failure(IllegalArgumentException("Invalid user ID"))
+        val store = firestore ?: return@withContext Result.failure(IllegalStateException("Cloud sync service is unavailable."))
+        try {
+            val userDoc = store.collection("users").document(userId)
+            val refsToDelete = mutableListOf<com.google.firebase.firestore.DocumentReference>()
+            listOf("notes", "events", "assignments", "settings").forEach { subcollection ->
+                val snap = userDoc.collection(subcollection).get().await()
+                snap.documents.forEach { doc -> refsToDelete.add(doc.reference) }
+            }
+            refsToDelete.chunked(FIRESTORE_BATCH_LIMIT).forEach { chunk ->
+                val batch = store.batch()
+                chunk.forEach { ref -> batch.delete(ref) }
+                batch.commit().await()
+            }
+            runCatching { userDoc.delete().await() }
+            _lastSyncError.value = null
+            Result.success(refsToDelete.size)
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            val errMsg = e.localizedMessage ?: "Failed to delete cloud backup data."
+            _lastSyncError.value = errMsg
+            Log.w(TAG, "deleteAllCloudUserData failed: $errMsg", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Converts a signed-out user's active local rows back into un-scoped Guest rows (and purges
+     * deleted tombstones for that user) after cloud backup deletion when the user keeps local data.
+     */
+    suspend fun demoteUserToGuestOnCloudDelete(userId: String) = withContext(NonCancellable + Dispatchers.IO) {
+        stopUserSync()
+        db.timetableDao().purgeUserDeletedNotes(userId)
+        db.timetableDao().demoteUserNotesToGuest(userId)
+        db.customEventDao().purgeUserDeletedTombstones(userId)
+        db.customEventDao().demoteUserDataToGuest(userId)
+        db.assignmentDao().purgeUserDeletedTombstones(userId)
+        db.assignmentDao().demoteUserDataToGuest(userId)
+    }
+
+    /**
      * Stops user cloud listeners and cleanly purges an account's personal data from local SQLite
      * upon explicit sign-out, preventing cross-user data leakage on the same device.
      */
@@ -609,8 +761,56 @@ class SyncRepository(
 
     companion object {
         private const val TAG = "SyncRepository"
+        private const val FIRESTORE_BATCH_LIMIT = 400
     }
 }
+
+private fun LectureNote.toFirestoreMap(userId: String): Map<String, Any?> = mapOf(
+    "natural_key" to naturalKey,
+    "title" to title,
+    "content" to content,
+    "colour_tag" to colourTag,
+    "alarm_minutes" to alarmMinutes,
+    "tag" to tag,
+    "attached_class" to attachedClass,
+    "attachment_name" to attachmentName,
+    "attachment_path" to attachmentPath,
+    "is_pinned" to isPinned,
+    "is_deleted" to isDeleted,
+    "owner_id" to (ownerId ?: userId),
+    "updated_at" to updatedAt
+)
+
+private fun CustomEvent.toFirestoreMap(userId: String): Map<String, Any?> = mapOf(
+    "client_uuid" to clientUuid,
+    "title" to title,
+    "day_of_week" to dayOfWeek,
+    "start_time" to startTime,
+    "end_time" to endTime,
+    "location" to location,
+    "notes" to notes,
+    "repeat_weekly" to repeatWeekly,
+    "alarm_minutes" to alarmMinutes,
+    "category" to category,
+    "color_tag" to colorTag,
+    "owner_id" to (ownerId ?: userId),
+    "updated_at" to updatedAt,
+    "is_deleted" to isDeleted
+)
+
+private fun Assignment.toFirestoreMap(userId: String): Map<String, Any?> = mapOf(
+    "client_uuid" to clientUuid,
+    "title" to title,
+    "course_code" to courseCode,
+    "due_date" to dueDate,
+    "reminder_minutes" to reminderMinutes,
+    "priority" to priority,
+    "notes" to notes,
+    "completed" to completed,
+    "owner_id" to (ownerId ?: userId),
+    "updated_at" to updatedAt,
+    "is_deleted" to isDeleted
+)
 
 private fun com.google.firebase.firestore.DocumentSnapshot.toTimetableEntry(): TimetableEntry? {
     return try {

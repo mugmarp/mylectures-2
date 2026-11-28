@@ -28,6 +28,7 @@ import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.CloudSync
+import androidx.compose.material.icons.outlined.DeleteForever
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Sync
@@ -406,14 +407,17 @@ internal fun AccountDataDashboardSection(
 internal fun AccountActionButtonsSection(
     isSyncing: Boolean,
     isTightFont: Boolean,
+    isDeletingCloudData: Boolean = false,
     onSyncNowClick: () -> Unit,
-    onSignOutClick: () -> Unit
+    onSignOutClick: () -> Unit,
+    onDeleteCloudDataClick: () -> Unit = {}
 ) {
     val ext = LocalExtendedColors.current
+    val isBusy = isSyncing || isDeletingCloudData
     val syncNowButton: @Composable (Modifier) -> Unit = { btnMod ->
         Button(
             onClick = onSyncNowClick,
-            enabled = !isSyncing,
+            enabled = !isBusy,
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.primary,
@@ -421,7 +425,7 @@ internal fun AccountActionButtonsSection(
             ),
             modifier = btnMod
                 .defaultMinSize(minHeight = 48.dp)
-                .desktopHandCursor(enabled = !isSyncing)
+                .desktopHandCursor(enabled = !isBusy)
                 .testTag("sync_now_button")
         ) {
             if (isSyncing) {
@@ -442,6 +446,7 @@ internal fun AccountActionButtonsSection(
     val signOutButton: @Composable (Modifier) -> Unit = { btnMod ->
         OutlinedButton(
             onClick = onSignOutClick,
+            enabled = !isBusy,
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.outlinedButtonColors(
                 contentColor = ext.dangerText
@@ -449,7 +454,7 @@ internal fun AccountActionButtonsSection(
             border = BorderStroke(1.dp, ext.dangerBorder),
             modifier = btnMod
                 .defaultMinSize(minHeight = 48.dp)
-                .desktopHandCursor()
+                .desktopHandCursor(enabled = !isBusy)
                 .testTag("sign_out_button")
         ) {
             Icon(Icons.AutoMirrored.Outlined.Logout, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -458,24 +463,48 @@ internal fun AccountActionButtonsSection(
         }
     }
 
-    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-        val stackButtons = maxWidth < 260.dp || (isTightFont && maxWidth < 340.dp)
-        if (stackButtons) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                syncNowButton(Modifier.fillMaxWidth())
-                signOutButton(Modifier.fillMaxWidth())
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            val stackButtons = maxWidth < 260.dp || (isTightFont && maxWidth < 340.dp)
+            if (stackButtons) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    syncNowButton(Modifier.fillMaxWidth())
+                    signOutButton(Modifier.fillMaxWidth())
+                }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    syncNowButton(Modifier.weight(1f))
+                    signOutButton(Modifier.weight(1f))
+                }
             }
-        } else {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                syncNowButton(Modifier.weight(1f))
-                signOutButton(Modifier.weight(1f))
-            }
+        }
+
+        TextButton(
+            onClick = onDeleteCloudDataClick,
+            enabled = !isBusy,
+            colors = ButtonDefaults.textButtonColors(contentColor = ext.dangerText),
+            modifier = Modifier
+                .fillMaxWidth()
+                .defaultMinSize(minHeight = 48.dp)
+                .desktopHandCursor(enabled = !isBusy)
+                .testTag("delete_cloud_data_button")
+        ) {
+            Icon(Icons.Outlined.DeleteForever, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                if (isDeletingCloudData) "Deleting Cloud Backup..." else "Delete Cloud Backup Data",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold
+            )
         }
     }
 }

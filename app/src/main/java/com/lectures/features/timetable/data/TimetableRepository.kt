@@ -15,6 +15,12 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 
+enum class ResetSyncStatus {
+    LOCAL_ONLY,
+    CLOUD_SYNCED,
+    QUEUED_OFFLINE
+}
+
 class TimetableRepository(
     val dao: TimetableDao,
     private val eventDao: CustomEventDao,
@@ -154,7 +160,39 @@ class TimetableRepository(
 
     suspend fun deleteAssignment(id: Long) = assignmentDao.softDelete(id)
 
-    suspend fun deleteAllNotes() = dao.deleteAllNotes()
+    suspend fun resetAllNotesCloudAware(): ResetSyncStatus {
+        val now = System.currentTimeMillis()
+        dao.softDeleteAllNotes(now)
+        val uid = currentUserIdProvider()?.takeIf { it.isNotBlank() } ?: return ResetSyncStatus.LOCAL_ONLY
+        val sync = syncRepository ?: return ResetSyncStatus.QUEUED_OFFLINE
+        dao.promoteGuestNotes(uid)
+        return if (sync.resetCloudNotes(uid, now).isSuccess) {
+            ResetSyncStatus.CLOUD_SYNCED
+        } else {
+            ResetSyncStatus.QUEUED_OFFLINE
+        }
+    }
+
+    suspend fun deleteAllNotes() {
+        resetAllNotesCloudAware()
+    }
+
+    suspend fun resetAllCustomEventsCloudAware(): ResetSyncStatus {
+        val now = System.currentTimeMillis()
+        eventDao.softDeleteAll(now)
+        val uid = currentUserIdProvider()?.takeIf { it.isNotBlank() } ?: return ResetSyncStatus.LOCAL_ONLY
+        val sync = syncRepository ?: return ResetSyncStatus.QUEUED_OFFLINE
+        eventDao.promoteGuestData(uid)
+        return if (sync.resetCloudEvents(uid, now).isSuccess) {
+            ResetSyncStatus.CLOUD_SYNCED
+        } else {
+            ResetSyncStatus.QUEUED_OFFLINE
+        }
+    }
+
+    suspend fun deleteAllCustomEvents() {
+        resetAllCustomEventsCloudAware()
+    }
 
     val programmePref: Flow<String?> = combine(
         etagStore.programmePref,
@@ -247,8 +285,69 @@ class TimetableRepository(
         return dsCompleted ?: etagStore.isOnboardingCompleted()
     }
 
+    suspend fun resetAllAssignmentsCloudAware(): ResetSyncStatus {
+        val now = System.currentTimeMillis()
+        assignmentDao.softDeleteAll(now)
+        val uid = currentUserIdProvider()?.takeIf { it.isNotBlank() } ?: return ResetSyncStatus.LOCAL_ONLY
+        val sync = syncRepository ?: return ResetSyncStatus.QUEUED_OFFLINE
+        assignmentDao.promoteGuestData(uid)
+        return if (sync.resetCloudAssignments(uid, now).isSuccess) {
+            ResetSyncStatus.CLOUD_SYNCED
+        } else {
+            ResetSyncStatus.QUEUED_OFFLINE
+        }
+    }
+
     suspend fun deleteAllAssignments() {
-        assignmentDao.deleteAll()
+        resetAllAssignmentsCloudAware()
+    }
+
+    suspend fun importBackupData(
+        notes: List<LectureNote>,
+        events: List<CustomEvent>,
+        assignments: List<Assignment>
+    ): Triple<Int, Int, Int> {
+        val uid = currentUserIdProvider()?.takeIf { it.isNotBlank() }
+        val now = System.currentTimeMillis()
+
+        val resolvedNotes = notes.distinctBy { it.naturalKey }.map { note ->
+            note.copy(
+                isDeleted = false,
+                updatedAt = maxOf(note.updatedAt, now),
+                ownerId = uid ?: note.ownerId
+            )
+        }
+        if (resolvedNotes.isNotEmpty()) {
+            dao.upsertNotes(resolvedNotes)
+        }
+
+        val resolvedEvents = events.distinctBy { it.clientUuid }.map { event ->
+            val existing = eventDao.getByUuid(event.clientUuid)
+            event.copy(
+                id = existing?.id ?: 0L,
+                isDeleted = false,
+                updatedAt = maxOf(event.updatedAt, now),
+                ownerId = uid ?: existing?.ownerId ?: event.ownerId
+            )
+        }
+        if (resolvedEvents.isNotEmpty()) {
+            eventDao.upsertAll(resolvedEvents)
+        }
+
+        val resolvedAssignments = assignments.distinctBy { it.clientUuid }.map { task ->
+            val existing = assignmentDao.getByUuid(task.clientUuid)
+            task.copy(
+                id = existing?.id ?: 0L,
+                isDeleted = false,
+                updatedAt = maxOf(task.updatedAt, now),
+                ownerId = uid ?: existing?.ownerId ?: task.ownerId
+            )
+        }
+        if (resolvedAssignments.isNotEmpty()) {
+            assignmentDao.upsertAll(resolvedAssignments)
+        }
+
+        return Triple(resolvedNotes.size, resolvedEvents.size, resolvedAssignments.size)
     }
 
     suspend fun saveNote(

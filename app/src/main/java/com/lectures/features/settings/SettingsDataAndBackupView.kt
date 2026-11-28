@@ -26,7 +26,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AlarmOff
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.EventBusy
 import androidx.compose.material.icons.outlined.Sync
+import androidx.compose.material.icons.outlined.Upload
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -65,8 +67,10 @@ internal fun DataAndBackupSettingsView(
     onOpenAccount: () -> Unit,
     onSyncUserData: () -> Unit,
     onExportBackup: (String) -> Unit,
+    onImportBackup: () -> Unit = {},
     onRequestResetNotes: () -> Unit,
-    onRequestResetTasks: () -> Unit
+    onRequestResetTasks: () -> Unit,
+    onRequestResetEvents: () -> Unit = {}
 ) {
     val ext = LocalExtendedColors.current
     val headerHorizontalPadding = horizontalPadding + 4.dp
@@ -260,16 +264,102 @@ internal fun DataAndBackupSettingsView(
                                 exportPill()
                             }
                         }
+                        } else {
+                            Row(
+                                modifier = exportModifier,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                exportLeading()
+                                Spacer(modifier = Modifier.width(12.dp))
+                                exportText(Modifier.weight(1f))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                exportPill()
+                            }
+                        }
+                    }
+
+                HorizontalDivider(
+                    modifier = Modifier.padding(vertical = 12.dp),
+                    color = ext.borderSubtle
+                )
+
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                    val stackImport = maxWidth < 260.dp || (isTightFont && maxWidth < 340.dp)
+                    val importModifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 48.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .desktopHoverable()
+                        .desktopHandCursor()
+                        .clickable(onClick = onImportBackup)
+                        .testTag("settings_import_backup_row")
+                        .padding(vertical = 6.dp, horizontal = 4.dp)
+
+                    val importLeading: @Composable () -> Unit = {
+                        Box(
+                            modifier = Modifier
+                                .size(38.dp)
+                                .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Outlined.Upload,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                    val importText: @Composable (Modifier) -> Unit = { textMod ->
+                        Column(modifier = textMod) {
+                            Text(
+                                "Import Data Backup (JSON)",
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                "Restore exported notes, coursework & custom events",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    val importPill: @Composable () -> Unit = {
+                        SettingsStatusPill(
+                            text = "Restore",
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    if (stackImport) {
+                        Column(
+                            modifier = importModifier,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                importLeading()
+                                Spacer(modifier = Modifier.width(12.dp))
+                                importText(Modifier.weight(1f))
+                            }
+                            Box(modifier = Modifier.padding(start = 50.dp)) {
+                                importPill()
+                            }
+                        }
                     } else {
                         Row(
-                            modifier = exportModifier,
+                            modifier = importModifier,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            exportLeading()
+                            importLeading()
                             Spacer(modifier = Modifier.width(12.dp))
-                            exportText(Modifier.weight(1f))
+                            importText(Modifier.weight(1f))
                             Spacer(modifier = Modifier.width(8.dp))
-                            exportPill()
+                            importPill()
                         }
                     }
                 }
@@ -309,6 +399,20 @@ internal fun DataAndBackupSettingsView(
                     isTightFont = isTightFont,
                     testTag = "settings_reset_tasks_row",
                     onClick = onRequestResetTasks
+                )
+
+                HorizontalDivider(
+                    modifier = Modifier.padding(vertical = 10.dp),
+                    color = ext.borderSubtle
+                )
+
+                DangerResetRow(
+                    icon = Icons.Outlined.EventBusy,
+                    title = "Reset Personal Activities & Events",
+                    subtitle = "Cancel activity alarms and clear custom timetable events",
+                    isTightFont = isTightFont,
+                    testTag = "settings_reset_events_row",
+                    onClick = onRequestResetEvents
                 )
             }
         }

@@ -20,6 +20,7 @@ import com.lectures.core.update.AppUpdateInfo
 import com.lectures.core.update.InAppUpdateManager
 import com.lectures.core.util.NotificationPermissionHelper
 import com.lectures.features.timetable.data.DataLoader
+import com.lectures.features.timetable.data.ResetSyncStatus
 import com.lectures.features.timetable.data.TimetableRepository
 import com.lectures.features.timetable.domain.TimetableMetadata
 import com.lectures.ui.ThemeMode
@@ -574,6 +575,113 @@ class SettingsViewModel(
         }
     }
 
+    fun importUserDataBackup(sourceUri: Uri) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isBackingUpUserData = true, errorMessage = null, successMessage = null)
+            try {
+                val rawJson = withContext(ioDispatcher) {
+                    val stream = getApplication<Application>().contentResolver.openInputStream(sourceUri)
+                        ?: throw IllegalStateException("Could not open selected backup file")
+                    stream.use { input ->
+                        val maxBytes = 10 * 1024 * 1024 // 10 MB safety cap
+                        val buffer = ByteArray(8192)
+                        val out = java.io.ByteArrayOutputStream()
+                        var total = 0
+                        while (true) {
+                            val read = input.read(buffer)
+                            if (read <= 0) break
+                            total += read
+                            if (total > maxBytes) {
+                                throw IllegalArgumentException("Backup file exceeds the 10 MB size limit.")
+                            }
+                            out.write(buffer, 0, read)
+                        }
+                        out.toString(Charsets.UTF_8.name())
+                    }
+                }
+                restoreBackupFromJsonInternal(rawJson)
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                _uiState.value = _uiState.value.copy(
+                    isBackingUpUserData = false,
+                    errorMessage = "Backup import failed: ${e.localizedMessage ?: "Invalid file"}"
+                )
+            }
+        }
+    }
+
+    internal suspend fun importUserDataFromJson(rawJson: String): Result<Triple<Int, Int, Int>> {
+        _uiState.value = _uiState.value.copy(isBackingUpUserData = true, errorMessage = null, successMessage = null)
+        return restoreBackupFromJsonInternal(rawJson)
+    }
+
+    private suspend fun restoreBackupFromJsonInternal(rawJson: String): Result<Triple<Int, Int, Int>> {
+        return try {
+            val parsed = SettingsBackupExporter.parseBackupJson(rawJson).getOrElse { err ->
+                _uiState.value = _uiState.value.copy(
+                    isBackingUpUserData = false,
+                    errorMessage = err.message ?: "Backup import failed."
+                )
+                return Result.failure(err)
+            }
+
+            if (parsed.notes.isEmpty() && parsed.events.isEmpty() && parsed.assignments.isEmpty()) {
+                val emptyErr = IllegalArgumentException("The selected backup file contains no notes, tasks, or custom events.")
+                _uiState.value = _uiState.value.copy(
+                    isBackingUpUserData = false,
+                    errorMessage = emptyErr.message
+                )
+                return Result.failure(emptyErr)
+            }
+
+            val counts = withContext(ioDispatcher) {
+                repository.importBackupData(
+                    notes = parsed.notes,
+                    events = parsed.events,
+                    assignments = parsed.assignments
+                )
+            }
+
+            AlarmSyncCoordinator.resyncAll(
+                context = getApplication(),
+                repository = repository,
+                force = true,
+                preserveImminentExisting = true,
+                dispatcher = ioDispatcher,
+                reason = "settings_import_backup"
+            )
+
+            val currentUid = runCatching {
+                AuthRepository.getInstance().currentUser.value?.uid
+            }.getOrNull()?.takeIf { it.isNotBlank() }
+
+            val cloudSyncStatus = if (currentUid != null) {
+                withContext(ioDispatcher) { repository.performFullUserSync(currentUid) }
+            } else {
+                null
+            }
+
+            val (notesCount, eventsCount, tasksCount) = counts
+            val cloudSuffix = when {
+                currentUid == null -> ""
+                cloudSyncStatus?.status == SyncState.ERROR -> " Saved locally; cloud sync queued."
+                else -> " Synced to Cloud."
+            }
+            _uiState.value = _uiState.value.copy(
+                isBackingUpUserData = false,
+                successMessage = "Backup restored ($notesCount notes, $eventsCount events, $tasksCount tasks).$cloudSuffix"
+            )
+            Result.success(counts)
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            _uiState.value = _uiState.value.copy(
+                isBackingUpUserData = false,
+                errorMessage = "Backup import failed: ${e.localizedMessage ?: "Unexpected error"}"
+            )
+            Result.failure(e)
+        }
+    }
+
     fun syncTimetable() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isSyncing = true, errorMessage = null, successMessage = null)
@@ -644,13 +752,13 @@ class SettingsViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isResetting = true, errorMessage = null)
             try {
-                withContext(ioDispatcher) {
+                val syncStatus = withContext(ioDispatcher) {
                     val notesWithAlarms = repository.getNotesWithAlarms()
                     notesWithAlarms.forEach { note ->
                         classAlarmScheduler?.cancelClassAlarm(note.naturalKey)
                     }
                     AttachmentStore.deleteAll(getApplication())
-                    repository.deleteAllNotes()
+                    repository.resetAllNotesCloudAware()
                 }
                 AlarmSyncCoordinator.resyncAll(
                     context = getApplication(),
@@ -660,12 +768,18 @@ class SettingsViewModel(
                     dispatcher = ioDispatcher,
                     reason = "settings_reset_notes"
                 )
+                val msg = when (syncStatus) {
+                    ResetSyncStatus.CLOUD_SYNCED -> "All lecture notes, attachments, and note alerts reset locally and in Cloud Sync."
+                    ResetSyncStatus.QUEUED_OFFLINE -> "All lecture notes and attachments cleared locally. Cloud reset queued until next sync."
+                    ResetSyncStatus.LOCAL_ONLY -> "All lecture notes, attachments, and note alerts have been reset."
+                }
                 _uiState.value = _uiState.value.copy(
                     isResetting = false,
-                    successMessage = "All lecture notes, attachments, and note alerts have been reset."
+                    successMessage = msg
                 )
                 onComplete()
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 _uiState.value = _uiState.value.copy(
                     isResetting = false,
                     errorMessage = "Failed to reset notes: ${e.message}"
@@ -678,10 +792,10 @@ class SettingsViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isResetting = true, errorMessage = null)
             try {
-                withContext(ioDispatcher) {
+                val syncStatus = withContext(ioDispatcher) {
                     val tasks = repository.getAssignments().firstOrNull() ?: emptyList()
                     alarmScheduler?.cancelAllTaskReminders(tasks)
-                    repository.deleteAllAssignments()
+                    repository.resetAllAssignmentsCloudAware()
                 }
                 AlarmSyncCoordinator.resyncAll(
                     context = getApplication(),
@@ -691,15 +805,58 @@ class SettingsViewModel(
                     dispatcher = ioDispatcher,
                     reason = "settings_reset_tasks"
                 )
+                val msg = when (syncStatus) {
+                    ResetSyncStatus.CLOUD_SYNCED -> "All academic tasks and alarms cleared locally and in Cloud Sync."
+                    ResetSyncStatus.QUEUED_OFFLINE -> "All academic tasks and alarms cleared locally. Cloud reset queued until next sync."
+                    ResetSyncStatus.LOCAL_ONLY -> "All academic tasks and alarms have been cleared."
+                }
                 _uiState.value = _uiState.value.copy(
                     isResetting = false,
-                    successMessage = "All academic tasks and alarms have been cleared."
+                    successMessage = msg
                 )
                 onComplete()
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 _uiState.value = _uiState.value.copy(
                     isResetting = false,
                     errorMessage = "Failed to reset tasks: ${e.message}"
+                )
+            }
+        }
+    }
+
+    fun resetAllCustomEvents(onComplete: () -> Unit) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isResetting = true, errorMessage = null)
+            try {
+                val syncStatus = withContext(ioDispatcher) {
+                    val events = repository.getCustomEvents().firstOrNull() ?: emptyList()
+                    classAlarmScheduler?.cancelAllCustomEventAlarms(events)
+                    repository.resetAllCustomEventsCloudAware()
+                }
+                AlarmSyncCoordinator.resyncAll(
+                    context = getApplication(),
+                    repository = repository,
+                    force = true,
+                    preserveImminentExisting = true,
+                    dispatcher = ioDispatcher,
+                    reason = "settings_reset_events"
+                )
+                val msg = when (syncStatus) {
+                    ResetSyncStatus.CLOUD_SYNCED -> "All personal activities and event alarms cleared locally and in Cloud Sync."
+                    ResetSyncStatus.QUEUED_OFFLINE -> "All personal activities and event alarms cleared locally. Cloud reset queued until next sync."
+                    ResetSyncStatus.LOCAL_ONLY -> "All personal activities and event alarms have been cleared."
+                }
+                _uiState.value = _uiState.value.copy(
+                    isResetting = false,
+                    successMessage = msg
+                )
+                onComplete()
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                _uiState.value = _uiState.value.copy(
+                    isResetting = false,
+                    errorMessage = "Failed to reset custom events: ${e.message}"
                 )
             }
         }

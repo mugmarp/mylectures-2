@@ -170,6 +170,14 @@ fun SettingsScreen(
         }
     }
 
+    val importBackupLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            viewModel.importUserDataBackup(uri)
+        }
+    }
+
     LaunchedEffect(uiState.successMessage, uiState.errorMessage) {
         val msg = uiState.errorMessage ?: uiState.successMessage
         if (msg != null) {
@@ -185,6 +193,7 @@ fun SettingsScreen(
 
     var showResetNotesDialog by rememberSaveable { mutableStateOf(false) }
     var showResetTasksDialog by rememberSaveable { mutableStateOf(false) }
+    var showResetEventsDialog by rememberSaveable { mutableStateOf(false) }
     var showDisclaimerDialog by rememberSaveable { mutableStateOf(false) }
     var showTermsDialog by rememberSaveable { mutableStateOf(false) }
     var showPrivacyDialog by rememberSaveable { mutableStateOf(false) }
@@ -225,14 +234,23 @@ fun SettingsScreen(
 
     if (showResetNotesDialog) {
         ResetNotesConfirmDialog(
+            isCloudSyncActive = uiState.isCloudSyncActive,
             onConfirm = { viewModel.resetAllNotes { showResetNotesDialog = false } },
             onDismiss = { showResetNotesDialog = false }
         )
     }
     if (showResetTasksDialog) {
         ResetTasksConfirmDialog(
+            isCloudSyncActive = uiState.isCloudSyncActive,
             onConfirm = { viewModel.resetAllTasks { showResetTasksDialog = false } },
             onDismiss = { showResetTasksDialog = false }
+        )
+    }
+    if (showResetEventsDialog) {
+        ResetEventsConfirmDialog(
+            isCloudSyncActive = uiState.isCloudSyncActive,
+            onConfirm = { viewModel.resetAllCustomEvents { showResetEventsDialog = false } },
+            onDismiss = { showResetEventsDialog = false }
         )
     }
     if (showDeveloperModal) {
@@ -476,8 +494,10 @@ fun SettingsScreen(
                                         onOpenAccount = handleOpenAccount,
                                         onSyncUserData = { viewModel.syncUserData() },
                                         onExportBackup = { filename -> exportBackupLauncher.launch(filename) },
+                                        onImportBackup = { importBackupLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) },
                                         onRequestResetNotes = { showResetNotesDialog = true },
                                         onRequestResetTasks = { showResetTasksDialog = true },
+                                        onRequestResetEvents = { showResetEventsDialog = true },
                                         onCheckOrOpenUpdate = checkOrOpenUpdate,
                                         onShowVersionDetails = { showVersionDetailsDialog = true },
                                         onOpenDeveloper = { showDeveloperModal = true },
@@ -560,8 +580,10 @@ fun SettingsScreen(
                                 onOpenAccount = handleOpenAccount,
                                 onSyncUserData = { viewModel.syncUserData() },
                                 onExportBackup = { filename -> exportBackupLauncher.launch(filename) },
+                                onImportBackup = { importBackupLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) },
                                 onRequestResetNotes = { showResetNotesDialog = true },
                                 onRequestResetTasks = { showResetTasksDialog = true },
+                                onRequestResetEvents = { showResetEventsDialog = true },
                                 onCheckOrOpenUpdate = checkOrOpenUpdate,
                                 onShowVersionDetails = { showVersionDetailsDialog = true },
                                 onOpenDeveloper = { showDeveloperModal = true },
@@ -615,8 +637,10 @@ private fun SettingsCategoryPaneContent(
     onOpenAccount: () -> Unit,
     onSyncUserData: () -> Unit,
     onExportBackup: (String) -> Unit,
+    onImportBackup: () -> Unit,
     onRequestResetNotes: () -> Unit,
     onRequestResetTasks: () -> Unit,
+    onRequestResetEvents: () -> Unit,
     onCheckOrOpenUpdate: () -> Unit,
     onShowVersionDetails: () -> Unit,
     onOpenDeveloper: () -> Unit,
@@ -711,8 +735,10 @@ private fun SettingsCategoryPaneContent(
                     onOpenAccount = onOpenAccount,
                     onSyncUserData = onSyncUserData,
                     onExportBackup = onExportBackup,
+                    onImportBackup = onImportBackup,
                     onRequestResetNotes = onRequestResetNotes,
-                    onRequestResetTasks = onRequestResetTasks
+                    onRequestResetTasks = onRequestResetTasks,
+                    onRequestResetEvents = onRequestResetEvents
                 )
             }
 
