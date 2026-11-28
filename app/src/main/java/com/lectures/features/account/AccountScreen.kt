@@ -47,7 +47,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lectures.TimetableApplication
+import com.lectures.core.alarm.AlarmScheduler
 import com.lectures.core.alarm.AlarmSyncCoordinator
+import com.lectures.core.alarm.TaskAlarmScheduler
 import com.lectures.core.auth.AuthRepository
 import com.lectures.core.storage.AttachmentStore
 import com.lectures.core.sync.SyncState
@@ -388,6 +390,15 @@ fun AccountScreen(
                         app?.syncRepository?.stopUserSync()
                         app?.syncRepository?.purgeUserDataOnSignOut(uid)
                     }
+                    app?.let { application ->
+                        AlarmSyncCoordinator.resyncAll(
+                            context = context,
+                            repository = application.repository,
+                            force = true,
+                            dispatcher = Dispatchers.IO,
+                            reason = "account_sign_out"
+                        )
+                    }
                     authRepo.signOut(context)
                     syncMessage = "Signed out. App reverted to guest mode."
                 }
@@ -429,6 +440,17 @@ fun AccountScreen(
                         onSuccess = { deletedDocsCount ->
                             if (alsoClearLocalOnCloudDelete) {
                                 withContext(Dispatchers.IO) {
+                                    val classScheduler = AlarmScheduler(context)
+                                    val taskScheduler = TaskAlarmScheduler(context)
+                                    application.repository.getNotesWithAlarms().forEach { note ->
+                                        classScheduler.cancelClassAlarm(note.naturalKey)
+                                    }
+                                    classScheduler.cancelAllCustomEventAlarms(
+                                        application.repository.getCustomEventsSync()
+                                    )
+                                    taskScheduler.cancelAllTaskReminders(
+                                        application.repository.getAssignmentsSync()
+                                    )
                                     AttachmentStore.deleteAll(context)
                                     application.syncRepository.purgeUserDataOnSignOut(activeUid)
                                     application.database.timetableDao().deleteAllNotes()

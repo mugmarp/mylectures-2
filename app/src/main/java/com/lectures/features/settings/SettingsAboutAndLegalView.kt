@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Analytics
 import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.material.icons.outlined.Verified
 import androidx.compose.material3.Card
@@ -31,6 +32,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -63,7 +65,8 @@ internal fun AboutAndLegalSettingsView(
     onOpenFeedback: () -> Unit,
     onOpenDisclaimer: () -> Unit,
     onOpenTerms: () -> Unit,
-    onOpenPrivacy: () -> Unit
+    onOpenPrivacy: () -> Unit,
+    onToggleTelemetry: (Boolean) -> Unit = {}
 ) {
     val ext = LocalExtendedColors.current
     val headerHorizontalPadding = horizontalPadding + 4.dp
@@ -314,6 +317,17 @@ internal fun AboutAndLegalSettingsView(
                         )
                     }
                 )
+
+                HorizontalDivider(
+                    modifier = Modifier.padding(vertical = 8.dp),
+                    color = ext.borderSubtle
+                )
+
+                TelemetryOptOutRow(
+                    enabled = uiState.telemetryEnabled,
+                    isTightFont = isTightFont,
+                    onToggle = onToggleTelemetry
+                )
             }
         }
 
@@ -417,6 +431,121 @@ private fun AboutActionRow(
                 textColumn(Modifier.weight(1f))
                 Spacer(modifier = Modifier.width(8.dp))
                 trailing()
+            }
+        }
+    }
+}
+
+@Composable
+private fun TelemetryOptOutRow(
+    enabled: Boolean,
+    isTightFont: Boolean,
+    onToggle: (Boolean) -> Unit
+) {
+    val ext = LocalExtendedColors.current
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val stackSwitch = maxWidth < 260.dp || (isTightFont && maxWidth < 340.dp)
+        val rowMod = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .desktopHoverable()
+            .desktopHandCursor()
+            .clickable { onToggle(!enabled) }
+            .padding(vertical = 6.dp, horizontal = 4.dp)
+            .testTag("settings_telemetry_row")
+
+        val labelCol: @Composable (Modifier) -> Unit = { mod ->
+            Column(modifier = mod) {
+                Text(
+                    text = "Share Anonymous Diagnostics",
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = if (enabled) {
+                        "Sends pseudonymous device, OS & usage counts (no personal data)"
+                    } else {
+                        "Paused · No launch or feature telemetry is collected"
+                    },
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        if (stackSwitch) {
+            Column(
+                modifier = rowMod,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .background(
+                                if (enabled) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                else ext.borderSubtle.copy(alpha = 0.5f),
+                                CircleShape
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Analytics,
+                            contentDescription = null,
+                            tint = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    labelCol(Modifier.weight(1f))
+                }
+                Switch(
+                    checked = enabled,
+                    onCheckedChange = onToggle,
+                    modifier = Modifier
+                        .padding(start = 46.dp)
+                        .desktopHandCursor()
+                        .testTag("settings_telemetry_switch")
+                )
+            }
+        } else {
+            Row(
+                modifier = rowMod,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(34.dp)
+                        .background(
+                            if (enabled) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                            else ext.borderSubtle.copy(alpha = 0.5f),
+                            CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Analytics,
+                        contentDescription = null,
+                        tint = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                labelCol(Modifier.weight(1f))
+                Spacer(modifier = Modifier.width(8.dp))
+                Switch(
+                    checked = enabled,
+                    onCheckedChange = onToggle,
+                    modifier = Modifier
+                        .desktopHandCursor()
+                        .testTag("settings_telemetry_switch")
+                )
             }
         }
     }

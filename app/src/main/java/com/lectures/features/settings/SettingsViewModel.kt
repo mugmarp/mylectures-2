@@ -8,9 +8,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.lectures.BuildConfig
+import com.lectures.TimetableApplication
 import com.lectures.core.alarm.AlarmScheduler
 import com.lectures.core.alarm.AlarmSyncCoordinator
 import com.lectures.core.alarm.TaskAlarmScheduler
+import com.lectures.core.analytics.AnalyticsManager
 import com.lectures.core.auth.AuthRepository
 import com.lectures.core.notification.NotificationHelper
 import com.lectures.core.storage.AttachmentStore
@@ -66,6 +68,7 @@ data class SettingsUiState(
     val userDataBackupStatus: String = "Local storage active (Guest mode)",
     val userAccountEmail: String? = null,
     val isCloudSyncActive: Boolean = false,
+    val telemetryEnabled: Boolean = true,
     val successMessage: String? = null,
     val errorMessage: String? = null
 )
@@ -79,11 +82,24 @@ class SettingsViewModel(
     private val classAlarmScheduler: AlarmScheduler? = null
 ) : AndroidViewModel(application) {
 
+    private val analyticsManager: AnalyticsManager =
+        (application as? TimetableApplication)?.analyticsManager ?: AnalyticsManager(application)
+
     private val initialProg = repository.getInitialProgramme() ?: ""
-    private val _uiState = MutableStateFlow(SettingsUiState(currentProgramme = initialProg))
+    private val _uiState = MutableStateFlow(
+        SettingsUiState(
+            currentProgramme = initialProg,
+            telemetryEnabled = analyticsManager.isTelemetryEnabled()
+        )
+    )
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
     init {
+        viewModelScope.launch {
+            analyticsManager.telemetryEnabled.collect { enabled ->
+                _uiState.value = _uiState.value.copy(telemetryEnabled = enabled)
+            }
+        }
         viewModelScope.launch {
             repository.programmePref.collect { pref ->
                 if (!pref.isNullOrBlank()) {
@@ -860,6 +876,19 @@ class SettingsViewModel(
                 )
             }
         }
+    }
+
+    fun setTelemetryEnabled(enabled: Boolean) {
+        analyticsManager.setTelemetryEnabled(enabled)
+        _uiState.value = _uiState.value.copy(
+            telemetryEnabled = enabled,
+            errorMessage = null,
+            successMessage = if (enabled) {
+                "Anonymous diagnostics & usage telemetry enabled."
+            } else {
+                "Anonymous diagnostics paused — no launch or usage telemetry will be sent."
+            }
+        )
     }
 
     fun clearFeedbackMessages() {

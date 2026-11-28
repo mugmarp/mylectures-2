@@ -254,6 +254,7 @@ fun MainScaffold(
             }
             is AppNavState.MainApp -> {
                 var currentDestination by rememberSaveable { mutableStateOf(MainScreenDestination.TABS) }
+                var settingsResetNonce by rememberSaveable { mutableIntStateOf(0) }
 
             // Handle notification deep-link intents even when user is inside Settings, Account, or Vacant Rooms.
             LaunchedEffect(notificationIntentFlow) {
@@ -321,6 +322,9 @@ fun MainScaffold(
                 if (!(currentDestination == MainScreenDestination.TABS && selectedTab == 2) && isNotesEditing) {
                     isNotesEditing = false
                 }
+                if (!(currentDestination == MainScreenDestination.TABS && selectedTab == 3) && pendingHighlightTaskId != null) {
+                    pendingHighlightTaskId = null
+                }
             }
 
             val navigateToTabSafely: (Int) -> Unit = { targetTab ->
@@ -343,6 +347,9 @@ fun MainScaffold(
                         android.widget.Toast.LENGTH_SHORT
                     ).show()
                 } else {
+                    if (targetDest == MainScreenDestination.SETTINGS && currentDestination == MainScreenDestination.SETTINGS) {
+                        settingsResetNonce++
+                    }
                     currentDestination = targetDest
                 }
             }
@@ -540,6 +547,7 @@ fun MainScaffold(
                             MainScreenDestination.SETTINGS -> {
                                 SettingsScreen(
                                     currentProgramme = savedProgramme ?: "",
+                                    resetToRootNonce = settingsResetNonce,
                                     onReconfigureAcademicProfile = {
                                         currentDestination = MainScreenDestination.TABS
                                         navState = AppNavState.FacultySelection
@@ -634,7 +642,8 @@ fun MainScaffold(
                                                 activeProgrammeOverride = activeProgramme,
                                                 enrolledProgrammeOverride = enrolledProgramme,
                                                 isPeeking = isPeekingProgramme,
-                                                highlightTaskId = pendingHighlightTaskId
+                                                highlightTaskId = pendingHighlightTaskId,
+                                                onHighlightTaskConsumed = { pendingHighlightTaskId = null }
                                             )
                                         }
                                     }

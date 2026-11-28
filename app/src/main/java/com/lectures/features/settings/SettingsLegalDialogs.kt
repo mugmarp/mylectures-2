@@ -259,7 +259,7 @@ internal fun PrivacyDialog(onDismiss: () -> Unit) {
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "To monitor timetable coverage and diagnose device compatibility, the app transmits pseudonymous diagnostics (an installation UUID, device model, Android OS version, launch count, and enrolled academic programme). Voluntary bug reports submitted through Anonymous Feedback are stored separately with your installation UUID and optional diagnostics without attaching your name or email. We never sell or monetize personal data or lecture notes.",
+                    text = "To monitor timetable coverage and diagnose device compatibility, the app can transmit pseudonymous diagnostics (an installation UUID, device model, Android OS version, launch count, and enrolled academic programme). You can opt out at any time under Settings > About, Updates & Legal > Share Anonymous Diagnostics. Voluntary bug reports submitted through Anonymous Feedback are stored separately with your installation UUID and optional diagnostics without attaching your name or email. We never sell or monetize personal data or lecture notes.",
                     fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

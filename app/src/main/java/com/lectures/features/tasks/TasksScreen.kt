@@ -127,7 +127,8 @@ fun TasksScreen(
     activeProgrammeOverride: String? = null,
     enrolledProgrammeOverride: String? = null,
     isPeeking: Boolean = false,
-    highlightTaskId: Long? = null
+    highlightTaskId: Long? = null,
+    onHighlightTaskConsumed: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val app = context.applicationContext as? TimetableApplication
@@ -268,15 +269,24 @@ fun TasksScreen(
     val searchFocusRequester = remember { FocusRequester() }
     val primaryInk = contrastOnColor(primaryColor)
 
+    var hasScrolledForHighlight by remember(highlightTaskId) { mutableStateOf(false) }
     LaunchedEffect(highlightTaskId, filteredTasks, windowInfo.isExtraLargeWidth) {
         val targetId = highlightTaskId ?: return@LaunchedEffect
+        if (hasScrolledForHighlight) return@LaunchedEffect
         val index = filteredTasks.indexOfFirst { it.id == targetId }
         if (index != -1) {
+            hasScrolledForHighlight = true
             if (windowInfo.isDualPane && windowInfo.isExtraLargeWidth) {
                 gridState.animateScrollToItem((index + 2).coerceAtLeast(0))
             } else {
                 listState.animateScrollToItem((index + 3).coerceAtLeast(0))
             }
+        }
+    }
+    LaunchedEffect(highlightTaskId) {
+        if (highlightTaskId != null) {
+            delay(4000L)
+            onHighlightTaskConsumed()
         }
     }
 

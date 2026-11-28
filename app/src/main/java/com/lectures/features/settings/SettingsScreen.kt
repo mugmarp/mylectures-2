@@ -97,6 +97,7 @@ enum class SettingsCategory(
 @Composable
 fun SettingsScreen(
     currentProgramme: String = "",
+    resetToRootNonce: Int = 0,
     onReconfigureAcademicProfile: () -> Unit = {},
     onOpenAccount: (() -> Unit)? = null,
     onBack: (() -> Unit)? = null
@@ -106,6 +107,15 @@ fun SettingsScreen(
     val ext = LocalExtendedColors.current
     var selectedCategory by rememberSaveable { mutableStateOf(SettingsCategory.OVERVIEW) }
     var isAccountScreenOpen by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(resetToRootNonce) {
+        if (resetToRootNonce > 0) {
+            isAccountScreenOpen = false
+            if (!windowInfo.isDualPane) {
+                selectedCategory = SettingsCategory.OVERVIEW
+            }
+        }
+    }
 
     BackHandler(enabled = isAccountScreenOpen) {
         isAccountScreenOpen = false
@@ -488,6 +498,8 @@ fun SettingsScreen(
                                         onOpenCustomLeadDialog = openCustomLeadDialog,
                                         onSelectTaskLeadHours = { viewModel.setTaskReminderLeadHours(it) },
                                         onToggleDailyDigest = { viewModel.setDailyDigestEnabled(it) },
+                                        onSendTestNotification = { viewModel.sendTestNotification(context) },
+                                        onRearmAllAlarms = { viewModel.rescheduleAllAlarms() },
                                         onSelectThemeMode = onSelectThemeMode,
                                         onSelectAccent = onSelectAccent,
                                         onSyncTimetable = { viewModel.syncTimetable() },
@@ -504,7 +516,8 @@ fun SettingsScreen(
                                         onOpenFeedback = { showFeedbackModal = true },
                                         onOpenDisclaimer = { showDisclaimerDialog = true },
                                         onOpenTerms = { showTermsDialog = true },
-                                        onOpenPrivacy = { showPrivacyDialog = true }
+                                        onOpenPrivacy = { showPrivacyDialog = true },
+                                        onToggleTelemetry = { viewModel.setTelemetryEnabled(it) }
                                     )
                                 }
                             }
@@ -574,6 +587,8 @@ fun SettingsScreen(
                                 onOpenCustomLeadDialog = openCustomLeadDialog,
                                 onSelectTaskLeadHours = { viewModel.setTaskReminderLeadHours(it) },
                                 onToggleDailyDigest = { viewModel.setDailyDigestEnabled(it) },
+                                onSendTestNotification = { viewModel.sendTestNotification(context) },
+                                onRearmAllAlarms = { viewModel.rescheduleAllAlarms() },
                                 onSelectThemeMode = onSelectThemeMode,
                                 onSelectAccent = onSelectAccent,
                                 onSyncTimetable = { viewModel.syncTimetable() },
@@ -590,7 +605,8 @@ fun SettingsScreen(
                                 onOpenFeedback = { showFeedbackModal = true },
                                 onOpenDisclaimer = { showDisclaimerDialog = true },
                                 onOpenTerms = { showTermsDialog = true },
-                                onOpenPrivacy = { showPrivacyDialog = true }
+                                onOpenPrivacy = { showPrivacyDialog = true },
+                                onToggleTelemetry = { viewModel.setTelemetryEnabled(it) }
                             )
                         }
                     }
@@ -631,6 +647,8 @@ private fun SettingsCategoryPaneContent(
     onOpenCustomLeadDialog: () -> Unit,
     onSelectTaskLeadHours: (Int) -> Unit,
     onToggleDailyDigest: (Boolean) -> Unit,
+    onSendTestNotification: () -> Unit,
+    onRearmAllAlarms: () -> Unit,
     onSelectThemeMode: (ThemeMode) -> Unit,
     onSelectAccent: (Int) -> Unit,
     onSyncTimetable: () -> Unit,
@@ -647,7 +665,8 @@ private fun SettingsCategoryPaneContent(
     onOpenFeedback: () -> Unit,
     onOpenDisclaimer: () -> Unit,
     onOpenTerms: () -> Unit,
-    onOpenPrivacy: () -> Unit
+    onOpenPrivacy: () -> Unit,
+    onToggleTelemetry: (Boolean) -> Unit
 ) {
     val paneModifier = if (constrainWidth) {
         Modifier.fillMaxSize().widthIn(max = 760.dp)
@@ -706,7 +725,9 @@ private fun SettingsCategoryPaneContent(
                     onSelectClassLeadMinutes = onSelectClassLeadMinutes,
                     onOpenCustomLeadDialog = onOpenCustomLeadDialog,
                     onSelectTaskLeadHours = onSelectTaskLeadHours,
-                    onToggleDailyDigest = onToggleDailyDigest
+                    onToggleDailyDigest = onToggleDailyDigest,
+                    onSendTestNotification = onSendTestNotification,
+                    onRearmAllAlarms = onRearmAllAlarms
                 )
             }
 
@@ -756,7 +777,8 @@ private fun SettingsCategoryPaneContent(
                     onOpenFeedback = onOpenFeedback,
                     onOpenDisclaimer = onOpenDisclaimer,
                     onOpenTerms = onOpenTerms,
-                    onOpenPrivacy = onOpenPrivacy
+                    onOpenPrivacy = onOpenPrivacy,
+                    onToggleTelemetry = onToggleTelemetry
                 )
             }
         }

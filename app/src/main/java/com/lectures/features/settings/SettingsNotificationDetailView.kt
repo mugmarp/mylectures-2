@@ -28,8 +28,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.automirrored.outlined.VolumeUp
 import androidx.compose.material.icons.outlined.Alarm
+import androidx.compose.material.icons.outlined.AlarmOn
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.NotificationsActive
@@ -83,7 +85,9 @@ internal fun NotificationSettingsView(
     onSelectClassLeadMinutes: (Int) -> Unit,
     onOpenCustomLeadDialog: () -> Unit,
     onSelectTaskLeadHours: (Int) -> Unit,
-    onToggleDailyDigest: (Boolean) -> Unit
+    onToggleDailyDigest: (Boolean) -> Unit,
+    onSendTestNotification: () -> Unit = {},
+    onRearmAllAlarms: () -> Unit = {}
 ) {
     val ext = LocalExtendedColors.current
     val headerHorizontalPadding = horizontalPadding + 4.dp
@@ -551,7 +555,176 @@ internal fun NotificationSettingsView(
             }
         }
 
+        Spacer(modifier = Modifier.height(22.dp))
+        SectionHeader("DIAGNOSTICS & DELIVERY CHECK", horizontalPadding = headerHorizontalPadding)
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = horizontalPadding),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = ext.surfaceCard),
+            border = BorderStroke(1.dp, ext.borderSubtle),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        ) {
+            Column {
+                NotificationDiagnosticRow(
+                    title = "Send Test Notification",
+                    subtitle = "Post a sample lecture alert to verify OS banners & sound",
+                    icon = Icons.AutoMirrored.Outlined.Send,
+                    iconBg = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                    iconTint = MaterialTheme.colorScheme.primary,
+                    pillText = "Test",
+                    pillBg = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                    pillTextColor = MaterialTheme.colorScheme.primary,
+                    clipShape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+                    isTightFont = isTightFont,
+                    testTag = "settings_send_test_notification_row",
+                    onClick = onSendTestNotification
+                )
+
+                HorizontalDivider(
+                    modifier = Modifier.padding(horizontal = 18.dp),
+                    color = ext.borderSubtle
+                )
+
+                NotificationDiagnosticRow(
+                    title = "Re-arm All Scheduled Alarms",
+                    subtitle = if (uiState.notificationsEnabled) {
+                        "Refresh lecture, task, custom event, and morning digest alarms"
+                    } else {
+                        "Quiet Mode active · Turn on reminders above to arm alarms"
+                    },
+                    icon = Icons.Outlined.AlarmOn,
+                    iconBg = if (uiState.notificationsEnabled) ext.successBg else MaterialTheme.colorScheme.surfaceVariant,
+                    iconTint = if (uiState.notificationsEnabled) ext.successIcon else MaterialTheme.colorScheme.onSurfaceVariant,
+                    pillText = "Re-arm",
+                    pillBg = MaterialTheme.colorScheme.surfaceVariant,
+                    pillTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    clipShape = RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp),
+                    isTightFont = isTightFont,
+                    testTag = "settings_rearm_alarms_row",
+                    onClick = onRearmAllAlarms
+                )
+            }
+        }
+
         Spacer(modifier = Modifier.height(bottomContentPadding))
+    }
+}
+
+@Composable
+private fun NotificationDiagnosticRow(
+    title: String,
+    subtitle: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconBg: androidx.compose.ui.graphics.Color,
+    iconTint: androidx.compose.ui.graphics.Color,
+    pillText: String,
+    pillBg: androidx.compose.ui.graphics.Color,
+    pillTextColor: androidx.compose.ui.graphics.Color,
+    clipShape: RoundedCornerShape,
+    isTightFont: Boolean,
+    testTag: String,
+    onClick: () -> Unit
+) {
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val stackTrailing = maxWidth < 280.dp || (isTightFont && maxWidth < 360.dp)
+        val rowMod = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .clip(clipShape)
+            .desktopHoverable()
+            .desktopHandCursor()
+            .clickable(onClick = onClick)
+            .padding(18.dp)
+            .testTag(testTag)
+
+        if (stackTrailing) {
+            Column(
+                modifier = rowMod,
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .background(iconBg, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = iconTint,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = title,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = subtitle,
+                            fontSize = 11.5.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                Box(modifier = Modifier.padding(start = 46.dp)) {
+                    SettingsStatusPill(
+                        text = pillText,
+                        containerColor = pillBg,
+                        contentColor = pillTextColor
+                    )
+                }
+            }
+        } else {
+            Row(
+                modifier = rowMod,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(34.dp)
+                        .background(iconBg, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = iconTint,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = title,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = subtitle,
+                        fontSize = 11.5.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                SettingsStatusPill(
+                    text = pillText,
+                    containerColor = pillBg,
+                    contentColor = pillTextColor
+                )
+            }
+        }
     }
 }
 

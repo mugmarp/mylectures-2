@@ -35,6 +35,7 @@ class AnalyticsManager(private val context: Context) {
     private val KEY_LAUNCH_COUNT = "telemetry_launch_count"
     private val KEY_FEATURE_COUNTS = "telemetry_feature_counts"
     private val KEY_ENROLLED_PROGRAMME = "telemetry_programme"
+    private val KEY_TELEMETRY_ENABLED = "telemetry_enabled"
 
     private val firestore: FirebaseFirestore? = try {
         FirebaseFirestore.getInstance()
@@ -48,9 +49,33 @@ class AnalyticsManager(private val context: Context) {
     private val _featureStats = MutableStateFlow<Map<String, Int>>(emptyMap())
     val featureStats: StateFlow<Map<String, Int>> = _featureStats.asStateFlow()
 
+    private val _telemetryEnabled = MutableStateFlow(prefs.getBoolean(KEY_TELEMETRY_ENABLED, true))
+    val telemetryEnabled: StateFlow<Boolean> = _telemetryEnabled.asStateFlow()
+
     init {
-        ensureInstallId()
-        loadFeatureStats()
+        if (isTelemetryEnabled()) {
+            ensureInstallId()
+            loadFeatureStats()
+        }
+    }
+
+    fun isTelemetryEnabled(): Boolean = prefs.getBoolean(KEY_TELEMETRY_ENABLED, true)
+
+    fun setTelemetryEnabled(enabled: Boolean) {
+        synchronized(featureLock) {
+            prefs.edit().putBoolean(KEY_TELEMETRY_ENABLED, enabled).apply()
+            if (!enabled) {
+                featureCountsCache.clear()
+                _featureStats.value = emptyMap()
+                prefs.edit()
+                    .remove(KEY_FEATURE_COUNTS)
+                    .remove(KEY_ENROLLED_PROGRAMME)
+                    .apply()
+            } else {
+                ensureInstallId()
+            }
+            _telemetryEnabled.value = enabled
+        }
     }
 
     fun getInstallId(): String {
@@ -76,6 +101,7 @@ class AnalyticsManager(private val context: Context) {
      * Record app launch and dispatch heartbeat telemetry
      */
     fun recordAppLaunch(programme: String, scope: CoroutineScope) {
+        if (!isTelemetryEnabled()) return
         val now = System.currentTimeMillis()
         synchronized(featureLock) {
             val count = prefs.getInt(KEY_LAUNCH_COUNT, 0) + 1
@@ -94,6 +120,7 @@ class AnalyticsManager(private val context: Context) {
      * Track user engagement with a specific feature
      */
     fun trackFeature(featureName: String) {
+        if (!isTelemetryEnabled()) return
         synchronized(featureLock) {
             try {
                 val updated = (featureCountsCache[featureName] ?: 0) + 1
@@ -133,6 +160,7 @@ class AnalyticsManager(private val context: Context) {
      * Queues locally when offline with zero disruption to the user experience.
      */
     fun dispatchHeartbeat(programme: String, scope: CoroutineScope) {
+        if (!isTelemetryEnabled()) return
         val store = firestore ?: return
         val installId = getInstallId().take(64)
         val firstLaunch = prefs.getLong(KEY_FIRST_LAUNCH, System.currentTimeMillis())
