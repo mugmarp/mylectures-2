@@ -7,10 +7,15 @@ import android.content.res.Configuration
 import androidx.activity.OnBackPressedDispatcher
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertWidthIsAtLeast
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
@@ -24,6 +29,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
@@ -31,6 +37,8 @@ import com.lectures.core.notification.NotificationHelper
 import com.lectures.core.util.NotificationPermissionHelper
 import com.lectures.features.settings.SettingsScreen
 import com.lectures.ui.AppTheme
+import com.lectures.ui.LecturesWindow
+import com.lectures.ui.LocalLecturesWindow
 import com.lectures.ui.ThemeMode
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -43,6 +51,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowAlarmManager
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [36])
@@ -59,6 +68,7 @@ class SettingsReorganizationAndAdaptiveTest {
         app = ApplicationProvider.getApplicationContext()
         notificationManager = app.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         Shadows.shadowOf(app).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
+        ShadowAlarmManager.setCanScheduleExactAlarms(true)
         runBlocking {
             app.repository.setProgrammePref("BCS I")
             app.repository.setOnboardingCompleted(true)
@@ -73,6 +83,7 @@ class SettingsReorganizationAndAdaptiveTest {
     @After
     fun tearDown() {
         Shadows.shadowOf(app).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
+        ShadowAlarmManager.setCanScheduleExactAlarms(true)
         resetReminderChannelsToDefault()
     }
 
@@ -416,6 +427,127 @@ class SettingsReorganizationAndAdaptiveTest {
     }
 
     @Test
+    @Config(qualifiers = "w360dp-h800dp")
+    fun dismissingNotificationsDisabledDoesNotSwapExactAlarmBannerIntoItsSlot() {
+        Shadows.shadowOf(app).denyPermissions(Manifest.permission.POST_NOTIFICATIONS)
+        ShadowAlarmManager.setCanScheduleExactAlarms(false)
+
+        composeRule.setContent {
+            CompositionLocalProvider(LocalConfiguration provides configuredCopy(360, 800)) {
+                AppTheme(themeMode = ThemeMode.LIGHT) {
+                    SettingsScreen(currentProgramme = "BCS I")
+                }
+            }
+        }
+
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithText("Notifications Disabled").fetchSemanticsNodes().isNotEmpty()
+        }
+
+        composeRule.onNodeWithContentDescription("Dismiss notification warning").performClick()
+        composeRule.waitForIdle()
+
+        assertEquals(0, composeRule.onAllNodesWithText("Notifications Disabled").fetchSemanticsNodes().size)
+        assertEquals(0, composeRule.onAllNodesWithText("Exact Alarm Timing Restricted").fetchSemanticsNodes().size)
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp")
+    fun quietModeToggleShowsInlineBannerAndDisablesTimingControls() {
+        composeRule.setContent {
+            CompositionLocalProvider(LocalConfiguration provides configuredCopy(360, 800)) {
+                AppTheme(themeMode = ThemeMode.LIGHT) {
+                    SettingsScreen(currentProgramme = "BCS I")
+                }
+            }
+        }
+
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithTag("settings_notifications_configure_row").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithTag("settings_notifications_configure_row").performScrollTo().performClick()
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithTag("settings_class_lead_15").fetchSemanticsNodes().isNotEmpty()
+        }
+
+        composeRule.onNodeWithTag("settings_class_lead_15").assertIsEnabled()
+        composeRule.onNodeWithTag("settings_daily_digest_switch").assertIsEnabled()
+
+        composeRule.onNodeWithTag("settings_notifications_switch").performClick()
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithText("Quiet Mode is active", substring = true).fetchSemanticsNodes().isNotEmpty()
+        }
+
+        composeRule.onNodeWithText("Quiet Mode is active", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithTag("settings_class_lead_15").performScrollTo().assertIsNotEnabled()
+        composeRule.onNodeWithTag("settings_class_lead_custom").performScrollTo().assertIsNotEnabled()
+        composeRule.onNodeWithTag("settings_task_lead_2").performScrollTo().assertIsNotEnabled()
+        composeRule.onNodeWithTag("settings_daily_digest_switch").performScrollTo().assertIsNotEnabled()
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp")
+    fun blankProgrammeFallbackShowsNoProgrammeSelectedWithoutDanglingBullet() {
+        runBlocking {
+            app.repository.setProgrammePref("")
+        }
+
+        composeRule.setContent {
+            CompositionLocalProvider(LocalConfiguration provides configuredCopy(360, 800)) {
+                AppTheme(themeMode = ThemeMode.LIGHT) {
+                    SettingsScreen(currentProgramme = "")
+                }
+            }
+        }
+
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithTag("settings_academic_profile_card").fetchSemanticsNodes().isNotEmpty()
+        }
+
+        composeRule.onNodeWithText("No Programme Selected").assertIsDisplayed()
+        composeRule.onNodeWithText("Mbarara University of Science and Technology").assertIsDisplayed()
+        composeRule.onNodeWithText("Select").assertIsDisplayed()
+        assertEquals(
+            0,
+            composeRule.onAllNodesWithText("• Mbarara University", substring = true).fetchSemanticsNodes().size
+        )
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp")
+    fun customLeadMinutesDialogUpdatesSelectedChip() {
+        composeRule.setContent {
+            CompositionLocalProvider(LocalConfiguration provides configuredCopy(360, 800)) {
+                AppTheme(themeMode = ThemeMode.LIGHT) {
+                    SettingsScreen(currentProgramme = "BCS I")
+                }
+            }
+        }
+
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithTag("settings_notifications_configure_row").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithTag("settings_notifications_configure_row").performScrollTo().performClick()
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithTag("settings_class_lead_custom").fetchSemanticsNodes().isNotEmpty()
+        }
+
+        composeRule.onNodeWithTag("settings_class_lead_custom").performScrollTo().performClick()
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithTag("dialog_custom_lead_input").fetchSemanticsNodes().isNotEmpty()
+        }
+
+        composeRule.onNodeWithTag("dialog_custom_lead_input").performTextReplacement("25")
+        composeRule.onNodeWithTag("dialog_custom_lead_save_btn").performClick()
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithText("25m").fetchSemanticsNodes().isNotEmpty()
+        }
+
+        composeRule.onNodeWithText("25m").assertIsDisplayed()
+        assertEquals(0, composeRule.onAllNodesWithTag("dialog_custom_lead_save_btn").fetchSemanticsNodes().size)
+    }
+
+    @Test
     @Config(qualifiers = "w1280dp-h800dp")
     fun desktopDualPaneSwitchesAcrossAllCategoriesAndOverviewSummaryCards() {
         composeRule.setContent {
@@ -467,5 +599,56 @@ class SettingsReorganizationAndAdaptiveTest {
         composeRule.waitUntil(timeoutMillis = 5_000) {
             composeRule.onAllNodesWithText("DEVELOPER & SUPPORT").fetchSemanticsNodes().isNotEmpty()
         }
+    }
+
+    @Test
+    @Config(qualifiers = "w1280dp-h800dp")
+    fun singleCategoryStateSurvivesCompactToDualPaneWindowTransition() {
+        var useDualPane by mutableStateOf(false)
+
+        composeRule.setContent {
+            val activeWindow = if (useDualPane) {
+                LecturesWindow(
+                    widthDp = 1280,
+                    heightDp = 800,
+                    fontScale = 1.0f,
+                    navBarBottom = 0.dp,
+                    isImeVisible = false
+                )
+            } else {
+                LecturesWindow(
+                    widthDp = 360,
+                    heightDp = 800,
+                    fontScale = 1.0f,
+                    navBarBottom = 0.dp,
+                    isImeVisible = false
+                )
+            }
+            CompositionLocalProvider(LocalLecturesWindow provides activeWindow) {
+                AppTheme(themeMode = ThemeMode.LIGHT) {
+                    SettingsScreen(currentProgramme = "BCS I")
+                }
+            }
+        }
+
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithTag("settings_data_sync_card").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithTag("settings_data_sync_card").performScrollTo().performClick()
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithText("ACCOUNT & CLOUD SYNC").fetchSemanticsNodes().isNotEmpty()
+        }
+
+        composeRule.runOnUiThread {
+            useDualPane = true
+        }
+
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithTag("settings_category_rail").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithTag("settings_category_rail").assertIsDisplayed()
+        composeRule.onNode(
+            hasText("ACCOUNT & CLOUD SYNC") and hasAnyAncestor(hasTestTag("settings_detail_pane"))
+        ).assertIsDisplayed()
     }
 }

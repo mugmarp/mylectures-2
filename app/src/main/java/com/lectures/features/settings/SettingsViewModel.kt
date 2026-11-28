@@ -9,16 +9,21 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.lectures.BuildConfig
 import com.lectures.core.alarm.AlarmScheduler
-import com.lectures.core.alarm.ReminderScheduler
+import com.lectures.core.alarm.AlarmSyncCoordinator
 import com.lectures.core.alarm.TaskAlarmScheduler
 import com.lectures.core.auth.AuthRepository
 import com.lectures.core.notification.NotificationHelper
 import com.lectures.core.storage.AttachmentStore
+import com.lectures.core.sync.SyncMergeStats
+import com.lectures.core.sync.SyncState
 import com.lectures.core.update.AppUpdateInfo
 import com.lectures.core.update.InAppUpdateManager
+import com.lectures.core.util.NotificationPermissionHelper
 import com.lectures.features.timetable.data.DataLoader
 import com.lectures.features.timetable.data.TimetableRepository
+import com.lectures.features.timetable.domain.TimetableMetadata
 import com.lectures.ui.ThemeMode
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,8 +32,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.json.JSONArray
-import org.json.JSONObject
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -47,7 +52,7 @@ data class SettingsUiState(
     val timetableVersion: String = "Final Timetable",
     val timetableStatus: String = "Official Final",
     val isFinal: Boolean = true,
-    val metadata: com.lectures.features.timetable.domain.TimetableMetadata? = null,
+    val metadata: TimetableMetadata? = null,
     val isSyncing: Boolean = false,
     val isResetting: Boolean = false,
     val isCheckingForAppUpdate: Boolean = false,
@@ -69,9 +74,8 @@ class SettingsViewModel(
     private val dataLoader: DataLoader? = null,
     private val alarmScheduler: TaskAlarmScheduler? = null,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
-    private val application: android.app.Application,
-    private val classAlarmScheduler: AlarmScheduler? = null,
-    private val reminderScheduler: ReminderScheduler? = null
+    private val application: Application,
+    private val classAlarmScheduler: AlarmScheduler? = null
 ) : AndroidViewModel(application) {
 
     private val initialProg = repository.getInitialProgramme() ?: ""
@@ -79,7 +83,6 @@ class SettingsViewModel(
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
     init {
-        // Collect current programme
         viewModelScope.launch {
             repository.programmePref.collect { pref ->
                 if (!pref.isNullOrBlank()) {
@@ -88,12 +91,11 @@ class SettingsViewModel(
             }
         }
 
-        // Collect theme mode
         viewModelScope.launch {
             repository.themeModePref.collect { modeStr ->
                 val mode = try {
-                    ThemeMode.valueOf(modeStr.uppercase(java.util.Locale.ROOT))
-                } catch (e: Exception) {
+                    ThemeMode.valueOf(modeStr.uppercase(Locale.ROOT))
+                } catch (_: Exception) {
                     ThemeMode.LIGHT
                 }
                 _uiState.value = _uiState.value.copy(
@@ -103,7 +105,6 @@ class SettingsViewModel(
             }
         }
 
-        // Collect dark mode fallback only when not tracking system theme
         viewModelScope.launch {
             repository.themeDarkPref.collect { dark ->
                 if (_uiState.value.themeMode != ThemeMode.SYSTEM) {
@@ -112,49 +113,42 @@ class SettingsViewModel(
             }
         }
 
-        // Collect accent
         viewModelScope.launch {
             repository.themeAccentPref.collect { accent ->
                 _uiState.value = _uiState.value.copy(selectedAccent = accent)
             }
         }
 
-        // Collect notifications preference
         viewModelScope.launch {
             repository.notificationsEnabledPref.collect { enabled ->
                 _uiState.value = _uiState.value.copy(notificationsEnabled = enabled)
             }
         }
 
-        // Collect class alarm lead minutes
         viewModelScope.launch {
             repository.classAlarmLeadPref.collect { lead ->
                 _uiState.value = _uiState.value.copy(classAlarmLeadMinutes = lead)
             }
         }
 
-        // Collect task reminder lead hours
         viewModelScope.launch {
             repository.taskReminderLeadPref.collect { lead ->
                 _uiState.value = _uiState.value.copy(taskReminderLeadHours = lead)
             }
         }
 
-        // Collect alarm vibration
         viewModelScope.launch {
             repository.alarmVibrationPref.collect { vib ->
                 _uiState.value = _uiState.value.copy(alarmVibration = vib)
             }
         }
 
-        // Collect daily morning digest toggle
         viewModelScope.launch {
             repository.dailyDigestEnabledPref.collect { digest ->
                 _uiState.value = _uiState.value.copy(dailyDigestEnabled = digest)
             }
         }
 
-        // Collect last sync time
         viewModelScope.launch {
             repository.lastSyncPref.collect { syncTime ->
                 if (!syncTime.isNullOrBlank()) {
@@ -163,7 +157,6 @@ class SettingsViewModel(
             }
         }
 
-        // Collect timetable version & status
         viewModelScope.launch {
             repository.timetableMetadata.collect { meta ->
                 if (meta != null) {
@@ -182,7 +175,6 @@ class SettingsViewModel(
             }
         }
 
-        // Collect user item counts for cloud sync card
         viewModelScope.launch {
             repository.getAllNotes().collect { notes ->
                 _uiState.value = _uiState.value.copy(userNotesCount = notes.size)
@@ -199,9 +191,8 @@ class SettingsViewModel(
             }
         }
 
-        // Reactively observe authentication state from AuthRepository
         viewModelScope.launch {
-            com.lectures.core.auth.AuthRepository.getInstance().currentUser.collect { user ->
+            AuthRepository.getInstance().currentUser.collect { user ->
                 if (user != null) {
                     _uiState.value = _uiState.value.copy(
                         userAccountEmail = user.email ?: user.displayName ?: user.uid,
@@ -234,7 +225,7 @@ class SettingsViewModel(
                         val notes = repository.dao.getAllNotesSync()
                         val events = repository.getCustomEvents().firstOrNull() ?: emptyList()
                         val assignments = repository.getAssignments().firstOrNull() ?: emptyList()
-                        com.lectures.core.sync.SyncMergeStats(
+                        SyncMergeStats(
                             notesCount = notes.size,
                             eventsCount = events.size,
                             assignmentsCount = assignments.size
@@ -247,9 +238,9 @@ class SettingsViewModel(
 
                 val syncFailed = currentUid != null && (
                     stats == null ||
-                    stats.status == com.lectures.core.sync.SyncState.ERROR ||
-                    stats.failedCount > 0
-                )
+                        stats.status == SyncState.ERROR ||
+                        stats.failedCount > 0
+                    )
 
                 _uiState.value = if (syncFailed) {
                     _uiState.value.copy(
@@ -269,7 +260,7 @@ class SettingsViewModel(
                     )
                 }
             } catch (e: Exception) {
-                if (e is kotlinx.coroutines.CancellationException) throw e
+                if (e is CancellationException) throw e
                 _uiState.value = _uiState.value.copy(
                     isBackingUpUserData = false,
                     errorMessage = "User sync error: ${e.localizedMessage ?: "Unknown error"}"
@@ -323,7 +314,7 @@ class SettingsViewModel(
                 repository.setNotificationsEnabled(enabled)
                 _uiState.value = _uiState.value.copy(notificationsEnabled = enabled)
 
-                val summary = com.lectures.core.alarm.AlarmSyncCoordinator.resyncAll(
+                val summary = AlarmSyncCoordinator.resyncAll(
                     context = application,
                     repository = repository,
                     force = true,
@@ -350,7 +341,7 @@ class SettingsViewModel(
         viewModelScope.launch {
             try {
                 repository.setClassAlarmLeadMinutes(minutes)
-                val summary = com.lectures.core.alarm.AlarmSyncCoordinator.resyncAll(
+                val summary = AlarmSyncCoordinator.resyncAll(
                     context = application,
                     repository = repository,
                     force = true,
@@ -415,7 +406,7 @@ class SettingsViewModel(
             try {
                 repository.setDailyDigestEnabled(enabled)
                 _uiState.value = _uiState.value.copy(dailyDigestEnabled = enabled)
-                val summary = com.lectures.core.alarm.AlarmSyncCoordinator.resyncAll(
+                val summary = AlarmSyncCoordinator.resyncAll(
                     context = application,
                     repository = repository,
                     force = true,
@@ -438,13 +429,13 @@ class SettingsViewModel(
 
     fun sendTestNotification(context: Context) {
         try {
-            if (!com.lectures.core.util.NotificationPermissionHelper.areNotificationsEnabled(context)) {
+            if (!NotificationPermissionHelper.areNotificationsEnabled(context)) {
                 _uiState.value = _uiState.value.copy(
                     errorMessage = "Notifications are disabled in Android Settings. Enable permissions first."
                 )
                 return
             }
-            if (com.lectures.core.util.NotificationPermissionHelper.isChannelBlocked(context, NotificationHelper.CHANNEL_CLASSES)) {
+            if (NotificationPermissionHelper.isChannelBlocked(context, NotificationHelper.CHANNEL_CLASSES)) {
                 _uiState.value = _uiState.value.copy(
                     errorMessage = "The 'Upcoming Class Reminders' channel is muted in OS Channels."
                 )
@@ -483,7 +474,7 @@ class SettingsViewModel(
     fun rescheduleAllAlarms() {
         viewModelScope.launch {
             try {
-                val summary = com.lectures.core.alarm.AlarmSyncCoordinator.resyncAll(
+                val summary = AlarmSyncCoordinator.resyncAll(
                     context = application,
                     repository = repository,
                     force = true,
@@ -527,7 +518,7 @@ class SettingsViewModel(
                     }
                 },
                 onFailure = { error ->
-                    val msg = if (error is java.net.UnknownHostException || error is java.net.SocketTimeoutException) {
+                    val msg = if (error is UnknownHostException || error is SocketTimeoutException) {
                         "Unable to check for updates. Please check your internet connection."
                     } else {
                         "Check for updates failed: ${error.localizedMessage ?: "Network error"}"
@@ -558,54 +549,14 @@ class SettingsViewModel(
                     val notes = repository.dao.getAllNotesSync()
                     val events = repository.getCustomEvents().firstOrNull() ?: emptyList()
                     val tasks = repository.getAssignments().firstOrNull() ?: emptyList()
-
-                    val root = JSONObject().apply {
-                        put("appVersion", BuildConfig.VERSION_NAME)
-                        put("exportedAt", System.currentTimeMillis())
-                        put("programme", _uiState.value.currentProgramme)
-                        put("notes", JSONArray().apply {
-                            notes.forEach { n ->
-                                put(JSONObject().apply {
-                                    put("naturalKey", n.naturalKey)
-                                    put("title", n.title ?: "")
-                                    put("content", n.content)
-                                    put("tag", n.tag ?: "")
-                                    put("attachedClass", n.attachedClass ?: "")
-                                    put("alarmMinutes", n.alarmMinutes ?: JSONObject.NULL)
-                                    put("isPinned", n.isPinned)
-                                    put("updatedAt", n.updatedAt)
-                                })
-                            }
-                        })
-                        put("customEvents", JSONArray().apply {
-                            events.forEach { e ->
-                                put(JSONObject().apply {
-                                    put("id", e.id)
-                                    put("title", e.title)
-                                    put("category", e.category)
-                                    put("dayOfWeek", e.dayOfWeek)
-                                    put("startTime", e.startTime)
-                                    put("endTime", e.endTime)
-                                    put("location", e.location)
-                                })
-                            }
-                        })
-                        put("assignments", JSONArray().apply {
-                            tasks.forEach { t ->
-                                put(JSONObject().apply {
-                                    put("id", t.id)
-                                    put("title", t.title)
-                                    put("courseCode", t.courseCode)
-                                    put("dueDate", t.dueDate)
-                                    put("priority", t.priority)
-                                    put("completed", t.completed)
-                                })
-                            }
-                        })
-                    }
-
+                    val jsonPayload = SettingsBackupExporter.buildBackupJson(
+                        programme = _uiState.value.currentProgramme,
+                        notes = notes,
+                        events = events,
+                        tasks = tasks
+                    )
                     getApplication<Application>().contentResolver.openOutputStream(targetUri)?.use { out ->
-                        out.write(root.toString(2).toByteArray(Charsets.UTF_8))
+                        out.write(jsonPayload.toByteArray(Charsets.UTF_8))
                     } ?: throw IllegalStateException("Could not open destination file")
 
                     Triple(notes.size, events.size, tasks.size)
@@ -615,7 +566,7 @@ class SettingsViewModel(
                     successMessage = "Backup exported ($notesCount notes, $eventsCount events, $tasksCount tasks)."
                 )
             } catch (e: Exception) {
-                if (e is kotlinx.coroutines.CancellationException) throw e
+                if (e is CancellationException) throw e
                 _uiState.value = _uiState.value.copy(
                     errorMessage = "Backup export failed: ${e.localizedMessage ?: "Storage error"}"
                 )
@@ -644,7 +595,7 @@ class SettingsViewModel(
                         }
                         repository.updateTimetableMetadata(resolvedMeta)
                         if (syncedEntries > 0) {
-                            com.lectures.core.alarm.AlarmSyncCoordinator.resyncAll(
+                            AlarmSyncCoordinator.resyncAll(
                                 context = getApplication(),
                                 repository = repository,
                                 force = true,
@@ -701,7 +652,7 @@ class SettingsViewModel(
                     AttachmentStore.deleteAll(getApplication())
                     repository.deleteAllNotes()
                 }
-                com.lectures.core.alarm.AlarmSyncCoordinator.resyncAll(
+                AlarmSyncCoordinator.resyncAll(
                     context = getApplication(),
                     repository = repository,
                     force = true,
@@ -732,7 +683,7 @@ class SettingsViewModel(
                     alarmScheduler?.cancelAllTaskReminders(tasks)
                     repository.deleteAllAssignments()
                 }
-                com.lectures.core.alarm.AlarmSyncCoordinator.resyncAll(
+                AlarmSyncCoordinator.resyncAll(
                     context = getApplication(),
                     repository = repository,
                     force = true,
@@ -764,7 +715,6 @@ class SettingsViewModel(
             dataLoader: DataLoader? = null,
             alarmScheduler: TaskAlarmScheduler? = null,
             classAlarmScheduler: AlarmScheduler? = null,
-            reminderScheduler: ReminderScheduler? = null,
             ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
             application: Application
         ): ViewModelProvider.Factory =
@@ -777,8 +727,7 @@ class SettingsViewModel(
                         alarmScheduler = alarmScheduler,
                         ioDispatcher = ioDispatcher,
                         application = application,
-                        classAlarmScheduler = classAlarmScheduler,
-                        reminderScheduler = reminderScheduler
+                        classAlarmScheduler = classAlarmScheduler
                     ) as T
                 }
             }
