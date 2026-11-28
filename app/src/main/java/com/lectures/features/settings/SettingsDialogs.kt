@@ -60,12 +60,14 @@ internal fun CustomLeadMinutesDialog(
 ) {
     val windowInfo = rememberLecturesWindow()
     val ext = LocalExtendedColors.current
+    val parsedMinutes = input.toIntOrNull()
+    val isValidMinutes = parsedMinutes != null && parsedMinutes in 1..180
+    val showValidationError = input.isNotEmpty() && !isValidMinutes
     val saveAction: () -> Unit = {
-        val mins = input.toIntOrNull()
-        if (mins != null && mins > 0) {
-            onSave(mins)
+        if (parsedMinutes != null && parsedMinutes in 1..180) {
+            onSave(parsedMinutes)
+            onDismiss()
         }
-        onDismiss()
     }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -85,7 +87,7 @@ internal fun CustomLeadMinutesDialog(
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    text = "Enter how many minutes before class start you want to be reminded (e.g. 20, 30, 40):",
+                    text = "Enter how many minutes before class start you want to be reminded (1–180 minutes, e.g. 20, 30, 45):",
                     fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -99,6 +101,17 @@ internal fun CustomLeadMinutesDialog(
                     },
                     placeholder = { Text("30") },
                     singleLine = true,
+                    isError = showValidationError,
+                    supportingText = {
+                        Text(
+                            text = if (showValidationError) {
+                                "Enter a value between 1 and 180 minutes."
+                            } else {
+                                "Allowed range: 1 to 180 minutes"
+                            },
+                            modifier = Modifier.testTag("dialog_custom_lead_helper")
+                        )
+                    },
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Number,
                         imeAction = ImeAction.Done
@@ -116,10 +129,11 @@ internal fun CustomLeadMinutesDialog(
         confirmButton = {
             Button(
                 onClick = saveAction,
+                enabled = isValidMinutes,
                 shape = RoundedCornerShape(10.dp),
                 modifier = Modifier
                     .defaultMinSize(minHeight = 48.dp)
-                    .desktopHandCursor()
+                    .desktopHandCursor(enabled = isValidMinutes)
                     .testTag("dialog_custom_lead_save_btn")
             ) {
                 Text("Save")
@@ -147,9 +161,15 @@ internal fun ResetNotesConfirmDialog(
     val ext = LocalExtendedColors.current
     AlertDialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = !windowInfo.preferDesktopDialogs),
+        properties = DialogProperties(usePlatformDefaultWidth = false),
         modifier = Modifier
-            .then(if (windowInfo.preferDesktopDialogs) Modifier.widthIn(min = 360.dp, max = 480.dp) else Modifier)
+            .then(
+                if (windowInfo.preferDesktopDialogs) {
+                    Modifier.widthIn(min = 360.dp, max = 480.dp)
+                } else {
+                    Modifier.padding(horizontal = 16.dp).widthIn(max = 420.dp)
+                }
+            )
             .onEscapeKey(onDismiss),
         containerColor = ext.surfaceCard,
         icon = { Icon(Icons.Outlined.DeleteOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
@@ -192,9 +212,15 @@ internal fun ResetTasksConfirmDialog(
     val ext = LocalExtendedColors.current
     AlertDialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = !windowInfo.preferDesktopDialogs),
+        properties = DialogProperties(usePlatformDefaultWidth = false),
         modifier = Modifier
-            .then(if (windowInfo.preferDesktopDialogs) Modifier.widthIn(min = 360.dp, max = 480.dp) else Modifier)
+            .then(
+                if (windowInfo.preferDesktopDialogs) {
+                    Modifier.widthIn(min = 360.dp, max = 480.dp)
+                } else {
+                    Modifier.padding(horizontal = 16.dp).widthIn(max = 420.dp)
+                }
+            )
             .onEscapeKey(onDismiss),
         containerColor = ext.surfaceCard,
         icon = { Icon(Icons.Outlined.AlarmOff, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
@@ -243,9 +269,15 @@ internal fun VersionDetailsDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = !windowInfo.preferDesktopDialogs),
+        properties = DialogProperties(usePlatformDefaultWidth = false),
         modifier = Modifier
-            .then(if (windowInfo.preferDesktopDialogs) Modifier.widthIn(min = 380.dp, max = 520.dp) else Modifier)
+            .then(
+                if (windowInfo.preferDesktopDialogs) {
+                    Modifier.widthIn(min = 380.dp, max = 520.dp)
+                } else {
+                    Modifier.padding(horizontal = 16.dp).widthIn(max = 440.dp)
+                }
+            )
             .onEscapeKey(onDismiss),
         containerColor = ext.surfaceCard,
         icon = {

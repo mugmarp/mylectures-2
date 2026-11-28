@@ -105,54 +105,111 @@ internal fun AppearanceSettingsView(
             border = BorderStroke(1.dp, ext.borderSubtle),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
-            Row(
+            BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(14.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    .padding(14.dp)
             ) {
-                ThemeSelectionCard(
-                    title = "Light",
-                    subtitle = "Bright daylight",
-                    icon = Icons.Default.LightMode,
-                    isSelected = appTheme.themeMode == ThemeMode.LIGHT,
-                    previewBgColor = Color(0xFFF8FAFC),
-                    previewCardColor = Color.White,
-                    previewTextColor = Color(0xFF0F172A),
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("theme_mode_light"),
-                    onClick = { onSelectThemeMode(ThemeMode.LIGHT) }
-                )
+                val wrapThemeCards = maxWidth < 280.dp || (isTightFont && maxWidth < 360.dp)
+                if (wrapThemeCards) {
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        maxItemsInEachRow = 2
+                    ) {
+                        ThemeSelectionCard(
+                            title = "Light",
+                            subtitle = "Bright daylight",
+                            icon = Icons.Default.LightMode,
+                            isSelected = appTheme.themeMode == ThemeMode.LIGHT,
+                            previewBgColor = Color(0xFFF8FAFC),
+                            previewCardColor = Color.White,
+                            previewTextColor = Color(0xFF0F172A),
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("theme_mode_light"),
+                            onClick = { onSelectThemeMode(ThemeMode.LIGHT) }
+                        )
 
-                ThemeSelectionCard(
-                    title = "Dark",
-                    subtitle = "Night comfort",
-                    icon = Icons.Default.DarkMode,
-                    isSelected = appTheme.themeMode == ThemeMode.DARK,
-                    previewBgColor = Color(0xFF101216),
-                    previewCardColor = Color(0xFF181B22),
-                    previewTextColor = Color(0xFFF1F5F9),
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("theme_mode_dark"),
-                    onClick = { onSelectThemeMode(ThemeMode.DARK) }
-                )
+                        ThemeSelectionCard(
+                            title = "Dark",
+                            subtitle = "Night comfort",
+                            icon = Icons.Default.DarkMode,
+                            isSelected = appTheme.themeMode == ThemeMode.DARK,
+                            previewBgColor = Color(0xFF101216),
+                            previewCardColor = Color(0xFF181B22),
+                            previewTextColor = Color(0xFFF1F5F9),
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("theme_mode_dark"),
+                            onClick = { onSelectThemeMode(ThemeMode.DARK) }
+                        )
 
-                ThemeSelectionCard(
-                    title = "System",
-                    subtitle = "Auto adapt",
-                    icon = Icons.Default.BrightnessAuto,
-                    isSelected = appTheme.themeMode == ThemeMode.SYSTEM,
-                    previewBgColor = Color(0xFFE2E8F0),
-                    previewCardColor = Color(0xFF181B22),
-                    previewTextColor = Color(0xFF1E293B),
-                    isSplitSystemPreview = true,
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("theme_mode_system"),
-                    onClick = { onSelectThemeMode(ThemeMode.SYSTEM) }
-                )
+                        ThemeSelectionCard(
+                            title = "System",
+                            subtitle = "Auto adapt",
+                            icon = Icons.Default.BrightnessAuto,
+                            isSelected = appTheme.themeMode == ThemeMode.SYSTEM,
+                            previewBgColor = Color(0xFFE2E8F0),
+                            previewCardColor = Color(0xFF181B22),
+                            previewTextColor = Color(0xFF1E293B),
+                            isSplitSystemPreview = true,
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("theme_mode_system"),
+                            onClick = { onSelectThemeMode(ThemeMode.SYSTEM) }
+                        )
+                    }
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        ThemeSelectionCard(
+                            title = "Light",
+                            subtitle = "Bright daylight",
+                            icon = Icons.Default.LightMode,
+                            isSelected = appTheme.themeMode == ThemeMode.LIGHT,
+                            previewBgColor = Color(0xFFF8FAFC),
+                            previewCardColor = Color.White,
+                            previewTextColor = Color(0xFF0F172A),
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("theme_mode_light"),
+                            onClick = { onSelectThemeMode(ThemeMode.LIGHT) }
+                        )
+
+                        ThemeSelectionCard(
+                            title = "Dark",
+                            subtitle = "Night comfort",
+                            icon = Icons.Default.DarkMode,
+                            isSelected = appTheme.themeMode == ThemeMode.DARK,
+                            previewBgColor = Color(0xFF101216),
+                            previewCardColor = Color(0xFF181B22),
+                            previewTextColor = Color(0xFFF1F5F9),
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("theme_mode_dark"),
+                            onClick = { onSelectThemeMode(ThemeMode.DARK) }
+                        )
+
+                        ThemeSelectionCard(
+                            title = "System",
+                            subtitle = "Auto adapt",
+                            icon = Icons.Default.BrightnessAuto,
+                            isSelected = appTheme.themeMode == ThemeMode.SYSTEM,
+                            previewBgColor = Color(0xFFE2E8F0),
+                            previewCardColor = Color(0xFF181B22),
+                            previewTextColor = Color(0xFF1E293B),
+                            isSplitSystemPreview = true,
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("theme_mode_system"),
+                            onClick = { onSelectThemeMode(ThemeMode.SYSTEM) }
+                        )
+                    }
+                }
             }
         }
 

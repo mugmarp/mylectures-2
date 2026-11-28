@@ -45,7 +45,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -133,7 +132,7 @@ internal fun NotificationHealthWarningBanner(
                                 color = ext.warningText.copy(alpha = 0.9f)
                             )
                             Spacer(modifier = Modifier.height(8.dp))
-                            val allowContainer = if (isDark) Color(0xFFD97706) else Color(0xFFB45309)
+                            val allowContainer = if (isDark) ext.warningIcon else ext.warningText
                             Button(
                                 onClick = { NotificationPermissionHelper.openAppNotificationSettings(context) },
                                 shape = RoundedCornerShape(8.dp),

@@ -344,6 +344,35 @@ class SettingsReorganizationAndAdaptiveTest {
         composeRule.onNodeWithText("Stateless").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Non-Affiliation Disclaimer").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Privacy Policy").performScrollTo().assertIsDisplayed()
+
+        // Return to hub and check Appearance sub-screen at 320dp + 1.5x fontScale
+        composeRule.onNodeWithContentDescription("Back").performClick()
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithTag("settings_appearance_card").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithTag("settings_appearance_card").performScrollTo().performClick()
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithTag("theme_mode_system").fetchSemanticsNodes().isNotEmpty()
+        }
+
+        listOf("theme_mode_light", "theme_mode_dark", "theme_mode_system").forEach { tag ->
+            val cardNode = composeRule.onNodeWithTag(tag)
+            cardNode.performScrollTo().assertIsDisplayed().assertHeightIsAtLeast(48.dp)
+            val bounds = cardNode.fetchSemanticsNode().boundsInRoot
+            assertTrue(
+                "Theme card '$tag' right edge (${bounds.right}) should stay inside root width ($rootRight)",
+                bounds.right <= rootRight + 1f
+            )
+        }
+        (0..4).forEach { idx ->
+            val swatchNode = composeRule.onNodeWithTag("accent_swatch_$idx")
+            swatchNode.performScrollTo().assertIsDisplayed().assertHeightIsAtLeast(48.dp)
+            val bounds = swatchNode.fetchSemanticsNode().boundsInRoot
+            assertTrue(
+                "Accent swatch '$idx' right edge (${bounds.right}) should stay inside root width ($rootRight)",
+                bounds.right <= rootRight + 1f
+            )
+        }
     }
 
     @Test
@@ -537,14 +566,67 @@ class SettingsReorganizationAndAdaptiveTest {
             composeRule.onAllNodesWithTag("dialog_custom_lead_input").fetchSemanticsNodes().isNotEmpty()
         }
 
+        composeRule.onNodeWithTag("dialog_custom_lead_input").performTextReplacement("")
+        composeRule.onNodeWithTag("dialog_custom_lead_save_btn").assertIsNotEnabled()
+
+        composeRule.onNodeWithTag("dialog_custom_lead_input").performTextReplacement("0")
+        composeRule.onNodeWithTag("dialog_custom_lead_save_btn").assertIsNotEnabled()
+        composeRule.onNodeWithText("Enter a value between 1 and 180 minutes.").assertIsDisplayed()
+
+        composeRule.onNodeWithTag("dialog_custom_lead_input").performTextReplacement("200")
+        composeRule.onNodeWithTag("dialog_custom_lead_save_btn").assertIsNotEnabled()
+        composeRule.onNodeWithText("Enter a value between 1 and 180 minutes.").assertIsDisplayed()
+
         composeRule.onNodeWithTag("dialog_custom_lead_input").performTextReplacement("25")
-        composeRule.onNodeWithTag("dialog_custom_lead_save_btn").performClick()
+        composeRule.onNodeWithTag("dialog_custom_lead_save_btn").assertIsEnabled().performClick()
         composeRule.waitUntil(timeoutMillis = 5_000) {
             composeRule.onAllNodesWithText("25m").fetchSemanticsNodes().isNotEmpty()
         }
 
         composeRule.onNodeWithText("25m").assertIsDisplayed()
         assertEquals(0, composeRule.onAllNodesWithTag("dialog_custom_lead_save_btn").fetchSemanticsNodes().size)
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp")
+    fun privacyAndTermsDialogsDiscloseOptionalGoogleCloudSyncAndFeedback() {
+        composeRule.setContent {
+            CompositionLocalProvider(LocalConfiguration provides configuredCopy(360, 800)) {
+                AppTheme(themeMode = ThemeMode.LIGHT) {
+                    SettingsScreen(currentProgramme = "BCS I")
+                }
+            }
+        }
+
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithTag("settings_about_legal_card").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithTag("settings_about_legal_card").performScrollTo().performClick()
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodesWithTag("settings_privacy_row").fetchSemanticsNodes().isNotEmpty()
+        }
+
+        composeRule.onNodeWithTag("settings_privacy_row").performScrollTo().performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("sync privately via Cloud Firestore", substring = true)
+            .performScrollTo()
+            .assertIsDisplayed()
+        composeRule.onNodeWithText("bug reports submitted through Anonymous Feedback", substring = true)
+            .performScrollTo()
+            .assertIsDisplayed()
+        composeRule.onNodeWithTag("dialog_privacy_confirm_btn").performClick()
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithTag("settings_terms_row").performScrollTo().performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("optionally connect a Google Account", substring = true)
+            .performScrollTo()
+            .assertIsDisplayed()
+        composeRule.onNodeWithText("backed up to your Google Cloud Firestore", substring = true)
+            .performScrollTo()
+            .assertIsDisplayed()
+        composeRule.onNodeWithTag("dialog_terms_confirm_btn").performClick()
+        composeRule.waitForIdle()
     }
 
     @Test

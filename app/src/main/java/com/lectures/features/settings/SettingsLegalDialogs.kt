@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,9 +31,15 @@ internal fun DisclaimerDialog(onDismiss: () -> Unit) {
     val ext = LocalExtendedColors.current
     AlertDialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = !windowInfo.preferDesktopDialogs),
+        properties = DialogProperties(usePlatformDefaultWidth = false),
         modifier = Modifier
-            .then(if (windowInfo.preferDesktopDialogs) Modifier.widthIn(min = 420.dp, max = 560.dp) else Modifier)
+            .then(
+                if (windowInfo.preferDesktopDialogs) {
+                    Modifier.widthIn(min = 420.dp, max = 560.dp)
+                } else {
+                    Modifier.padding(horizontal = 16.dp).widthIn(max = 460.dp)
+                }
+            )
             .onEscapeKey(onDismiss),
         containerColor = ext.surfaceCard,
         title = { Text("Institutional Non-Affiliation Disclaimer", fontWeight = FontWeight.Bold, fontSize = 18.sp) },
@@ -113,9 +120,15 @@ internal fun TermsDialog(onDismiss: () -> Unit) {
     val ext = LocalExtendedColors.current
     AlertDialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = !windowInfo.preferDesktopDialogs),
+        properties = DialogProperties(usePlatformDefaultWidth = false),
         modifier = Modifier
-            .then(if (windowInfo.preferDesktopDialogs) Modifier.widthIn(min = 420.dp, max = 560.dp) else Modifier)
+            .then(
+                if (windowInfo.preferDesktopDialogs) {
+                    Modifier.widthIn(min = 420.dp, max = 560.dp)
+                } else {
+                    Modifier.padding(horizontal = 16.dp).widthIn(max = 460.dp)
+                }
+            )
             .onEscapeKey(onDismiss),
         containerColor = ext.surfaceCard,
         title = { Text("Disclaimer & Terms", fontWeight = FontWeight.Bold, fontSize = 18.sp) },
@@ -169,19 +182,19 @@ internal fun TermsDialog(onDismiss: () -> Unit) {
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "All notes, summaries, checklists, and task entries are authored by the student and stored privately on the local device.",
+                    text = "All notes, summaries, checklists, custom events, and task entries are authored by the student. In Guest mode they remain on the local device; if you optionally connect a Google Account, they also sync to your private cloud workspace.",
                     fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 Text(
-                    text = "5. Data Privacy & Local-First Storage",
+                    text = "5. Local-First Storage & Optional Cloud Sync",
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "All student coursework, personal lecture notes, revision tasks, and schedule preferences are stored locally on your device in secure SQLite database tables.",
+                    text = "Coursework, personal lecture notes, tasks, and preferences are stored locally in SQLite so the app works offline. When you sign in with Google, your records are encrypted in transit and backed up to your Google Cloud Firestore account for cross-device recovery.",
                     fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -208,9 +221,15 @@ internal fun PrivacyDialog(onDismiss: () -> Unit) {
     val ext = LocalExtendedColors.current
     AlertDialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = !windowInfo.preferDesktopDialogs),
+        properties = DialogProperties(usePlatformDefaultWidth = false),
         modifier = Modifier
-            .then(if (windowInfo.preferDesktopDialogs) Modifier.widthIn(min = 420.dp, max = 560.dp) else Modifier)
+            .then(
+                if (windowInfo.preferDesktopDialogs) {
+                    Modifier.widthIn(min = 420.dp, max = 560.dp)
+                } else {
+                    Modifier.padding(horizontal = 16.dp).widthIn(max = 460.dp)
+                }
+            )
             .onEscapeKey(onDismiss),
         containerColor = ext.surfaceCard,
         title = { Text("Privacy Policy", fontWeight = FontWeight.Bold, fontSize = 18.sp) },
@@ -222,37 +241,37 @@ internal fun PrivacyDialog(onDismiss: () -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(
-                    text = "1. Local-First Student Data Storage",
+                    text = "1. Local-First Storage & Optional Google Cloud Sync",
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "Lectures is designed local-first. Your timetable schedules, lecture notes, tasks, alarms, and personal checklists are stored securely on your device in SQLite database tables.",
+                    text = "Lectures works offline in Guest mode with your timetable schedules, lecture notes, custom events, tasks, and alarms stored locally in SQLite. If you choose to sign in with Google, Firebase Authentication links your Google name, email, and user ID so your notes, tasks, events, and app preferences can back up and sync privately via Cloud Firestore.",
                     fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 Text(
-                    text = "2. Pseudonymous Service Diagnostics",
+                    text = "2. Pseudonymous Diagnostics & Anonymous Feedback",
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "To ensure timetable schedule reliability, monitor cohort coverage, and diagnose device compatibility across MUST campuses, the app transmits pseudonymous technical telemetry (an anonymous installation UUID, device model, Android OS version, launch count, and enrolled academic programme) to our secure database. We do not collect, monetize, or sell names, email addresses, phone numbers, or lecture notes.",
+                    text = "To monitor timetable coverage and diagnose device compatibility, the app transmits pseudonymous diagnostics (an installation UUID, device model, Android OS version, launch count, and enrolled academic programme). Voluntary bug reports submitted through Anonymous Feedback are stored separately with your installation UUID and optional diagnostics without attaching your name or email. We never sell or monetize personal data or lecture notes.",
                     fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 Text(
-                    text = "3. Permissions Usage",
+                    text = "3. Sign-Out & Permissions Usage",
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "Notification and exact alarm permissions are requested solely to ring local alerts before scheduled lectures and task deadlines.",
+                    text = "Signing out clears synced personal records from this device and reverts the app to Guest mode. Notification and exact alarm permissions are requested solely to deliver local alerts before scheduled lectures and task deadlines.",
                     fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

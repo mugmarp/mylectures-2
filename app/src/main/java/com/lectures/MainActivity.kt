@@ -129,17 +129,7 @@ class MainActivity : ComponentActivity() {
 
             AppTheme(
                 themeMode = themeMode,
-                accentIndex = accentIndex,
-                onThemeModeChange = { newMode ->
-                    lifecycleScope.launch {
-                        repo?.setThemeMode(newMode.name)
-                    }
-                },
-                onAccentChange = { newAccent ->
-                    lifecycleScope.launch {
-                        repo?.setThemeAccent(newAccent)
-                    }
-                }
+                accentIndex = accentIndex
             ) {
                 val isDarkEffective = LocalAppTheme.current.isDark
                 LaunchedEffect(themeMode) {
